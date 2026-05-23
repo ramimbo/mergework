@@ -281,6 +281,41 @@ def test_ledger_and_proof_pages_surface_readable_metadata(sqlite_url: str) -> No
     assert "100" in proof_page
 
 
+def test_ledger_surfaces_bounty_release_entries(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=23,
+            issue_url="https://github.com/ramimbo/mergework/issues/23",
+            title="Scan bounty payments and releases",
+            reward_mrwk="15",
+            acceptance="Visible handling for bounty payment and release scanning.",
+        )
+        release_entry = add_ledger_entry(
+            session,
+            entry_type="bounty_release",
+            from_account=f"reserve:bounty:{bounty.id}",
+            to_account=TREASURY_ACCOUNT,
+            amount_microunits=parse_mrwk_amount("15"),
+            reference="https://github.com/ramimbo/mergework/issues/23#bounty-release",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    ledger_page = client.get("/ledger").text
+    assert "bounty_release" in ledger_page
+    assert "https://github.com/ramimbo/mergework/issues/23#bounty-release" in ledger_page
+    assert f"/ledger/{release_entry.sequence}" in ledger_page
+
+    entry_page = client.get(f"/ledger/{release_entry.sequence}").text
+    assert "bounty_release" in entry_page
+    assert "reserve:bounty:" in entry_page
+    assert "treasury:mrwk" in entry_page
+
+
 def test_signed_webhook_with_invalid_json_is_rejected(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     body = b"not-json"
