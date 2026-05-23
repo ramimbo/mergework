@@ -78,7 +78,13 @@ those issues require the manual payout path.
 
 1. Confirm the webhook or admin API records one ledger payment for that award.
 2. Confirm the proof pays the intended contributor account.
-3. Add the paid bounty row to
+3. Run the read-only reconciliation check:
+
+   ```bash
+   python scripts/reconcile_payouts.py
+   ```
+
+4. Add the paid bounty row to
    [docs/paid-bounties.md](paid-bounties.md) and
    [GitHub Discussions #16](https://github.com/ramimbo/mergework/discussions/16).
 
