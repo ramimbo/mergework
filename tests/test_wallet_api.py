@@ -110,6 +110,83 @@ def test_wallet_transfer_api_returns_validation_error(sqlite_url: str) -> None:
     assert response.json()["detail"] in {"invalid signature", "insufficient balance"}
 
 
+def test_wallet_transfer_api_rejects_wrong_signer(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, sender_public, sender_address = _keypair()
+    wrong_key, _, _ = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    client.post("/api/v1/wallets/register", json={"public_key_hex": sender_public})
+    client.post("/api/v1/wallets/register", json={"public_key_hex": receiver_public})
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        add_ledger_entry(
+            session,
+            entry_type="test_funding",
+            from_account=TREASURY_ACCOUNT,
+            to_account=sender_address,
+            amount_microunits=10_000_000,
+            reference="test-funding-wrong-signer",
+        )
+
+    payload = {
+        "type": "mrwk_transfer_v1",
+        "from_address": sender_address,
+        "to_address": receiver_address,
+        "amount_microunits": 1_000_000,
+        "nonce": 1,
+        "memo": "",
+    }
+
+    response = client.post(
+        "/api/v1/transfers",
+        json={
+            "from_address": sender_address,
+            "to_address": receiver_address,
+            "amount_mrwk": "1",
+            "nonce": 1,
+            "memo": "",
+            "signature_hex": _sign(wrong_key, payload),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid signature"
+
+
+def test_wallet_transfer_api_rejects_insufficient_balance(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    sender_key, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    client.post("/api/v1/wallets/register", json={"public_key_hex": sender_public})
+    client.post("/api/v1/wallets/register", json={"public_key_hex": receiver_public})
+
+    payload = {
+        "type": "mrwk_transfer_v1",
+        "from_address": sender_address,
+        "to_address": receiver_address,
+        "amount_microunits": 1_000_000,
+        "nonce": 1,
+        "memo": "",
+    }
+
+    response = client.post(
+        "/api/v1/transfers",
+        json={
+            "from_address": sender_address,
+            "to_address": receiver_address,
+            "amount_mrwk": "1",
+            "nonce": 1,
+            "memo": "",
+            "signature_hex": _sign(sender_key, payload),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "insufficient balance"
+
+
 def test_wallet_link_and_claim_require_github_login(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     private_key, public_hex, address = _keypair()
