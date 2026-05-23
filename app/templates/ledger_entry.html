@@ -24,5 +24,22 @@
     <dd><a href="/proofs/{{ entry.proof_hash }}">{{ entry.proof_hash }}</a></dd>
     {% endif %}
   </dl>
+  {% if proof %}
+  <section class="panel proof-summary">
+    <h2>Payout proof</h2>
+    <dl>
+      <dt>GitHub issue</dt>
+      {% set issue_url = safe_public_url("https://github.com/" ~ proof.repo ~ "/issues/" ~ proof.issue_number) %}
+      <dd>{% if issue_url %}<a href="{{ issue_url }}">{{ proof.repo }} #{{ proof.issue_number }}</a>{% else %}{{ proof.repo }} #{{ proof.issue_number }}{% endif %}</dd>
+      <dt>Submission</dt>
+      {% set submission_url = safe_public_url(proof.submission_url) %}
+      <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ proof.submission_url }}</a>{% else %}{{ proof.submission_url }}{% endif %}</dd>
+      <dt>Accepted by</dt>
+      <dd>{{ proof.accepted_by }}</dd>
+      <dt>Paid to</dt>
+      <dd><a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a></dd>
+    </dl>
+  </section>
+  {% endif %}
 </section>
 {% endblock %}

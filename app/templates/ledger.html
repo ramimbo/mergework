@@ -13,7 +13,7 @@
       <td>{% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</td>
       <td>{% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}-{% endif %}</td>
       <td>{{ entry.amount_mrwk }} MRWK</td>
-      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}">proof</a>{% else %}-{% endif %}</td>
+      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}">proof {{ entry.proof_hash[:8] }}</a>{% else %}-{% endif %}</td>
       <td><code>{{ entry.entry_hash[:16] }}</code></td>
     </tr>
     {% endfor %}

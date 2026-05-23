@@ -606,8 +606,10 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/ledger/{sequence}", response_class=HTMLResponse)
     def ledger_entry_page(request: Request, sequence: int) -> HTMLResponse:
+        entry = api_ledger_entry(sequence)
+        proof = api_proof(entry["proof_hash"]) if entry.get("proof_hash") else None
         return templates.TemplateResponse(
-            request, "ledger_entry.html", {"entry": api_ledger_entry(sequence)}
+            request, "ledger_entry.html", {"entry": entry, "proof": proof}
         )
 
     @app.get("/accounts/{account:path}", response_class=HTMLResponse)
