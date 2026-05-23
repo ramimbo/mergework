@@ -142,6 +142,77 @@ def test_bounty_api_reports_closed_multi_award_as_unavailable(sqlite_url: str) -
     assert body["reserved_mrwk"] == "30"
 
 
+def test_bounty_api_keeps_terminal_multi_awards_visible_but_inactive(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        paid_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=36,
+            issue_url="https://github.com/ramimbo/mergework/issues/36",
+            title="Paid multi-award API visibility",
+            reward_mrwk="8",
+            max_awards=2,
+            acceptance="Each accepted submission earns one award.",
+        )
+        closed_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=37,
+            issue_url="https://github.com/ramimbo/mergework/issues/37",
+            title="Closed multi-award API visibility",
+            reward_mrwk="6",
+            max_awards=3,
+            acceptance="Close releases unpaid awards.",
+        )
+        paid_bounty_id = paid_bounty.id
+        closed_bounty_id = closed_bounty.id
+
+        for pull_number, login in ((36, "alice"), (37, "bob")):
+            pay_bounty(
+                session,
+                bounty_id=paid_bounty_id,
+                to_account=f"github:{login}",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{pull_number}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+        pay_bounty(
+            session,
+            bounty_id=closed_bounty_id,
+            to_account="github:carol",
+            submission_url="https://github.com/ramimbo/mergework/pull/38",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        close_bounty(
+            session,
+            bounty_id=closed_bounty_id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/37#close",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    paid_detail = client.get(f"/api/v1/bounties/{paid_bounty_id}").json()
+    closed_detail = client.get(f"/api/v1/bounties/{closed_bounty_id}").json()
+    listed = {bounty["id"]: bounty for bounty in client.get("/api/v1/bounties").json()}
+    status = client.get("/api/v1/status").json()
+
+    assert paid_detail["status"] == "paid"
+    assert paid_detail["awards_paid"] == 2
+    assert paid_detail["awards_remaining"] == 0
+    assert closed_detail["status"] == "closed"
+    assert closed_detail["awards_paid"] == 1
+    assert closed_detail["awards_remaining"] == 0
+    assert listed[paid_bounty_id]["status"] == "paid"
+    assert listed[paid_bounty_id]["awards_remaining"] == 0
+    assert listed[closed_bounty_id]["status"] == "closed"
+    assert listed[closed_bounty_id]["awards_remaining"] == 0
+    assert status["active_bounties"] == 0
+
+
 def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
