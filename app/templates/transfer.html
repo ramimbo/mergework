@@ -4,7 +4,7 @@
 <section class="detail">
   <p class="eyebrow">Transfer</p>
   <h1>Signed transfer</h1>
-  <p class="lead">Move spendable MRWK between registered wallet addresses.</p>
+  <p class="lead">Move spendable MRWK between registered wallet addresses. The sender must have enough balance before signing.</p>
 </section>
 
 <section class="panel wallet-tool" data-transfer-tool>
@@ -14,8 +14,8 @@
     <label>Amount MRWK <input name="amount_mrwk" inputmode="decimal" placeholder="1.5" required></label>
     <label>Memo <input name="memo" maxlength="240" placeholder="optional"></label>
     <label>Private key <textarea name="private_key_hex" rows="5" required></textarea></label>
-    <p class="notice">If a transfer fails, check that both wallets are registered and the sender has spendable MRWK.</p>
     <p class="notice" data-transfer-nonce-status>Transaction number is handled automatically.</p>
+    <p class="notice">If a transfer fails, check that both wallets are registered, confirm the sender has spendable MRWK, refresh the sender address status, and retry.</p>
     <button type="submit">Sign and send</button>
   </form>
   <pre class="result" data-transfer-result></pre>

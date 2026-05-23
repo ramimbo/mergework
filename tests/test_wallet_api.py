@@ -349,11 +349,13 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Generate wallet" in wallets
     assert "Private key stays in this browser" in wallets
     assert "If you lose the private key" in wallets
+    assert "cannot recover lost keys" in wallets
     assert address in detail
     assert "Main smoke wallet" in wallets
     assert "Main smoke wallet" in detail
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
+    assert "sender must have enough balance" in transfer
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
 
@@ -372,6 +374,9 @@ def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) 
     assert 'name="nonce"' not in transfer
     assert 'name="nonce"' not in me
     assert "Transaction number is handled automatically" in transfer
+    assert "refresh the sender address status" in transfer
+    assert "future accepted work paid to" in me
+    assert "full positive <code>github:alice</code> balance" in me
     assert "Transaction number is handled automatically" in me
     assert "different key will be rejected" in me
     assert "GitHub account is linked to the wallet" in me

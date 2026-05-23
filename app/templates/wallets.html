@@ -4,7 +4,7 @@
 <section class="detail">
   <p class="eyebrow">Wallets</p>
   <h1>MRWK wallets</h1>
-  <p class="lead">Create a native <code>mrwk1</code> address, register the public key, and use signed transactions to move MRWK.</p>
+  <p class="lead">Create a native <code>mrwk1</code> address, register the public key, and save the private key before leaving this page.</p>
 </section>
 
 <section class="panel wallet-tool" data-wallet-tool>
@@ -19,8 +19,9 @@
     <label>Private key <textarea id="wallet-private-key" name="private_key_hex" rows="5" readonly></textarea></label>
     <button type="submit">Register public key</button>
   </form>
-  <p class="notice">Private key stays in this browser. Store it yourself; the server cannot recover it.</p>
+  <p class="notice">Private key stays in this browser. The server stores only the public key and cannot recover lost keys.</p>
   <p class="notice">If you lose the private key, generate a new wallet and register that public key instead.</p>
+  <p class="notice">If registration says the wallet already exists, use the existing address or generate a new wallet.</p>
   <pre class="result" data-wallet-result></pre>
 </section>
 

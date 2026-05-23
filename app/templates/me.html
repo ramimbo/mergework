@@ -5,7 +5,7 @@
   <p class="eyebrow">GitHub</p>
   <h1>Contributor account</h1>
   {% if github_login %}
-  <p class="lead">Signed in as {{ github_login }}.</p>
+  <p class="lead">Signed in as {{ github_login }}. Register a wallet first, then sign link and claim actions with that wallet's private key.</p>
   <form method="post" action="/auth/logout" class="inline-form">
     <button type="submit">Sign out</button>
   </form>
@@ -21,6 +21,7 @@
 {% if github_login %}
 <section class="panel wallet-tool" data-github-tool data-github-login="{{ github_login }}">
   <h2>Link a wallet</h2>
+  <p class="notice">Use the registered wallet address you want future accepted work paid to.</p>
   <form data-action="link-github">
     <label>Wallet address <input name="address" placeholder="mrwk1..." required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" required></textarea></label>
@@ -31,6 +32,7 @@
   <pre class="result" data-link-result></pre>
 
   <h2>Claim GitHub balance</h2>
+  <p class="notice">Claim moves the full positive <code>github:{{ github_login }}</code> balance into the linked wallet.</p>
   <form data-action="claim-github">
     <label>Wallet address <input name="address" placeholder="mrwk1..." required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" required></textarea></label>
