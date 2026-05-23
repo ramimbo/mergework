@@ -8,7 +8,7 @@
   <tbody>
     {% for entry in entries %}
     <tr>
-      <td><a href="/ledger/{{ entry.sequence }}">{{ entry.sequence }}</a></td>
+      <td><a href="/ledger/{{ entry.sequence }}">#{{ entry.sequence }}</a></td>
       <td><span class="pill">{{ entry.type }}</span></td>
       <td class="stacked-cell">
         <span><span class="muted-label">From</span> {% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</span>
@@ -17,8 +17,8 @@
       <td><strong>{{ entry.amount_mrwk }}</strong> MRWK</td>
       {% set reference_url = safe_public_url(entry.reference) %}
       <td class="truncate-cell">{% if entry.reference %}{% if reference_url %}<a href="{{ reference_url }}">{{ entry.reference }}</a>{% else %}{{ entry.reference }}{% endif %}{% else %}-{% endif %}</td>
-      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}"><code>{{ entry.proof_hash[:12] }}</code></a>{% else %}-{% endif %}</td>
-      <td><a href="/ledger/{{ entry.sequence }}"><code>{{ entry.entry_hash[:16] }}</code></a></td>
+      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}">View proof <code class="hash">{{ entry.proof_hash[:12] }}</code></a>{% else %}-{% endif %}</td>
+      <td><a href="/ledger/{{ entry.sequence }}"><code class="hash">{{ entry.entry_hash[:16] }}</code></a></td>
     </tr>
     {% endfor %}
   </tbody>

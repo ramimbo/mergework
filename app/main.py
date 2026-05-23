@@ -28,8 +28,10 @@ from app.ledger.service import (
     format_mrwk,
     get_balance,
     link_wallet_to_github,
+    pay_bounty,
     public_url_or_none,
     register_wallet,
+    resolve_payout_account,
     submit_github_claim,
     submit_wallet_transfer,
 )
@@ -172,6 +174,42 @@ def _verified_value(token: str | None, secret: str, max_age_seconds: int) -> str
     return value
 
 
+async def _json_object(request: Request) -> dict[str, Any]:
+    try:
+        data = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid json body") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="json body must be an object")
+    return data
+
+
+def _required_str(data: dict[str, Any], field: str) -> str:
+    value = data.get(field)
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail=f"{field} is required")
+    return value
+
+
+def _optional_str(data: dict[str, Any], field: str, default: str = "") -> str:
+    value = data.get(field, default)
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail=f"{field} must be a string")
+    return value
+
+
+def _required_int(data: dict[str, Any], field: str) -> int:
+    value = data.get(field)
+    if value is None or isinstance(value, bool):
+        raise HTTPException(status_code=400, detail=f"{field} must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"{field} must be an integer") from exc
+
+
 def _csrf_token(action: str, login: str, secret: str) -> str:
     return _signed_value(f"{action}:{login}", secret)
 
@@ -303,6 +341,49 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="bounty not found")
             return bounty_to_dict(bounty)
 
+    @app.post("/api/v1/bounties/{bounty_id}/pay")
+    async def api_pay_bounty(
+        bounty_id: int,
+        request: Request,
+        admin_login: str = Depends(require_admin_token),
+    ) -> dict[str, Any]:
+        data = await request.json()
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=400, detail="json body must be an object")
+        try:
+            requested_account = str(data["to_account"])
+            submission_url = str(data["submission_url"])
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=400, detail=f"missing required field: {exc.args[0]}"
+            ) from exc
+        accepted_by = str(data.get("accepted_by") or admin_login)
+        verifier_result = {
+            "source": "admin_api",
+            "accepted_by": accepted_by,
+        }
+        if data.get("note") is not None:
+            verifier_result["note"] = str(data["note"])[:240]
+        with session_scope(db_url) as session:
+            try:
+                to_account = resolve_payout_account(session, requested_account)
+                proof = pay_bounty(
+                    session,
+                    bounty_id=bounty_id,
+                    to_account=to_account,
+                    submission_url=submission_url,
+                    accepted_by=accepted_by,
+                    verifier_result=verifier_result,
+                )
+            except LedgerError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return {
+                "status": "paid",
+                "bounty_id": bounty_id,
+                "to_account": to_account,
+                "proof_hash": proof.hash,
+            }
+
     @app.get("/api/v1/accounts/{account:path}")
     def api_account(account: str) -> dict[str, Any]:
         with session_scope(db_url) as session:
@@ -324,13 +405,13 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/wallets/register")
     async def api_register_wallet(request: Request) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 wallet = register_wallet(
                     session,
-                    public_key_hex=str(data["public_key_hex"]),
-                    label=str(data["label"]) if data.get("label") is not None else None,
+                    public_key_hex=_required_str(data, "public_key_hex"),
+                    label=_optional_str(data, "label") if data.get("label") is not None else None,
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -348,15 +429,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_link_wallet_github(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 wallet = link_wallet_to_github(
                     session,
-                    address=str(data["address"]),
+                    address=_required_str(data, "address"),
                     github_login=github_login,
-                    nonce=int(data["nonce"]),
-                    signature_hex=str(data["signature_hex"]),
+                    nonce=_required_int(data, "nonce"),
+                    signature_hex=_required_str(data, "signature_hex"),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -366,15 +447,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_github_claim(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 entry = submit_github_claim(
                     session,
-                    address=str(data["address"]),
+                    address=_required_str(data, "address"),
                     github_login=github_login,
-                    nonce=int(data["nonce"]),
-                    signature_hex=str(data["signature_hex"]),
+                    nonce=_required_int(data, "nonce"),
+                    signature_hex=_required_str(data, "signature_hex"),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -382,17 +463,17 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/transfers")
     async def api_submit_transfer(request: Request) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 transfer = submit_wallet_transfer(
                     session,
-                    from_address=str(data["from_address"]),
-                    to_address=str(data["to_address"]),
-                    amount_mrwk=str(data["amount_mrwk"]),
-                    nonce=int(data["nonce"]),
-                    memo=str(data.get("memo", "")),
-                    signature_hex=str(data["signature_hex"]),
+                    from_address=_required_str(data, "from_address"),
+                    to_address=_required_str(data, "to_address"),
+                    amount_mrwk=_required_str(data, "amount_mrwk"),
+                    nonce=_required_int(data, "nonce"),
+                    memo=_optional_str(data, "memo"),
+                    signature_hex=_required_str(data, "signature_hex"),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -622,7 +703,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
-        return templates.TemplateResponse(request, "proof.html", {"proof": api_proof(proof_hash)})
+        return templates.TemplateResponse(
+            request, "proof.html", {"proof": api_proof(proof_hash), "proof_hash": proof_hash}
+        )
 
     @app.get("/docs", response_class=HTMLResponse)
     def docs_page(request: Request) -> HTMLResponse:

@@ -17,8 +17,10 @@ from app.ledger.service import (
     add_ledger_entry,
     create_bounty,
     ensure_genesis,
+    get_balance,
     parse_mrwk_amount,
     pay_bounty,
+    register_wallet,
 )
 from app.main import _signed_value, create_app
 from app.models import LedgerEntry, WebhookEvent
@@ -108,6 +110,52 @@ def test_admin_bounty_api_requires_admin_token_not_cookie_auth(
 
     assert cookie_only.status_code == 401
     assert token_auth.status_code == 200
+
+
+def test_admin_payout_api_requires_admin_token_not_cookie_auth(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_schema(sqlite_url)
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_ADMIN_LOGINS", "alice")
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=2,
+            issue_url="https://github.com/ramimbo/mergework/issues/2",
+            title="Star repo and verify wallet claim flow",
+            reward_mrwk="25",
+            acceptance="Contributor comments with wallet-flow proof.",
+        )
+        bounty_id = bounty.id
+        wallet = register_wallet(session, public_key_hex="11" * 32, label="Contributor")
+        wallet_address = wallet.address
+    client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
+
+    payload = {
+        "to_account": wallet_address,
+        "submission_url": "https://github.com/ramimbo/mergework/issues/2#issuecomment-1",
+        "accepted_by": "alice",
+    }
+    cookie_only = client.post(f"/api/v1/bounties/{bounty_id}/pay", json=payload)
+    token_auth = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+        json=payload,
+    )
+
+    assert cookie_only.status_code == 401
+    assert token_auth.status_code == 200
+    assert token_auth.json()["to_account"] == wallet_address
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, wallet_address) == 25_000_000
 
 
 def test_amount_parser_rejects_non_finite_values() -> None:

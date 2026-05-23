@@ -4,15 +4,34 @@
 <section class="detail">
   <p class="eyebrow">Bounty #{{ bounty.id }}</p>
   <h1>{{ bounty.title }}</h1>
-  <p class="lead">{{ bounty.reward_mrwk }} MRWK · {{ bounty.status }}</p>
-  <dl>
-    <dt>Repository</dt>
-    <dd>{{ bounty.repo }}</dd>
-    <dt>GitHub issue</dt>
-    {% set issue_url = safe_public_url(bounty.issue_url) %}
-    <dd>{% if issue_url %}<a href="{{ issue_url }}">{{ bounty.repo }} #{{ bounty.issue_number }}</a>{% else %}{{ bounty.repo }} #{{ bounty.issue_number }}{% endif %}</dd>
-    <dt>Acceptance</dt>
-    <dd>{{ bounty.acceptance }}</dd>
-  </dl>
+  <p class="lead">Review the reward, status, source issue, and acceptance criteria before starting.</p>
+
+  {% set issue_url = safe_public_url(bounty.issue_url) %}
+  <div class="bounty-summary" aria-label="Bounty summary">
+    <article>
+      <span>Status</span>
+      <strong class="status-pill">{{ bounty.status }}</strong>
+    </article>
+    <article>
+      <span>Reward</span>
+      <strong>{{ bounty.reward_mrwk }} MRWK</strong>
+    </article>
+    <article>
+      <span>Issue</span>
+      <strong>
+        {% if issue_url %}
+          <a href="{{ issue_url }}">{{ bounty.repo }} #{{ bounty.issue_number }}</a>
+        {% else %}
+          {{ bounty.repo }} #{{ bounty.issue_number }}
+        {% endif %}
+      </strong>
+    </article>
+  </div>
+
+  <section class="acceptance-card" aria-labelledby="acceptance-heading">
+    <p class="eyebrow">Acceptance</p>
+    <h2 id="acceptance-heading">What has to be true</h2>
+    <p>{{ bounty.acceptance }}</p>
+  </section>
 </section>
 {% endblock %}

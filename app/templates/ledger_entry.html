@@ -18,6 +18,16 @@
       <span>Amount</span>
       <strong>{{ entry.amount_mrwk }} MRWK</strong>
     </article>
+    <article>
+      <span>Entry hash</span>
+      <code class="hash-block">{{ entry.entry_hash }}</code>
+    </article>
+    {% if entry.proof_hash %}
+    <article>
+      <span>Proof hash</span>
+      <a href="/proofs/{{ entry.proof_hash }}"><code class="hash-block">{{ entry.proof_hash }}</code></a>
+    </article>
+    {% endif %}
   </div>
   <dl>
     <dt>From</dt>
@@ -34,7 +44,7 @@
     <dt>Created</dt>
     <dd>{{ entry.created_at }}</dd>
     {% if entry.proof_hash %}
-    <dt>Proof</dt>
+    <dt>Proof hash</dt>
     <dd><a href="/proofs/{{ entry.proof_hash }}"><code class="hash-block">{{ entry.proof_hash }}</code></a></dd>
     {% endif %}
   </dl>

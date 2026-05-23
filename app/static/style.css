@@ -68,6 +68,7 @@ main { max-width: 980px; margin: 0 auto; padding: 48px 20px; }
 table { width: 100%; border-collapse: collapse; background: var(--panel); }
 th, td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+code.hash { overflow-wrap: anywhere; }
 .pill {
   display: inline-block;
   border: 1px solid var(--line);
@@ -104,6 +105,50 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .detail dl { display: grid; grid-template-columns: 160px 1fr; gap: 10px 18px; }
 .detail dt { color: var(--muted); }
 .detail dd { margin: 0; overflow-wrap: anywhere; }
+.bounty-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+.bounty-summary article,
+.acceptance-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 18px;
+}
+.bounty-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: .9rem;
+  margin-bottom: 8px;
+}
+.bounty-summary strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 1.2rem;
+}
+.status-pill {
+  display: inline-block;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--accent);
+  padding: 4px 10px;
+  text-transform: capitalize;
+}
+.acceptance-card h2 {
+  margin: 0 0 10px;
+}
+.acceptance-card p:last-child {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 22px 0; }
+.meta-grid article { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 14px; }
+.meta-grid span { display: block; color: var(--muted); margin-bottom: 6px; }
 .section-head { display: flex; justify-content: space-between; gap: 18px; align-items: end; margin-top: 42px; }
 .section-head h2 { margin-bottom: 0; }
 .project-list article { min-height: 190px; }
@@ -130,8 +175,10 @@ input, textarea, button {
 }
 button { cursor: pointer; color: white; background: var(--accent); border-color: var(--accent); }
 .inline-form { margin-top: 18px; max-width: 180px; }
-.wallet-tool form + h2 { margin-top: 34px; }
-@media (max-width: 640px) {
-  header { align-items: flex-start; flex-direction: column; }
-  .detail dl { grid-template-columns: 1fr; }
+.flash {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 24px;
 }

@@ -103,6 +103,23 @@ def _normalize_github_login(github_login: str) -> str:
     return normalized
 
 
+def resolve_payout_account(session: Session, to_account: str) -> str:
+    clean = _clean_required_text(to_account, "to_account", 128)
+    if clean.startswith("github:"):
+        login = _normalize_github_login(clean.removeprefix("github:"))
+        linked_wallet = linked_wallet_for_github(session, login)
+        return linked_wallet.address if linked_wallet is not None else f"github:{login}"
+    if clean.startswith("mrwk1"):
+        try:
+            address = normalize_wallet_address(clean)
+        except WalletError as exc:
+            raise LedgerError(str(exc)) from exc
+        if session.get(Wallet, address) is None:
+            raise LedgerError("wallet not found")
+        return address
+    raise LedgerError("to_account must be a github:<login> account or registered mrwk1 wallet")
+
+
 def _clean_optional_text(value: str | None, field: str, max_length: int) -> str | None:
     if value is None:
         return None

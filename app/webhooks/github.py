@@ -3,18 +3,24 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import re
 from typing import Any
 
 from app.db import session_scope
 from app.ledger.service import (
     LedgerError,
     find_bounty_by_issue,
-    linked_wallet_for_github,
     pay_bounty,
+    resolve_payout_account,
 )
 from app.models import WebhookEvent
 
 ACCEPTED_LABEL = "mrwk:accepted"
+CLOSING_REFERENCE_RE = re.compile(
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+"
+    r"(?:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?P<repo_number>\d+)|#(?P<number>\d+))",
+    re.IGNORECASE,
+)
 
 
 def verify_github_signature(body: bytes, signature_header: str | None, secret: str) -> bool:
@@ -46,6 +52,29 @@ def _record_event(
         )
 
 
+def _closing_issue_numbers(body: str, current_repo: str) -> list[int]:
+    numbers: list[int] = []
+    for match in CLOSING_REFERENCE_RE.finditer(body):
+        repo = match.group("repo")
+        if repo is not None and repo.lower() != current_repo.lower():
+            continue
+        number = match.group("repo_number") or match.group("number")
+        if number is not None:
+            numbers.append(int(number))
+    return numbers
+
+
+def _record_status(
+    database_url: str,
+    delivery_id: str,
+    event_type: str,
+    payload_hash: str,
+    status: str,
+) -> dict[str, Any]:
+    _record_event(database_url, delivery_id, event_type, payload_hash, status)
+    return {"status": status}
+
+
 def _handle_accepted_issue_label(
     database_url: str,
     payload: dict[str, Any],
@@ -54,24 +83,46 @@ def _handle_accepted_issue_label(
     payload_hash: str,
     accepted_labelers: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    issue = payload.get("issue") or payload.get("pull_request") or {}
+    issue = payload.get("issue") or {}
+    pull_request = payload.get("pull_request") or {}
+    labeled_item = pull_request or issue
     repo = (payload.get("repository") or {}).get("full_name")
     issue_number = issue.get("number")
     label = (payload.get("label") or {}).get("name", "")
     if payload.get("action") != "labeled" or label.lower() != ACCEPTED_LABEL:
         _record_event(database_url, delivery_id, event_type, payload_hash, "ignored")
         return {"status": "ignored"}
-    if not repo or not isinstance(issue_number, int):
-        _record_event(database_url, delivery_id, event_type, payload_hash, "missing_issue")
-        return {"status": "missing_issue"}
+    if not repo or not isinstance(labeled_item, dict):
+        return _record_status(database_url, delivery_id, event_type, payload_hash, "missing_issue")
 
-    submitter = ((issue.get("user") or {}).get("login") or "unknown").strip()
+    submitter = ((labeled_item.get("user") or {}).get("login") or "unknown").strip()
     accepted_by = ((payload.get("sender") or {}).get("login") or "maintainer").strip().lower()
     if accepted_labelers and accepted_by not in accepted_labelers:
-        _record_event(database_url, delivery_id, event_type, payload_hash, "unauthorized_labeler")
-        return {"status": "unauthorized_labeler"}
+        return _record_status(
+            database_url, delivery_id, event_type, payload_hash, "unauthorized_labeler"
+        )
+    if event_type == "issues" and accepted_labelers and submitter.lower() in accepted_labelers:
+        return _record_status(
+            database_url, delivery_id, event_type, payload_hash, "manual_payout_required"
+        )
+
+    bounty_issue_numbers: list[int] = []
+    submission_url = labeled_item.get("html_url", "")
+    if event_type == "pull_request":
+        bounty_issue_numbers = _closing_issue_numbers(str(pull_request.get("body") or ""), repo)
+    elif isinstance(issue_number, int):
+        bounty_issue_numbers = [issue_number]
+    if not bounty_issue_numbers:
+        return _record_status(database_url, delivery_id, event_type, payload_hash, "missing_issue")
+
     with session_scope(database_url) as session:
-        bounty = find_bounty_by_issue(session, repo, issue_number)
+        bounty = None
+        bounty_issue_number = None
+        for candidate in bounty_issue_numbers:
+            bounty = find_bounty_by_issue(session, repo, candidate)
+            if bounty is not None:
+                bounty_issue_number = candidate
+                break
         if bounty is None:
             session.add(
                 WebhookEvent(
@@ -83,20 +134,18 @@ def _handle_accepted_issue_label(
             )
             return {"status": "bounty_not_found"}
         try:
-            linked_wallet = linked_wallet_for_github(session, submitter)
-            to_account = (
-                linked_wallet.address if linked_wallet is not None else f"github:{submitter}"
-            )
+            to_account = resolve_payout_account(session, f"github:{submitter}")
             proof = pay_bounty(
                 session,
                 bounty_id=bounty.id,
                 to_account=to_account,
-                submission_url=issue.get("html_url", bounty.issue_url),
+                submission_url=submission_url or bounty.issue_url,
                 accepted_by=accepted_by,
                 verifier_result={
                     "event": event_type,
                     "label": ACCEPTED_LABEL,
                     "delivery_id": delivery_id,
+                    "bounty_issue_number": bounty_issue_number,
                 },
             )
         except LedgerError as exc:

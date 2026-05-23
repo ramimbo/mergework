@@ -39,11 +39,14 @@ MRWK uses work-based tiers at launch. The project does not publish a fiat peg.
 1. A maintainer posts a bounty and MRWK is reserved from treasury.
 2. A contributor submits an issue, PR, docs change, test, or report.
 3. Automated checks may verify objective facts.
-4. A maintainer applies `mrwk:accepted`.
-5. MergeWork creates one ledger payment and one public proof.
+4. For PR submissions, a maintainer applies `mrwk:accepted` to the PR.
+5. For comment or wallet-proof submissions, a maintainer pays through the admin
+   payout API.
+6. MergeWork creates one ledger payment and one public proof.
 
 Webhook replay must not create duplicate payments.
 
-Payouts go to a linked `mrwk1` wallet when one exists for the contributor's
+PR payouts go to a linked `mrwk1` wallet when one exists for the PR author's
 GitHub login. Otherwise, MRWK is held at `github:{login}` until the contributor
-links a wallet and signs a claim.
+links a wallet and signs a claim. Manual payouts can target a registered
+`mrwk1...` wallet or a `github:{login}` account.

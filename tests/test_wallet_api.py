@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
@@ -33,33 +34,40 @@ def _sign(private_key: Ed25519PrivateKey, payload: dict[str, object]) -> str:
     return private_key.sign(canonical_wallet_json(payload).encode()).hex()
 
 
-def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
-    create_schema(sqlite_url)
-    sender_key, sender_public, sender_address = _keypair()
-    _, receiver_public, receiver_address = _keypair()
-    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+def _register_wallet(client: TestClient, public_key_hex: str, label: str | None = None) -> dict:
+    body = {"public_key_hex": public_key_hex}
+    if label is not None:
+        body["label"] = label
+    response = client.post("/api/v1/wallets/register", json=body)
+    assert response.status_code == 200
+    return response.json()
 
-    sender = client.post(
-        "/api/v1/wallets/register",
-        json={"public_key_hex": sender_public, "label": "Sender"},
-    ).json()
-    receiver = client.post(
-        "/api/v1/wallets/register",
-        json={"public_key_hex": receiver_public, "label": "Receiver"},
-    ).json()
-    assert sender["address"] == sender_address
-    assert receiver["address"] == receiver_address
 
+def _fund_wallet(sqlite_url: str, address: str, amount_microunits: int = 10_000_000) -> None:
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
         add_ledger_entry(
             session,
             entry_type="test_funding",
             from_account=TREASURY_ACCOUNT,
-            to_account=sender_address,
-            amount_microunits=10_000_000,
-            reference="test-funding",
+            to_account=address,
+            amount_microunits=amount_microunits,
+            reference=f"test-funding:{address}",
         )
+
+
+def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    sender_key, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    sender = _register_wallet(client, sender_public, "Sender")
+    receiver = _register_wallet(client, receiver_public, "Receiver")
+    assert sender["address"] == sender_address
+    assert receiver["address"] == receiver_address
+
+    _fund_wallet(sqlite_url, sender_address)
 
     payload = {
         "type": "mrwk_transfer_v1",
@@ -86,13 +94,61 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
     assert client.get(f"/api/v1/wallets/{receiver_address}").json()["balance_mrwk"] == "3"
 
 
+@pytest.mark.parametrize(
+    ("body_overrides", "payload_overrides", "expected_detail"),
+    [
+        ({"nonce": 2}, {"nonce": 2}, "invalid nonce"),
+        ({"to_address": "mrwk1" + ("0" * 40)}, {}, "wallet not found"),
+        ({"amount_mrwk": "1.0000001"}, {}, "MRWK supports at most 6 decimal places"),
+        ({"memo": "x" * 241}, {"memo": "x" * 241}, "memo is too long"),
+    ],
+)
+def test_wallet_transfer_api_rejects_invalid_requests(
+    sqlite_url: str,
+    body_overrides: dict[str, object],
+    payload_overrides: dict[str, object],
+    expected_detail: str,
+) -> None:
+    create_schema(sqlite_url)
+    sender_key, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, sender_public)
+    _register_wallet(client, receiver_public)
+    _fund_wallet(sqlite_url, sender_address)
+
+    payload = {
+        "type": "mrwk_transfer_v1",
+        "from_address": sender_address,
+        "to_address": receiver_address,
+        "amount_microunits": 1_000_000,
+        "nonce": 1,
+        "memo": "",
+        **payload_overrides,
+    }
+    body = {
+        "from_address": sender_address,
+        "to_address": receiver_address,
+        "amount_mrwk": "1",
+        "nonce": 1,
+        "memo": "",
+        "signature_hex": _sign(sender_key, payload),
+        **body_overrides,
+    }
+
+    response = client.post("/api/v1/transfers", json=body)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
+
+
 def test_wallet_transfer_api_returns_validation_error(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, sender_public, sender_address = _keypair()
     _, receiver_public, receiver_address = _keypair()
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
-    client.post("/api/v1/wallets/register", json={"public_key_hex": sender_public})
-    client.post("/api/v1/wallets/register", json={"public_key_hex": receiver_public})
+    _register_wallet(client, sender_public)
+    _register_wallet(client, receiver_public)
 
     response = client.post(
         "/api/v1/transfers",
@@ -110,6 +166,85 @@ def test_wallet_transfer_api_returns_validation_error(sqlite_url: str) -> None:
     assert response.json()["detail"] in {"invalid signature", "insufficient balance"}
 
 
+def test_wallet_api_malformed_register_requests_return_4xx(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    missing_key = client.post("/api/v1/wallets/register", json={"label": "No key"})
+    assert missing_key.status_code == 400
+    assert missing_key.json()["detail"] == "public_key_hex is required"
+
+    non_object = client.post("/api/v1/wallets/register", json=["not", "an", "object"])
+    assert non_object.status_code == 400
+    assert non_object.json()["detail"] == "json body must be an object"
+
+
+def test_wallet_api_malformed_transfer_requests_return_4xx(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    client.post("/api/v1/wallets/register", json={"public_key_hex": sender_public})
+    client.post("/api/v1/wallets/register", json={"public_key_hex": receiver_public})
+
+    missing_sender = client.post(
+        "/api/v1/transfers",
+        json={
+            "to_address": receiver_address,
+            "amount_mrwk": "1",
+            "nonce": 1,
+            "signature_hex": "00" * 64,
+        },
+    )
+    assert missing_sender.status_code == 400
+    assert missing_sender.json()["detail"] == "from_address is required"
+
+    malformed_nonce = client.post(
+        "/api/v1/transfers",
+        json={
+            "from_address": sender_address,
+            "to_address": receiver_address,
+            "amount_mrwk": "1",
+            "nonce": "not-an-int",
+            "signature_hex": "00" * 64,
+        },
+    )
+    assert malformed_nonce.status_code == 400
+    assert malformed_nonce.json()["detail"] == "nonce must be an integer"
+
+
+def test_wallet_api_malformed_link_and_claim_requests_return_4xx(
+    sqlite_url: str, monkeypatch
+) -> None:
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    _, public_hex, _ = _keypair()
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.post("/api/v1/wallets/register", json={"public_key_hex": public_hex})
+
+    missing_signature = client.post(
+        "/api/v1/wallets/link-github",
+        json={"address": "mrwk1" + "0" * 40, "nonce": 1},
+    )
+    assert missing_signature.status_code == 400
+    assert missing_signature.json()["detail"] == "signature_hex is required"
+
+    malformed_nonce = client.post(
+        "/api/v1/github/claim",
+        json={
+            "address": "mrwk1" + "0" * 40,
+            "nonce": None,
+            "signature_hex": "00" * 64,
+        },
+    )
+    assert malformed_nonce.status_code == 400
+    assert malformed_nonce.json()["detail"] == "nonce must be an integer"
+
+
 def test_wallet_link_and_claim_require_github_login(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     private_key, public_hex, address = _keypair()
@@ -117,7 +252,7 @@ def test_wallet_link_and_claim_require_github_login(sqlite_url: str) -> None:
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.post("/api/v1/wallets/register", json={"public_key_hex": public_hex})
+    _register_wallet(client, public_hex)
 
     link_payload = {
         "type": "mrwk_link_github_v1",
@@ -148,7 +283,7 @@ def test_github_session_can_link_and_claim_wallet(sqlite_url: str, monkeypatch) 
         base_url="https://testserver",
     )
     client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
-    client.post("/api/v1/wallets/register", json={"public_key_hex": public_hex})
+    _register_wallet(client, public_hex)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
         add_ledger_entry(
@@ -204,7 +339,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
-    client.post("/api/v1/wallets/register", json={"public_key_hex": public_hex})
+    _register_wallet(client, public_hex)
 
     wallets = client.get("/wallets").text
     detail = client.get(f"/wallets/{address}").text

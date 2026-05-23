@@ -116,7 +116,15 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
 
     assert "/ledger/3" in ledger
     assert f"/proofs/{proof.hash}" in ledger
+    assert "Entry hash" in ledger
     assert "Previous hash" in entry
+    assert "Proof hash" in entry
+    assert proof.hash in entry
+    assert "Accepted by" in proof_page
+    assert "Issue" in proof_page
+    assert "ramimbo/mergework #2" in proof_page
+    assert proof.hash in proof_page
+    assert "maintainer" in proof_page
     assert "github:alice" in proof_page
     assert "Ledger address" in account
     assert "MRWK wallet transfers are enabled" in account
