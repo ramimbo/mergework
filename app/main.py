@@ -438,7 +438,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "exists": account_row is not None,
                 "balance_mrwk": format_mrwk(get_balance(session, account)),
                 "transfer_status": (
-                    "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+                    "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
+                    if account.startswith("github:")
+                    else "MRWK wallet transfers are enabled for registered mrwk1 addresses."
                 ),
             }
 
