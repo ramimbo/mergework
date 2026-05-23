@@ -6,6 +6,10 @@
   <h1><code>{{ wallet.address }}</code></h1>
   <p class="lead">{{ wallet.balance_mrwk }} MRWK</p>
   <dl>
+    {% if wallet.label %}
+    <dt>Label</dt>
+    <dd>{{ wallet.label }}</dd>
+    {% endif %}
     <dt>Public key</dt>
     <dd><code>{{ wallet.public_key_hex }}</code></dd>
     <dt>GitHub login</dt>
