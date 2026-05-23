@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
@@ -108,6 +109,59 @@ def test_wallet_transfer_api_returns_validation_error(sqlite_url: str) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] in {"invalid signature", "insufficient balance"}
+
+
+@pytest.mark.parametrize(
+    ("path", "payload", "expected_detail"),
+    [
+        (
+            "/api/v1/wallets/register",
+            {"label": "missing public key"},
+            "missing required field: public_key_hex",
+        ),
+        (
+            "/api/v1/transfers",
+            {
+                "from_address": "mrwk1bad",
+                "to_address": "mrwk1also_bad",
+                "amount_mrwk": "1",
+                "nonce": "not-a-number",
+                "signature_hex": "00",
+            },
+            "invalid integer field: nonce",
+        ),
+        (
+            "/api/v1/wallets/link-github",
+            {"address": "mrwk1bad", "nonce": "not-a-number", "signature_hex": "00"},
+            "invalid integer field: nonce",
+        ),
+        (
+            "/api/v1/github/claim",
+            {"address": "mrwk1bad", "nonce": 1},
+            "missing required field: signature_hex",
+        ),
+    ],
+)
+def test_wallet_api_malformed_requests_return_controlled_4xx(
+    sqlite_url: str,
+    monkeypatch,
+    path: str,
+    payload: dict[str, object],
+    expected_detail: str,
+) -> None:
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+        raise_server_exceptions=False,
+    )
+    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+
+    response = client.post(path, json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
 
 
 def test_wallet_link_and_claim_require_github_login(sqlite_url: str) -> None:
