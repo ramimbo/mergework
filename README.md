@@ -65,6 +65,7 @@ python3.12 -m venv .venv
 - Paid bounty index: [docs/paid-bounties.md](docs/paid-bounties.md)
 - Paid bounty discussion: [GitHub Discussions #16](https://github.com/ramimbo/mergework/discussions/16)
 - Agent API and MCP usage: [docs/agents.md](docs/agents.md)
+- Public API examples: [docs/api-examples.md](docs/api-examples.md)
 - Ledger details: [docs/ledger.md](docs/ledger.md)
 - Admin runbook: [docs/admin-runbook.md](docs/admin-runbook.md)
 - Security policy: [SECURITY.md](SECURITY.md)

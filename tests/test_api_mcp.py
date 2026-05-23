@@ -193,6 +193,7 @@ def test_docs_page_lists_live_ltclab_urls(sqlite_url: str) -> None:
     assert "https://mcp.mrwk.ltclab.site" in docs
     assert "https://github.com/ramimbo/mergework/discussions/16" in docs
     assert "docs/paid-bounties.md" in docs
+    assert "docs/api-examples.md" in docs
     assert "OpenAPI docs" in docs
     assert "SwaggerUIBundle" in api_docs
 
