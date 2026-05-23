@@ -191,6 +191,48 @@ def test_ledger_reference_unsafe_urls_are_not_rendered_as_links(sqlite_url: str)
     assert 'href="javascript:alert(1)"' not in page
 
 
+def test_ledger_and_proof_pages_surface_readable_metadata(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=6,
+            issue_url="https://github.com/ramimbo/mergework/issues/6",
+            title="Improve ledger explorer proof readability",
+            reward_mrwk="100",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/12",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    ledger_page = client.get("/ledger").text
+    assert "Parties" in ledger_page
+    assert "Reference" in ledger_page
+    assert "github:alice" in ledger_page
+    assert "/proofs/" in ledger_page
+
+    entry_page = client.get(f"/ledger/{proof.ledger_sequence}").text
+    assert "summary-grid" in entry_page
+    assert "hash-block" in entry_page
+    assert proof.hash in entry_page
+
+    proof_page = client.get(f"/proofs/{proof.hash}").text
+    assert "Public proof payload" in proof_page
+    assert "Recipient" in proof_page
+    assert "github:alice" in proof_page
+    assert "100" in proof_page
+
+
 def test_signed_webhook_with_invalid_json_is_rejected(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     body = b"not-json"

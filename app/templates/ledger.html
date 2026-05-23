@@ -4,17 +4,21 @@
 <h1>Ledger</h1>
 <p class="lead">Every MRWK reserve and payout is recorded as a hash-linked ledger entry.</p>
 <table>
-  <thead><tr><th>#</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Proof</th><th>Hash</th></tr></thead>
+  <thead><tr><th>#</th><th>Type</th><th>Parties</th><th>Amount</th><th>Reference</th><th>Proof</th><th>Hash</th></tr></thead>
   <tbody>
     {% for entry in entries %}
     <tr>
       <td><a href="/ledger/{{ entry.sequence }}">{{ entry.sequence }}</a></td>
-      <td>{{ entry.type }}</td>
-      <td>{% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</td>
-      <td>{% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}-{% endif %}</td>
-      <td>{{ entry.amount_mrwk }} MRWK</td>
-      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}">proof</a>{% else %}-{% endif %}</td>
-      <td><code>{{ entry.entry_hash[:16] }}</code></td>
+      <td><span class="pill">{{ entry.type }}</span></td>
+      <td class="stacked-cell">
+        <span><span class="muted-label">From</span> {% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</span>
+        <span><span class="muted-label">To</span> {% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}-{% endif %}</span>
+      </td>
+      <td><strong>{{ entry.amount_mrwk }}</strong> MRWK</td>
+      {% set reference_url = safe_public_url(entry.reference) %}
+      <td class="truncate-cell">{% if entry.reference %}{% if reference_url %}<a href="{{ reference_url }}">{{ entry.reference }}</a>{% else %}{{ entry.reference }}{% endif %}{% else %}-{% endif %}</td>
+      <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}"><code>{{ entry.proof_hash[:12] }}</code></a>{% else %}-{% endif %}</td>
+      <td><a href="/ledger/{{ entry.sequence }}"><code>{{ entry.entry_hash[:16] }}</code></a></td>
     </tr>
     {% endfor %}
   </tbody>

@@ -5,6 +5,20 @@
   <p class="eyebrow">Ledger entry</p>
   <h1>#{{ entry.sequence }} {{ entry.type }}</h1>
   <p class="lead">{{ entry.amount_mrwk }} MRWK</p>
+  <div class="summary-grid">
+    <article>
+      <span>From</span>
+      {% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}<strong>-</strong>{% endif %}
+    </article>
+    <article>
+      <span>To</span>
+      {% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}<strong>-</strong>{% endif %}
+    </article>
+    <article>
+      <span>Amount</span>
+      <strong>{{ entry.amount_mrwk }} MRWK</strong>
+    </article>
+  </div>
   <dl>
     <dt>From</dt>
     <dd>{% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</dd>
@@ -14,14 +28,14 @@
     {% set reference_url = safe_public_url(entry.reference) %}
     <dd>{% if reference_url %}<a href="{{ reference_url }}">{{ entry.reference }}</a>{% else %}{{ entry.reference }}{% endif %}</dd>
     <dt>Previous hash</dt>
-    <dd><code>{{ entry.previous_hash }}</code></dd>
+    <dd><code class="hash-block">{{ entry.previous_hash }}</code></dd>
     <dt>Entry hash</dt>
-    <dd><code>{{ entry.entry_hash }}</code></dd>
+    <dd><code class="hash-block">{{ entry.entry_hash }}</code></dd>
     <dt>Created</dt>
     <dd>{{ entry.created_at }}</dd>
     {% if entry.proof_hash %}
     <dt>Proof</dt>
-    <dd><a href="/proofs/{{ entry.proof_hash }}">{{ entry.proof_hash }}</a></dd>
+    <dd><a href="/proofs/{{ entry.proof_hash }}"><code class="hash-block">{{ entry.proof_hash }}</code></a></dd>
     {% endif %}
   </dl>
 </section>

@@ -5,15 +5,30 @@
   <p class="eyebrow">Proof</p>
   <h1>Accepted work proof</h1>
   <p class="lead">{{ proof.amount_mrwk }} MRWK paid to <a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a>.</p>
+  <div class="summary-grid">
+    <article>
+      <span>Ledger entry</span>
+      <a href="/ledger/{{ proof.ledger_sequence }}">#{{ proof.ledger_sequence }}</a>
+    </article>
+    <article>
+      <span>Recipient</span>
+      <a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a>
+    </article>
+    <article>
+      <span>Amount</span>
+      <strong>{{ proof.amount_mrwk }} MRWK</strong>
+    </article>
+  </div>
   <dl>
     <dt>Ledger entry</dt>
     <dd><a href="/ledger/{{ proof.ledger_sequence }}">#{{ proof.ledger_sequence }}</a></dd>
     <dt>Ledger hash</dt>
-    <dd><code>{{ proof.ledger_hash }}</code></dd>
+    <dd><code class="hash-block">{{ proof.ledger_hash }}</code></dd>
     <dt>Submission</dt>
     {% set submission_url = safe_public_url(proof.submission_url) %}
     <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ proof.submission_url }}</a>{% else %}{{ proof.submission_url }}{% endif %}</dd>
   </dl>
+  <h2>Public proof payload</h2>
   <pre>{{ proof | tojson(indent=2) }}</pre>
 </section>
 {% endblock %}
