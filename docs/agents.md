@@ -125,6 +125,14 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+Look up a public proof by hash:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_proof","arguments":{"hash":"<proof_hash>"}}}'
+```
+
 Tools:
 
 - `list_bounties`
@@ -134,6 +142,7 @@ Tools:
 - `get_wallet`
 - `submit_wallet_transfer`
 - `get_ledger_entry`
+- `get_proof`
 - `submit_work_proof`
 
 ## Contribution Rules

@@ -592,6 +592,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                             "description": "Submit a signed MRWK wallet transfer",
                         },
                         {"name": "get_ledger_entry", "description": "Get a ledger entry"},
+                        {"name": "get_proof", "description": "Get a public proof by hash"},
                         {
                             "name": "submit_work_proof",
                             "description": "Return submission instructions",
@@ -968,6 +969,24 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str:
             if entry is None:
                 return "ledger entry not found"
             return json.dumps(ledger_to_dict(entry))
+        if name == "get_proof":
+            proof = session.get(Proof, str(args["hash"]))
+            if proof is None:
+                return "proof not found"
+            public_payload = json.loads(proof.public_json)
+            if not isinstance(public_payload, dict):
+                raise ValueError("invalid proof payload")
+            return json.dumps(
+                {
+                    "hash": proof.hash,
+                    "kind": proof.kind,
+                    "ledger_sequence": proof.ledger_sequence,
+                    "bounty_id": proof.bounty_id,
+                    "submission_id": proof.submission_id,
+                    "created_at": proof.created_at.isoformat(),
+                    "proof": public_payload,
+                }
+            )
         if name == "submit_work_proof":
             return (
                 "Open a focused PR or issue, reference the MRWK bounty, include test evidence, "

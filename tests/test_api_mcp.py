@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -163,6 +165,74 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     ).json()
     assert balance["result"]["content"][0]["type"] == "text"
     assert "100000000" in balance["result"]["content"][0]["text"]
+
+
+def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=37,
+            issue_url="https://github.com/ramimbo/mergework/issues/37",
+            title="MCP proof lookup",
+            reward_mrwk="150",
+            acceptance="Accepted label",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/37",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
+    assert "get_proof" in {tool["name"] for tool in tools["result"]["tools"]}
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_proof", "arguments": {"hash": proof.hash}},
+        },
+    ).json()
+
+    content = result["result"]["content"][0]
+    payload = json.loads(content["text"])
+    assert content["type"] == "text"
+    assert payload["hash"] == proof.hash
+    assert payload["kind"] == "bounty_payment"
+    assert payload["ledger_sequence"] == proof.ledger_sequence
+    assert payload["proof"]["repo"] == "ramimbo/mergework"
+    assert payload["proof"]["submission_url"] == "https://github.com/ramimbo/mergework/pull/37"
+    assert payload["proof"]["accepted_by"] == "maintainer"
+
+
+def test_mcp_get_proof_reports_unknown_hash(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "get_proof", "arguments": {"hash": "0" * 64}},
+        },
+    ).json()
+
+    assert result["result"]["content"][0]["text"] == "proof not found"
 
 
 def test_host_specific_homepages(sqlite_url: str) -> None:
