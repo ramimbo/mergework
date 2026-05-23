@@ -532,6 +532,69 @@ def submit_github_claim(
     return ledger_entry
 
 
+def reconcile_accepted_work_payouts(session: Session) -> list[dict[str, str]]:
+    accepted_submissions = session.scalars(
+        select(Submission).where(Submission.status == "accepted").order_by(Submission.id)
+    ).all()
+    issues: list[dict[str, str]] = []
+    for submission in accepted_submissions:
+        proofs = session.scalars(
+            select(Proof)
+            .where(Proof.submission_id == submission.id, Proof.kind == "bounty_payment")
+            .order_by(Proof.hash)
+        ).all()
+        payments = session.scalars(
+            select(LedgerEntry)
+            .where(
+                LedgerEntry.entry_type == "bounty_payment",
+                LedgerEntry.reference == submission.url,
+            )
+            .order_by(LedgerEntry.sequence)
+        ).all()
+        base = {
+            "submission_id": str(submission.id),
+            "bounty_id": str(submission.bounty_id),
+            "submitter_account": submission.submitter_account,
+            "submission_url": submission.url,
+        }
+        if not proofs or not payments:
+            issues.append(
+                {
+                    **base,
+                    "problem": "missing_payment_evidence",
+                    "detail": (
+                        f"proofs={len(proofs)} ledger_payments={len(payments)}; "
+                        "expected one proof and one matching bounty_payment ledger entry"
+                    ),
+                }
+            )
+            continue
+        if len(proofs) > 1 or len(payments) > 1:
+            issues.append(
+                {
+                    **base,
+                    "problem": "duplicate_payment_evidence",
+                    "detail": (
+                        f"proofs={len(proofs)} ledger_payments={len(payments)}; "
+                        "expected exactly one proof and one matching bounty_payment ledger entry"
+                    ),
+                }
+            )
+            continue
+        if proofs[0].ledger_sequence != payments[0].sequence:
+            issues.append(
+                {
+                    **base,
+                    "problem": "mismatched_payment_evidence",
+                    "detail": (
+                        f"proof ledger_sequence={proofs[0].ledger_sequence} "
+                        f"but payment sequence={payments[0].sequence}"
+                    ),
+                }
+            )
+    return issues
+
+
 def pay_bounty(
     session: Session,
     *,
