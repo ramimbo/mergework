@@ -29,14 +29,15 @@ List bounties:
 curl https://api.mrwk.ltclab.site/api/v1/bounties
 ```
 
-Read one bounty:
+Read one bounty by the internal `id` returned from `/api/v1/bounties`:
 
 ```bash
-curl https://api.mrwk.ltclab.site/api/v1/bounties/22
+curl https://api.mrwk.ltclab.site/api/v1/bounties/<bounty_id>
 ```
 
-Submit bounty work as a focused GitHub PR. Link the issue with `Bounty #22` or
-`Refs #22`, run the project checks, and wait for a maintainer to apply
+The internal bounty id can differ from the GitHub issue number. Submit bounty
+work as a focused GitHub PR. Link the issue with `Bounty #22` or `Refs #22`,
+run the project checks, and wait for a maintainer to apply
 `mrwk:accepted`.
 
 ## Ledger and Proofs
