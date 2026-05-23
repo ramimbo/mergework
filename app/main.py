@@ -147,6 +147,30 @@ def _safe_next_path(next_path: str | None) -> str:
     return next_path
 
 
+async def _json_object(request: Request) -> dict[str, Any]:
+    try:
+        data = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON body") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="JSON body must be an object")
+    return data
+
+
+def _required_field(data: dict[str, Any], field: str) -> Any:
+    try:
+        return data[field]
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"{field} is required") from exc
+
+
+def _required_int(data: dict[str, Any], field: str) -> int:
+    try:
+        return int(_required_field(data, field))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"{field} must be an integer") from exc
+
+
 def _signed_value(value: str, secret: str) -> str:
     timestamp = str(int(time.time()))
     body = f"{value}|{timestamp}"
@@ -324,12 +348,12 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/wallets/register")
     async def api_register_wallet(request: Request) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 wallet = register_wallet(
                     session,
-                    public_key_hex=str(data["public_key_hex"]),
+                    public_key_hex=str(_required_field(data, "public_key_hex")),
                     label=str(data["label"]) if data.get("label") is not None else None,
                 )
             except LedgerError as exc:
@@ -348,15 +372,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_link_wallet_github(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 wallet = link_wallet_to_github(
                     session,
-                    address=str(data["address"]),
+                    address=str(_required_field(data, "address")),
                     github_login=github_login,
-                    nonce=int(data["nonce"]),
-                    signature_hex=str(data["signature_hex"]),
+                    nonce=_required_int(data, "nonce"),
+                    signature_hex=str(_required_field(data, "signature_hex")),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -366,15 +390,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_github_claim(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 entry = submit_github_claim(
                     session,
-                    address=str(data["address"]),
+                    address=str(_required_field(data, "address")),
                     github_login=github_login,
-                    nonce=int(data["nonce"]),
-                    signature_hex=str(data["signature_hex"]),
+                    nonce=_required_int(data, "nonce"),
+                    signature_hex=str(_required_field(data, "signature_hex")),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -382,17 +406,17 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/transfers")
     async def api_submit_transfer(request: Request) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 transfer = submit_wallet_transfer(
                     session,
-                    from_address=str(data["from_address"]),
-                    to_address=str(data["to_address"]),
-                    amount_mrwk=str(data["amount_mrwk"]),
-                    nonce=int(data["nonce"]),
+                    from_address=str(_required_field(data, "from_address")),
+                    to_address=str(_required_field(data, "to_address")),
+                    amount_mrwk=str(_required_field(data, "amount_mrwk")),
+                    nonce=_required_int(data, "nonce"),
                     memo=str(data.get("memo", "")),
-                    signature_hex=str(data["signature_hex"]),
+                    signature_hex=str(_required_field(data, "signature_hex")),
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
