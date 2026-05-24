@@ -553,6 +553,32 @@ def test_mcp_get_bounty_rejects_fractional_id(sqlite_url: str) -> None:
     }
 
 
+@pytest.mark.parametrize("bounty_id", [0, -1, "0", "-1"])
+def test_mcp_get_bounty_rejects_non_positive_id(sqlite_url: str, bounty_id: object) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 12,
+            "method": "tools/call",
+            "params": {"name": "get_bounty", "arguments": {"id": bounty_id}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
 @pytest.mark.parametrize(
     ("tool_name", "arguments", "request_id"),
     [

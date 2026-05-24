@@ -1242,7 +1242,10 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str:
             ).all()
             return json.dumps([bounty_to_dict(bounty) for bounty in bounties])
         if name == "get_bounty":
-            bounty = session.get(Bounty, int_arg("id"))
+            bounty_id = int_arg("id")
+            if bounty_id <= 0:
+                raise ValueError("id must be positive")
+            bounty = session.get(Bounty, bounty_id)
             if bounty is None:
                 return "bounty not found"
             return json.dumps(bounty_to_dict(bounty))
