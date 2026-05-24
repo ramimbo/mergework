@@ -47,6 +47,14 @@ def _secret_errors(name: str, value: str) -> list[str]:
 
 def validate_deploy_settings(settings: Settings) -> list[str]:
     errors: list[str] = []
+    parsed_database_url = urlparse(settings.database_url)
+    if parsed_database_url.scheme == "sqlite":
+        if parsed_database_url.path in {"", "/", "/:memory:"}:
+            errors.append(
+                "MERGEWORK_DATABASE_URL must point at a persistent SQLite file for deploys"
+            )
+        elif not settings.database_url.startswith("sqlite:////"):
+            errors.append("MERGEWORK_DATABASE_URL SQLite path must be absolute for deploys")
     errors.extend(_secret_errors("MERGEWORK_GITHUB_WEBHOOK_SECRET", settings.github_webhook_secret))
     errors.extend(
         _secret_errors("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", settings.github_oauth_client_secret)
