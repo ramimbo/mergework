@@ -30,6 +30,22 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_wallet_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/wallets/mrwk1..." in examples
+    assert '"address": "mrwk1062bfd1805d9596242fba7630ab1a4393c7cd8c4"' in examples
+    assert (
+        '"public_key_hex": "93bfbebde4ba363d8e5bf8d4ac23221f76894583d84a6777ce1946c089a89e12"'
+        in examples
+    )
+    assert '"label": "DYSfu side-income MRWK wallet"' in examples
+    assert '"github_login": null' in examples
+    assert '"balance_mrwk": "0"' in examples
+    assert '"next_nonce": 1' in examples
+    assert "`next_nonce` is the value clients should sign" in examples
+
+
 def test_agent_guide_explains_internal_bounty_ids() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 

@@ -49,6 +49,25 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
 
+Registered wallet responses include the public key, optional label and GitHub
+link, current ledger balance, and nonce state for the next signed transfer:
+
+```json
+{
+  "address": "mrwk1062bfd1805d9596242fba7630ab1a4393c7cd8c4",
+  "public_key_hex": "93bfbebde4ba363d8e5bf8d4ac23221f76894583d84a6777ce1946c089a89e12",
+  "label": "DYSfu side-income MRWK wallet",
+  "github_login": null,
+  "balance_mrwk": "0",
+  "nonce": 0,
+  "next_nonce": 1,
+  "created_at": "2026-05-24T07:24:56.393662"
+}
+```
+
+`next_nonce` is the value clients should sign for the next wallet transfer.
+`github_login` is `null` until the wallet is linked to a GitHub account.
+
 Register a wallet public key. Keep the private key local; only send the public
 key to MergeWork.
 
