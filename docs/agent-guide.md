@@ -80,8 +80,34 @@ Submit the transfer with:
 {"from_address":"mrwk1...","to_address":"mrwk1...","amount_mrwk":"1","nonce":1,"memo":"work payout split","signature_hex":"<128 lowercase hex chars>"}
 ```
 
-GitHub link and claim actions require GitHub OAuth login plus a wallet signature.
-The public app flow is `/auth/github/login?next=/me`.
+GitHub link and claim actions require a GitHub OAuth session plus a wallet
+signature. The public app flow is `/auth/github/login?next=/me`.
+
+To link a wallet to the signed-in GitHub account, sign this canonical payload:
+
+```json
+{"type":"mrwk_link_github_v1","address":"mrwk1...","github_login":"alice","nonce":1}
+```
+
+Then submit the signature without a `github_login` field. The server uses the
+authenticated GitHub session for the login:
+
+```json
+{"address":"mrwk1...","nonce":1,"signature_hex":"<128 lowercase hex chars>"}
+```
+
+To claim an older `github:alice` balance into the linked wallet, sign the claim
+payload with the next wallet nonce:
+
+```json
+{"type":"mrwk_claim_github_v1","address":"mrwk1...","github_login":"alice","nonce":2}
+```
+
+Submit the same request shape to `POST /api/v1/github/claim`:
+
+```json
+{"address":"mrwk1...","nonce":2,"signature_hex":"<128 lowercase hex chars>"}
+```
 
 ## MCP Endpoint
 

@@ -39,3 +39,13 @@ def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:
 
     assert "python scripts/docs_smoke.py" in contributing
     assert "docs, templates, examples, or onboarding" in contributing
+
+
+def test_agent_guide_documents_github_wallet_payloads() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "mrwk_link_github_v1" in guide
+    assert "mrwk_claim_github_v1" in guide
+    assert "POST /api/v1/github/claim" in guide
+    assert "without a `github_login` field" in guide
+    assert "authenticated GitHub session" in guide
