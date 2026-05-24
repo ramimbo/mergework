@@ -11,7 +11,7 @@ AGENT_NOTE_PATHS = [
     "AGENTS.md",
     "app/ledger/AGENTS.md",
     "app/webhooks/AGENTS.md",
-    "docs/DOCS_AGENT_NOTES.md",
+    "docs/AGENTS.md",
 ]
 
 

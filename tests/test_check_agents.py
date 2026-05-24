@@ -20,8 +20,8 @@ def test_casefold_collision_detection_allows_distinct_agent_notes() -> None:
     collisions = _casefold_collisions(
         [
             "AGENTS.md",
-            "docs/DOCS_AGENT_NOTES.md",
-            "docs/agents.md",
+            "docs/AGENTS.md",
+            "docs/agent-guide.md",
             "app/webhooks/AGENTS.md",
         ]
     )
