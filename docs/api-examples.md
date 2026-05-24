@@ -1,6 +1,6 @@
 # Public API Examples
 
-MergeWork exposes read-only API and MCP hosts for contributors and agents:
+MergeWork exposes public API and MCP hosts for contributors and agents:
 
 ```bash
 API_HOST=https://api.mrwk.ltclab.site

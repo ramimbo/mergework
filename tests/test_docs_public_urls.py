@@ -53,3 +53,10 @@ def test_agent_guide_documents_activity_endpoint() -> None:
 
     assert "GET /api/v1/activity" in guide
     assert "accepted-work activity" in guide
+
+
+def test_api_examples_do_not_mislabel_write_endpoints_as_read_only() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "exposes public API and MCP hosts" in examples
+    assert "read-only API and MCP hosts" not in examples
