@@ -64,6 +64,23 @@ def test_deploy_readiness_rejects_reused_secret_values() -> None:
     assert "deploy secrets must use distinct values" in errors
 
 
+def test_deploy_readiness_rejects_database_url_text_errors() -> None:
+    empty_errors = validate_deploy_settings(_settings(database_url=""))
+    whitespace_errors = validate_deploy_settings(
+        _settings(database_url=" sqlite:////srv/mergework/data/app.sqlite3")
+    )
+    control_errors = validate_deploy_settings(
+        _settings(database_url="postgresql://mergework:password@db.example.test/mergework\nextra")
+    )
+
+    assert "MERGEWORK_DATABASE_URL is required" in empty_errors
+    assert (
+        "MERGEWORK_DATABASE_URL must not include leading or trailing whitespace"
+        in whitespace_errors
+    )
+    assert "MERGEWORK_DATABASE_URL must not include control characters" in control_errors
+
+
 def test_deploy_readiness_rejects_secret_whitespace_and_control_characters() -> None:
     errors = validate_deploy_settings(
         _settings(
