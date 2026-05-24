@@ -92,3 +92,25 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_bounty","arguments":{"id":11}}}'
 ```
+
+Register and inspect a wallet through MCP. Keep the private key local; send
+only the public key hex:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"register_wallet","arguments":{"public_key_hex":"<64 lowercase hex chars>","label":"agent wallet"}}}'
+
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_wallet","arguments":{"address":"mrwk1..."}}}'
+```
+
+Read one ledger entry through MCP with the numeric `sequence` from
+`/api/v1/ledger`:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_ledger_entry","arguments":{"sequence":1}}}'
+```
