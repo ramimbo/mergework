@@ -40,6 +40,17 @@ def test_deploy_readiness_rejects_missing_or_placeholder_secrets() -> None:
     assert "MERGEWORK_ADMIN_TOKEN is required" in errors
     assert "MERGEWORK_COOKIE_SECRET must be at least 32 characters" in errors
 
+def test_deploy_readiness_rejects_whitespace_padded_secrets_and_oauth_id() -> None:
+    errors = validate_deploy_settings(
+        _settings(
+            github_webhook_secret="  webhook-8efc3925bb8746b8a8fd3392c4c48e32  ",
+            github_oauth_client_id=" client-id ",
+        )
+    )
+
+    assert "MERGEWORK_GITHUB_WEBHOOK_SECRET must not include surrounding whitespace" in errors
+    assert "MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not include surrounding whitespace" in errors
+
 
 def test_deploy_readiness_rejects_low_diversity_secrets() -> None:
     errors = validate_deploy_settings(

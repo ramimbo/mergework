@@ -39,6 +39,8 @@ def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
 def _secret_errors(name: str, value: str) -> list[str]:
     if not value:
         return [f"{name} is required"]
+    if value != value.strip():
+        return [f"{name} must not include surrounding whitespace"]
     if len(value) < 32 or value.strip().lower() in WEAK_SECRET_VALUES:
         return [f"{name} must be at least 32 characters"]
     if len(set(value)) < 12:
@@ -65,6 +67,8 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
         errors.append("deploy secrets must use distinct values")
     if not settings.github_oauth_client_id:
         errors.append("MERGEWORK_GITHUB_OAUTH_CLIENT_ID is required")
+    elif settings.github_oauth_client_id != settings.github_oauth_client_id.strip():
+        errors.append("MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not include surrounding whitespace")
     if not settings.admin_logins:
         errors.append("MERGEWORK_ADMIN_LOGINS must list admin GitHub logins")
     if not settings.github_accepted_labelers:
