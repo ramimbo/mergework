@@ -238,6 +238,22 @@ code.hash { overflow-wrap: anywhere; }
 .section-head h2 { margin-bottom: 0; }
 .project-list article { min-height: 190px; }
 .doc-list { line-height: 1.9; }
+.search-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  margin: 0 0 18px;
+  max-width: none;
+}
+.search-form button,
+.search-form a {
+  min-height: 46px;
+}
+.search-form a {
+  align-items: center;
+  display: inline-flex;
+}
 pre {
   overflow: auto;
   border: 1px solid var(--line);
@@ -271,4 +287,5 @@ button { cursor: pointer; color: white; background: var(--accent); border-color:
   .ledger-card-grid { grid-template-columns: 1fr; }
   .ledger-field--reference,
   .ledger-field--hash { grid-column: auto; }
+  .search-form { grid-template-columns: 1fr; }
 }

@@ -2,12 +2,28 @@
 {% block title %}MRWK Bounties{% endblock %}
 {% block content %}
 <h1>Bounties</h1>
+<form class="search-form" method="get" action="/bounties" role="search" aria-label="Search bounties">
+  {% if selected_status %}
+  <input type="hidden" name="status" value="{{ selected_status }}">
+  {% endif %}
+  <label>
+    <span>Search bounties</span>
+    <input name="q" value="{{ search_query }}" placeholder="Repo, title, issue number, or acceptance text">
+  </label>
+  <button type="submit">Search</button>
+  {% if search_query %}
+  <a href="/bounties{% if selected_status %}?status={{ selected_status }}{% endif %}">Clear search</a>
+  {% endif %}
+</form>
 <nav aria-label="Bounty status filters">
-  <a href="/bounties"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
-  <a href="/bounties?status=open"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
-  <a href="/bounties?status=paid"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
-  <a href="/bounties?status=closed"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
+  <a href="/bounties{% if search_query %}?q={{ search_query | urlencode }}{% endif %}"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
+  <a href="/bounties?status=open{% if search_query %}&q={{ search_query | urlencode }}{% endif %}"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
+  <a href="/bounties?status=paid{% if search_query %}&q={{ search_query | urlencode }}{% endif %}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
+  <a href="/bounties?status=closed{% if search_query %}&q={{ search_query | urlencode }}{% endif %}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
 </nav>
+{% if search_query %}
+<p class="notice">Showing matches for <strong>{{ search_query }}</strong>.</p>
+{% endif %}
 <div class="list">
   {% for bounty in bounties %}
   <article>

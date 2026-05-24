@@ -60,6 +60,48 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
 
 
+def test_bounties_page_searches_public_bounties(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=164,
+            issue_url="https://github.com/ramimbo/mergework/issues/164",
+            title="Contributor activity discovery",
+            reward_mrwk="100",
+            acceptance="Improve public bounty discovery and proof inspection.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=200,
+            issue_url="https://github.com/ramimbo/mergework/issues/200",
+            title="Wallet transfer polish",
+            reward_mrwk="25",
+            acceptance="Improve wallet transfer copy.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/bounties?q=proof")
+    api = client.get("/api/v1/bounties?q=164")
+    status_page = client.get("/bounties?status=open&q=activity")
+
+    assert page.status_code == 200
+    assert "Contributor activity discovery" in page.text
+    assert "Wallet transfer polish" not in page.text
+    assert "Showing matches for <strong>proof</strong>." in page.text
+    assert 'href="/bounties?status=open&q=proof"' in page.text
+    assert 'href="/bounties?q=proof" aria-current="page"' in page.text
+    assert [item["issue_number"] for item in api.json()] == [164]
+    assert status_page.status_code == 200
+    assert "Contributor activity discovery" in status_page.text
+    assert 'value="activity"' in status_page.text
+    assert 'href="/bounties?status=open">Clear search</a>' in status_page.text
+
+
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
