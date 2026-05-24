@@ -127,9 +127,9 @@ def resolve_payout_account(session: Session, to_account: str) -> str:
 def _clean_optional_text(value: str | None, field: str, max_length: int) -> str | None:
     if value is None:
         return None
-    clean = value.strip()
-    if CONTROL_CHARACTER_RE.search(clean):
+    if CONTROL_CHARACTER_RE.search(value):
         raise LedgerError(f"{field} must not contain control characters")
+    clean = value.strip()
     if len(clean) > max_length:
         raise LedgerError(f"{field} is too long")
     return clean or None
@@ -439,9 +439,9 @@ def submit_wallet_transfer(
     if sender.address == receiver.address:
         raise LedgerError("sender and receiver must be different")
     amount = parse_mrwk_amount(amount_mrwk)
-    clean_memo = memo.strip()
-    if CONTROL_CHARACTER_RE.search(clean_memo):
+    if CONTROL_CHARACTER_RE.search(memo):
         raise LedgerError("memo must not contain control characters")
+    clean_memo = memo.strip()
     if len(clean_memo) > 240:
         raise LedgerError("memo is too long")
     if get_balance(session, sender.address) < amount:

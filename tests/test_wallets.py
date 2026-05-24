@@ -60,11 +60,12 @@ def test_wallet_registration_rejects_control_characters_in_label(sqlite_url: str
     create_schema(sqlite_url)
     _, public_hex, _ = _keypair()
 
-    with (
-        session_scope(sqlite_url) as session,
-        pytest.raises(LedgerError, match="wallet label must not contain control characters"),
-    ):
-        register_wallet(session, public_key_hex=public_hex, label="Ops\nWallet")
+    with session_scope(sqlite_url) as session:
+        for label in ("Ops\nWallet", "\nOps", "Ops\t"):
+            with pytest.raises(
+                LedgerError, match="wallet label must not contain control characters"
+            ):
+                register_wallet(session, public_key_hex=public_hex, label=label)
 
 
 def test_signed_wallet_transfer_moves_balance_and_rejects_replay(sqlite_url: str) -> None:
@@ -138,24 +139,42 @@ def test_wallet_transfer_rejects_control_characters_in_memo(sqlite_url: str) -> 
             reference="test-funding",
         )
 
+        for memo in ("bad\tmemo", "\tbad", "bad\n"):
+            payload = wallet_transfer_payload(
+                from_address=sender_address,
+                to_address=receiver_address,
+                amount_microunits=1_000_000,
+                nonce=1,
+                memo=memo.strip(),
+            )
+            with pytest.raises(LedgerError, match="memo must not contain control characters"):
+                submit_wallet_transfer(
+                    session,
+                    from_address=sender_address,
+                    to_address=receiver_address,
+                    amount_mrwk="1",
+                    nonce=1,
+                    memo=memo,
+                    signature_hex=_sign(sender_key, payload),
+                )
+
         payload = wallet_transfer_payload(
             from_address=sender_address,
             to_address=receiver_address,
             amount_microunits=1_000_000,
             nonce=1,
-            memo="bad\tmemo",
+            memo="clean memo",
         )
-
-        with pytest.raises(LedgerError, match="memo must not contain control characters"):
-            submit_wallet_transfer(
-                session,
-                from_address=sender_address,
-                to_address=receiver_address,
-                amount_mrwk="1",
-                nonce=1,
-                memo="bad\tmemo",
-                signature_hex=_sign(sender_key, payload),
-            )
+        transfer = submit_wallet_transfer(
+            session,
+            from_address=sender_address,
+            to_address=receiver_address,
+            amount_mrwk="1",
+            nonce=1,
+            memo=" clean memo ",
+            signature_hex=_sign(sender_key, payload),
+        )
+        assert transfer.memo == "clean memo"
 
 
 def test_wallet_transfer_rejects_bad_signature(sqlite_url: str) -> None:
