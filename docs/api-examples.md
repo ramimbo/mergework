@@ -41,6 +41,16 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 curl -s "$API_HOST/api/v1/activity"
 ```
 
+The activity payload separates overall totals from per-contributor rollups and
+recent accepted submissions:
+
+```json
+{"totals":{"accepted_awards":3,"accepted_mrwk":"15","contributors":2},"contributors":[{"account":"alice:mrwk","accepted_awards":2,"accepted_mrwk":"10","latest_submission_url":"https://github.com/ramimbo/mergework/pull/42","latest_proof_hash":"<proof_hash>","latest_proof_url":"/proofs/<proof_hash>"}],"recent":[{"ledger_sequence":27,"account":"alice:mrwk","amount_mrwk":"5","submission_url":"https://github.com/ramimbo/mergework/pull/42","proof_hash":"<proof_hash>","proof_url":"/proofs/<proof_hash>","bounty_id":11,"bounty_issue_number":22,"created_at":"2026-05-24T20:00:00"}]}
+```
+
+In that response, `bounty_id` is the internal MergeWork bounty `id`, while
+`bounty_issue_number` is the source GitHub issue number.
+
 Inspect a proof, account, or registered wallet:
 
 ```bash
