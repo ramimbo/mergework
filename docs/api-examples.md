@@ -41,6 +41,13 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 curl -s "$API_HOST/api/v1/activity"
 ```
 
+The activity payload includes project totals, contributor rollups, and recent
+accepted submissions backed by proofs:
+
+```json
+{"totals":{"accepted_awards":12,"accepted_mrwk":"600","contributors":5},"contributors":[{"account":"github:alice","accepted_awards":3,"accepted_mrwk":"150","latest_submission_url":"https://github.com/ramimbo/mergework/pull/42","latest_proof_hash":"<proof_hash>","latest_proof_url":"/proofs/<proof_hash>"}],"recent":[{"ledger_sequence":27,"account":"github:alice","amount_mrwk":"50","submission_url":"https://github.com/ramimbo/mergework/pull/42","proof_hash":"<proof_hash>","proof_url":"/proofs/<proof_hash>","bounty_id":11,"bounty_issue_number":22,"created_at":"2026-05-24T12:00:00"}]}
+```
+
 Inspect a proof, account, or registered wallet:
 
 ```bash

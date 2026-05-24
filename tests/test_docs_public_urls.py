@@ -27,6 +27,8 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert '"arguments":{"id":11}' in examples
     assert '"id":4' in examples
     assert "not the GitHub issue" in examples
+    assert "accepted_awards" in examples
+    assert "latest_submission_url" in examples
     assert "public_key_hex" in examples
 
 
