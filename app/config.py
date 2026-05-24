@@ -139,6 +139,7 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
             errors.append(
                 "MERGEWORK_GITHUB_ACCEPTED_LABELERS must be included in MERGEWORK_ADMIN_LOGINS"
             )
+    errors.extend(_required_env_value_errors("MERGEWORK_PUBLIC_BASE_URL", settings.public_base_url))
     try:
         parsed_base_url = urlparse(settings.public_base_url)
     except ValueError:

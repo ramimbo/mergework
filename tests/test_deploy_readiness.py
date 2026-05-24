@@ -147,6 +147,25 @@ def test_deploy_readiness_requires_https_oauth_and_allowed_labelers() -> None:
     assert "MERGEWORK_GITHUB_ACCEPTED_LABELERS must list maintainer logins" in errors
 
 
+def test_deploy_readiness_rejects_public_base_url_text_hazards() -> None:
+    whitespace_errors = validate_deploy_settings(
+        _settings(public_base_url=" https://staging.mrwk.example.test")
+    )
+    newline_errors = validate_deploy_settings(
+        _settings(public_base_url="https://staging.mrwk.example.test\n")
+    )
+    tab_errors = validate_deploy_settings(
+        _settings(public_base_url="https://staging.mrwk.example.test\t")
+    )
+
+    assert (
+        "MERGEWORK_PUBLIC_BASE_URL must not include leading or trailing whitespace"
+        in whitespace_errors
+    )
+    assert "MERGEWORK_PUBLIC_BASE_URL must not include control characters" in newline_errors
+    assert "MERGEWORK_PUBLIC_BASE_URL must not include control characters" in tab_errors
+
+
 def test_deploy_readiness_rejects_malformed_oauth_client_id() -> None:
     whitespace_errors = validate_deploy_settings(_settings(github_oauth_client_id=" client-id"))
     control_errors = validate_deploy_settings(_settings(github_oauth_client_id="client-id\nextra"))
