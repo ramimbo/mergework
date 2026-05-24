@@ -25,7 +25,7 @@
   <form data-action="link-github">
     <label>Wallet address <input name="address" placeholder="mrwk1..." required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" autocomplete="off" autocapitalize="none" spellcheck="false" required></textarea></label>
-    <p class="notice">Use the private key for this wallet address; a different key will be rejected. Clear this field after use. Never share your private key.</p>
+    <p class="notice">Use the private key for this wallet address; a different key will be rejected. If linking fails, confirm the wallet is registered and the key was copied from that wallet. Clear this field after use. Never share your private key.</p>
     <p class="notice" data-link-nonce-status>Transaction number is handled automatically.</p>
     <button type="submit">Sign and link</button>
   </form>
@@ -35,7 +35,7 @@
   <form data-action="claim-github">
     <label>Wallet address <input name="address" placeholder="mrwk1..." value="{{ linked_wallet_address or '' }}" required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" autocomplete="off" autocapitalize="none" spellcheck="false" required></textarea></label>
-    <p class="notice">Claim works only after this GitHub account is linked to the wallet. Clear this field after use. Never share your private key.</p>
+    <p class="notice">Claim works only after this GitHub account is linked to the wallet. Use that wallet's private key. Clear this field after use. Never share your private key.</p>
     {% if linked_wallet_address %}
     <p class="notice">Claim form is prefilled with your linked wallet.</p>
     {% endif %}

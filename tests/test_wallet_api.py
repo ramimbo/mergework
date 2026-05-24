@@ -383,7 +383,8 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
 
     assert "Generate wallet" in wallets
     assert "Private key stays in this browser" in wallets
-    assert "If you lose the private key" in wallets
+    assert "If you lose the private key before linking GitHub" in wallets
+    assert "cannot currently move that GitHub link" in wallets
     assert (
         'id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off"'
         in wallets
@@ -396,7 +397,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
     assert "Signed transfer" in transfer
-    assert "both wallets are registered" in transfer
+    assert "private key belongs to the sender address" in transfer
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
 
@@ -444,6 +445,8 @@ def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) 
     assert "Transaction number is handled automatically" in me
     assert "different key will be rejected" in me
     assert "GitHub account is linked to the wallet" in me
+    assert "the key was copied from that wallet" in me
+    assert "Use that wallet's private key" in me
     assert 'name="private_key_hex" rows="5" autocomplete="off"' in transfer
     assert me.count('name="private_key_hex" rows="5" autocomplete="off"') == 2
     assert "Clear this field after use. Never share your private key." in transfer
