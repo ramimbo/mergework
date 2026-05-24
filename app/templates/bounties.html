@@ -6,8 +6,14 @@
   {% for bounty in bounties %}
   <article>
     <h2><a href="/bounties/{{ bounty.id }}">{{ bounty.title }}</a></h2>
+    {% set issue_url = safe_public_url(bounty.issue_url) %}
     <p>
-      {{ bounty.repo }} #{{ bounty.issue_number }} ·
+      {% if issue_url %}
+        <a href="{{ issue_url }}">{{ bounty.repo }} #{{ bounty.issue_number }}</a>
+      {% else %}
+        {{ bounty.repo }} #{{ bounty.issue_number }}
+      {% endif %}
+      ·
       {{ bounty.reward_mrwk }} MRWK per award ·
       {{ bounty.awards_remaining }}/{{ bounty.max_awards }} awards open ·
       {{ bounty.status }}

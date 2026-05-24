@@ -7,6 +7,29 @@ from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_
 from app.main import create_app
 
 
+def test_bounty_list_links_safe_source_issue(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=45,
+            issue_url="https://github.com/ramimbo/mergework/issues/45",
+            title="Link bounty list source issues",
+            reward_mrwk="75",
+            acceptance="Bounty list links the source GitHub issue.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/bounties")
+
+    assert response.status_code == 200
+    assert 'href="https://github.com/ramimbo/mergework/issues/45"' in response.text
+    assert "ramimbo/mergework #45" in response.text
+
+
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
