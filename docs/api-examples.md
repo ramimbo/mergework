@@ -49,6 +49,12 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
 
+A proof response ties the payout to a public submission artifact and verifier metadata:
+
+```json
+{"proof":{"hash":"<proof_hash>","kind":"bounty_payment","bounty_id":11,"ledger_sequence":27,"accepted_by":"maintainer","submission_url":"https://github.com/ramimbo/mergework/pull/42","public":{"repo":"ramimbo/mergework","issue_number":22}}}
+```
+
 Register a wallet public key. Keep the private key local; only send the public
 key to MergeWork.
 
