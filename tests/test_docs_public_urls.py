@@ -53,3 +53,16 @@ def test_agent_guide_documents_activity_endpoint() -> None:
 
     assert "GET /api/v1/activity" in guide
     assert "accepted-work activity" in guide
+
+
+def test_api_examples_document_mcp_ledger_and_submission_guidance() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert '"name":"get_ledger_entry"' in examples
+    assert '"arguments":{"sequence":322}' in examples
+    assert "result.content[0].text" in examples
+    assert "/api/v1/ledger/<sequence>" in examples
+    assert "not a proof hash" in examples
+    assert '"name":"submit_work_proof"' in examples
+    assert "does not claim or pay" in examples
+    assert "by itself" in examples
