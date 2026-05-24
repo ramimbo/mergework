@@ -97,6 +97,38 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
     assert client.get(f"/api/v1/wallets/{receiver_address}").json()["balance_mrwk"] == "3"
 
 
+def test_wallet_lookup_routes_normalize_copy_pasted_addresses(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex, "Lookup wallet")
+
+    copied_address = f" {address.upper()} "
+    encoded_path_address = f"%20{address.upper()}%20"
+
+    api_response = client.get(f"/api/v1/wallets/{encoded_path_address}")
+    page_response = client.get(f"/wallets/{encoded_path_address}")
+    mcp_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "get_wallet", "arguments": {"address": copied_address}},
+        },
+    )
+    invalid_response = client.get("/api/v1/wallets/not-a-wallet")
+
+    assert api_response.status_code == 200
+    assert api_response.json()["address"] == address
+    assert page_response.status_code == 200
+    assert address in page_response.text
+    assert mcp_response.status_code == 200
+    assert address in mcp_response.json()["result"]["content"][0]["text"]
+    assert invalid_response.status_code == 400
+    assert invalid_response.json()["detail"] == "invalid MRWK wallet address"
+
+
 @pytest.mark.parametrize(
     ("body_overrides", "payload_overrides", "expected_detail"),
     [
