@@ -403,6 +403,29 @@ def test_mcp_malformed_tool_call_returns_jsonrpc_error(sqlite_url: str) -> None:
     assert response.json()["error"] == {"code": -32602, "message": "invalid tool arguments"}
 
 
+def test_mcp_malformed_jsonrpc_request_returns_error(sqlite_url: str) -> None:
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        raise_server_exceptions=False,
+    )
+
+    invalid_json = client.post("/mcp", content="{", headers={"content-type": "application/json"})
+    non_object = client.post("/mcp", json=["not", "an", "object"])
+
+    assert invalid_json.status_code == 200
+    assert invalid_json.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32700, "message": "parse error"},
+    }
+    assert non_object.status_code == 200
+    assert non_object.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": "invalid request"},
+    }
+
+
 def test_pay_bounty_rejects_reentrant_duplicate_before_ledger_write(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

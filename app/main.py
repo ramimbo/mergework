@@ -570,7 +570,20 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/mcp")
     async def mcp(request: Request) -> dict[str, Any]:
-        payload = await request.json()
+        try:
+            payload = await request.json()
+        except ValueError:
+            return {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "parse error"},
+            }
+        if not isinstance(payload, dict):
+            return {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32600, "message": "invalid request"},
+            }
         response_id = payload.get("id")
         method = payload.get("method")
         if method == "tools/list":
