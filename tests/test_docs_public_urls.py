@@ -28,6 +28,11 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert '"id":4' in examples
     assert "not the GitHub issue" in examples
     assert "public_key_hex" in examples
+    assert '"name":"register_wallet"' in examples
+    assert '"name":"get_wallet"' in examples
+    assert '"address":"mrwk1..."' in examples
+    assert '"name":"get_ledger_entry"' in examples
+    assert '"sequence":1' in examples
 
 
 def test_agent_guide_explains_internal_bounty_ids() -> None:
