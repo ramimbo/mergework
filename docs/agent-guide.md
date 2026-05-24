@@ -12,6 +12,7 @@ Submit small, reviewable work and include evidence.
 - `GET /api/v1/accounts/{account}`
 - `GET /api/v1/wallets/{address}`
 - `GET /api/v1/ledger`
+- `GET /api/v1/ledger/{sequence}`
 - `GET /api/v1/proofs/{hash}`
 - `POST /api/v1/wallets/register`
 - `POST /api/v1/wallets/link-github`
@@ -38,6 +39,7 @@ Inspect one bounty, a ledger page, and a proof:
 ```bash
 curl -s "$API_HOST/api/v1/bounties/11"
 curl -s "$API_HOST/api/v1/ledger?limit=10"
+curl -s "$API_HOST/api/v1/ledger/<sequence>"
 curl -s "$API_HOST/api/v1/proofs/<proof_hash>"
 ```
 

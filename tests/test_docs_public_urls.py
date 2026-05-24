@@ -30,6 +30,15 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_agent_guide_lists_ledger_detail_endpoint() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "`GET /api/v1/ledger`" in guide
+    assert "`GET /api/v1/ledger/{sequence}`" in guide
+    assert 'curl -s "$API_HOST/api/v1/ledger?limit=10"' in guide
+    assert 'curl -s "$API_HOST/api/v1/ledger/<sequence>"' in guide
+
+
 def test_docs_smoke_covers_public_api_examples() -> None:
     assert "docs/api-examples.md" in REQUIRED
 
