@@ -76,9 +76,28 @@ GitHub login. Otherwise, MRWK is held at `github:{login}` until the contributor
 links a wallet and signs a claim. Manual payouts can target a registered
 `mrwk1...` wallet or a `github:{login}` account.
 
-PR bounty submissions should link the bounty issue with `Bounty #<issue>` or
-`Refs #<issue>`. Use a closing reference only when the issue should close after
-that PR.
+### Contributor Submission Checklist
+
+Use this checklist before asking a maintainer to review a bounty submission:
+
+1. Confirm the bounty issue is still open and has the `mrwk:bounty` label.
+2. Keep the change focused on one bounty. If the work fixes several unrelated
+   problems, split it into separate submissions.
+3. Link the bounty issue from the PR body or public proof with
+   `Bounty #<issue>` or `Refs #<issue>`. Use `Closes #<issue>` only when the
+   bounty issue should close after that PR.
+4. Explain the concrete confusion, bug, missing step, or check result being
+   addressed.
+5. Include evidence a maintainer can verify: test output, command output,
+   screenshots, reproduction steps, API responses, or review notes.
+6. Do not include private keys, seed material, secrets, private vulnerability
+   details, deployment secrets, or unreleased operational details.
+7. After acceptance, wait for the public proof link before treating the award as
+   paid.
+
+Good bounty evidence is short but specific. A maintainer should be able to tell
+what was checked, why the work matters, and which bounty award the submission is
+requesting without guessing from repository history.
 
 Paid bounty links are tracked in
 [docs/paid-bounties.md](paid-bounties.md) and the public
