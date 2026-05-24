@@ -94,8 +94,20 @@ def _sqlite_database_errors(database_url: str) -> list[str]:
     return []
 
 
+def _database_url_errors(database_url: str) -> list[str]:
+    if not database_url.strip():
+        return ["MERGEWORK_DATABASE_URL is required"]
+    errors = []
+    if database_url != database_url.strip():
+        errors.append("MERGEWORK_DATABASE_URL must not include leading or trailing whitespace")
+    if any(ord(char) < 32 or ord(char) == 127 for char in database_url):
+        errors.append("MERGEWORK_DATABASE_URL must not include control characters")
+    return errors
+
+
 def validate_deploy_settings(settings: Settings) -> list[str]:
     errors: list[str] = []
+    errors.extend(_database_url_errors(settings.database_url))
     errors.extend(_sqlite_database_errors(settings.database_url))
     errors.extend(_secret_errors("MERGEWORK_GITHUB_WEBHOOK_SECRET", settings.github_webhook_secret))
     errors.extend(
