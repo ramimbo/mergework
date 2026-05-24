@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.config import Settings, validate_deploy_settings
 
 
@@ -59,3 +61,28 @@ def test_deploy_readiness_requires_https_oauth_and_allowed_labelers() -> None:
     assert "MERGEWORK_PUBLIC_BASE_URL must use https" in errors
     assert "MERGEWORK_GITHUB_OAUTH_CLIENT_ID is required" in errors
     assert "MERGEWORK_GITHUB_ACCEPTED_LABELERS must list maintainer logins" in errors
+
+
+@pytest.mark.parametrize(
+    ("public_base_url", "expected_error"),
+    [
+        (
+            "https://staging.mrwk.example.test/",
+            "MERGEWORK_PUBLIC_BASE_URL must not end with a slash",
+        ),
+        (
+            "https://staging.mrwk.example.test?env=staging",
+            "MERGEWORK_PUBLIC_BASE_URL must not include query or fragment",
+        ),
+        (
+            "https://staging.mrwk.example.test#callback",
+            "MERGEWORK_PUBLIC_BASE_URL must not include query or fragment",
+        ),
+    ],
+)
+def test_deploy_readiness_rejects_public_base_url_suffixes(
+    public_base_url: str, expected_error: str
+) -> None:
+    errors = validate_deploy_settings(_settings(public_base_url=public_base_url))
+
+    assert expected_error in errors

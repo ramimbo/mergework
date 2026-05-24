@@ -64,6 +64,10 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
         errors.append("MERGEWORK_PUBLIC_BASE_URL must use https")
     if not parsed_base_url.netloc:
         errors.append("MERGEWORK_PUBLIC_BASE_URL must include a host")
+    if parsed_base_url.path.endswith("/") and parsed_base_url.path != "":
+        errors.append("MERGEWORK_PUBLIC_BASE_URL must not end with a slash")
+    if parsed_base_url.query or parsed_base_url.fragment:
+        errors.append("MERGEWORK_PUBLIC_BASE_URL must not include query or fragment")
     return errors
 
 
