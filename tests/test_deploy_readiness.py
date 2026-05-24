@@ -12,7 +12,7 @@ def _settings(**overrides: object) -> Settings:
         "database_url": "sqlite:////srv/mergework/data/mergework.sqlite3",
         "public_base_url": "https://staging.mrwk.example.test",
         "github_webhook_secret": "webhook-8efc3925bb8746b8a8fd3392c4c48e32",
-        "github_oauth_client_id": "client-id",
+        "github_oauth_client_id": "oauth-client-8efc3925bb8746b8a8fd3392",
         "github_oauth_client_secret": "oauth-7818e79f9d3a4a1d82ff0e1b9f0b8e42",
         "admin_logins": ("alice",),
         "admin_token": "admin-14dcaab83bb245f2bfb5d5c21a9bb55b",
@@ -78,6 +78,12 @@ def test_deploy_readiness_requires_https_oauth_and_allowed_labelers() -> None:
     assert "MERGEWORK_GITHUB_ACCEPTED_LABELERS must list maintainer logins" in errors
 
 
+def test_deploy_readiness_rejects_placeholder_oauth_client_id() -> None:
+    errors = validate_deploy_settings(_settings(github_oauth_client_id="client-id"))
+
+    assert "MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not use a placeholder value" in errors
+
+
 def test_deploy_readiness_rejects_non_admin_accepted_labelers() -> None:
     errors = validate_deploy_settings(
         _settings(
@@ -119,7 +125,7 @@ def test_deploy_readiness_script_runs_directly_from_source() -> None:
         "MERGEWORK_DATABASE_URL": "sqlite:////srv/mergework/data/mergework.sqlite3",
         "MERGEWORK_PUBLIC_BASE_URL": "https://staging.mrwk.example.test",
         "MERGEWORK_GITHUB_WEBHOOK_SECRET": "webhook-8efc3925bb8746b8a8fd3392c4c48e32",
-        "MERGEWORK_GITHUB_OAUTH_CLIENT_ID": "client-id",
+        "MERGEWORK_GITHUB_OAUTH_CLIENT_ID": "oauth-client-8efc3925bb8746b8a8fd3392",
         "MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET": "oauth-7818e79f9d3a4a1d82ff0e1b9f0b8e42",
         "MERGEWORK_ADMIN_LOGINS": "alice",
         "MERGEWORK_ADMIN_TOKEN": "admin-14dcaab83bb245f2bfb5d5c21a9bb55b",

@@ -37,7 +37,7 @@ jobs:
           MERGEWORK_DATABASE_URL: sqlite:////srv/mergework/data/mergework.sqlite3
           MERGEWORK_PUBLIC_BASE_URL: https://staging.mrwk.example.test
           MERGEWORK_GITHUB_WEBHOOK_SECRET: webhook-8efc3925bb8746b8a8fd3392c4c48e32
-          MERGEWORK_GITHUB_OAUTH_CLIENT_ID: client-id
+          MERGEWORK_GITHUB_OAUTH_CLIENT_ID: oauth-client-8efc3925bb8746b8a8fd3392
           MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET: oauth-7818e79f9d3a4a1d82ff0e1b9f0b8e42
           MERGEWORK_ADMIN_LOGINS: alice
           MERGEWORK_GITHUB_ACCEPTED_LABELERS: alice

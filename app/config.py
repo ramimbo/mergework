@@ -29,6 +29,19 @@ WEAK_SECRET_VALUES = {
     "mergework",
 }
 
+WEAK_OAUTH_CLIENT_ID_VALUES = WEAK_SECRET_VALUES | {
+    "client-id",
+    "clientid",
+    "client_id",
+    "dummy",
+    "example",
+    "github-client-id",
+    "github-oauth-client-id",
+    "oauth-client-id",
+    "placeholder",
+    "your-client-id",
+}
+
 
 def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
     return tuple(
@@ -43,6 +56,15 @@ def _secret_errors(name: str, value: str) -> list[str]:
         return [f"{name} must be at least 32 characters"]
     if len(set(value)) < 12:
         return [f"{name} must look randomly generated"]
+    return []
+
+
+def _github_oauth_client_id_errors(value: str) -> list[str]:
+    stripped = value.strip()
+    if not stripped:
+        return ["MERGEWORK_GITHUB_OAUTH_CLIENT_ID is required"]
+    if stripped.lower() in WEAK_OAUTH_CLIENT_ID_VALUES:
+        return ["MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not use a placeholder value"]
     return []
 
 
@@ -63,8 +85,7 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
     present_secrets = [secret for secret in deploy_secrets if secret]
     if len(set(present_secrets)) != len(present_secrets):
         errors.append("deploy secrets must use distinct values")
-    if not settings.github_oauth_client_id:
-        errors.append("MERGEWORK_GITHUB_OAUTH_CLIENT_ID is required")
+    errors.extend(_github_oauth_client_id_errors(settings.github_oauth_client_id))
     if not settings.admin_logins:
         errors.append("MERGEWORK_ADMIN_LOGINS must list admin GitHub logins")
     if not settings.github_accepted_labelers:
