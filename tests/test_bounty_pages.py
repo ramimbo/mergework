@@ -82,16 +82,28 @@ def test_bounties_page_searches_public_bounties(sqlite_url: str) -> None:
             reward_mrwk="25",
             acceptance="Improve wallet transfer copy.",
         )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=201,
+            issue_url="https://github.com/ramimbo/mergework/issues/201",
+            title="Literal 100% docs example",
+            reward_mrwk="25",
+            acceptance="Underscore literal is release_note cleanup.",
+        )
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     page = client.get("/bounties?q=proof")
     api = client.get("/api/v1/bounties?q=164")
     status_page = client.get("/bounties?status=open&q=activity")
+    percent_api = client.get("/api/v1/bounties?q=%25")
+    underscore_api = client.get("/api/v1/bounties?q=_")
 
     assert page.status_code == 200
     assert "Contributor activity discovery" in page.text
     assert "Wallet transfer polish" not in page.text
+    assert "Literal 100% docs example" not in page.text
     assert "Showing matches for <strong>proof</strong>." in page.text
     assert 'href="/bounties?status=open&q=proof"' in page.text
     assert 'href="/bounties?q=proof" aria-current="page"' in page.text
@@ -100,6 +112,8 @@ def test_bounties_page_searches_public_bounties(sqlite_url: str) -> None:
     assert "Contributor activity discovery" in status_page.text
     assert 'value="activity"' in status_page.text
     assert 'href="/bounties?status=open">Clear search</a>' in status_page.text
+    assert [item["issue_number"] for item in percent_api.json()] == [201]
+    assert [item["issue_number"] for item in underscore_api.json()] == [201]
 
 
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:

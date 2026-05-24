@@ -516,11 +516,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 query = query.where(Bounty.status == normalized_status)
             if search is not None and search.strip():
                 clean_search = search.strip().lower()
-                pattern = f"%{clean_search}%"
+                escaped_search = (
+                    clean_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                )
+                pattern = f"%{escaped_search}%"
                 search_filters: list[Any] = [
-                    func.lower(Bounty.repo).like(pattern),
-                    func.lower(Bounty.title).like(pattern),
-                    func.lower(Bounty.acceptance).like(pattern),
+                    func.lower(Bounty.repo).like(pattern, escape="\\"),
+                    func.lower(Bounty.title).like(pattern, escape="\\"),
+                    func.lower(Bounty.acceptance).like(pattern, escape="\\"),
                 ]
                 if clean_search.isdigit():
                     search_filters.append(Bounty.issue_number == int(clean_search))
