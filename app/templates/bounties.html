@@ -8,6 +8,14 @@
   <a href="/bounties?status=paid"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
   <a href="/bounties?status=closed"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
 </nav>
+<form method="get" action="/bounties" class="search-bar">
+  {% if selected_status %}
+  <input type="hidden" name="status" value="{{ selected_status }}" />
+  {% endif %}
+  <label for="bounty-search">Search</label>
+  <input id="bounty-search" name="q" value="{{ search_query }}" placeholder="title, repo, or issue #" />
+  <button type="submit">Filter</button>
+</form>
 <div class="list">
   {% for bounty in bounties %}
   <article>

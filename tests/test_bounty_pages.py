@@ -58,6 +58,49 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert "Paid public bounty" in paid_rows_uppercase.text
     assert "Open public bounty" not in paid_rows_uppercase.text
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
+    assert 'name="q"' in paid_rows_uppercase.text
+
+
+def test_bounties_page_searches_title_repo_and_issue_number(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=87,
+            issue_url="https://github.com/ramimbo/mergework/issues/87",
+            title="Activity feed polish",
+            reward_mrwk="50",
+            acceptance="Search should find activity-related work.",
+        )
+        create_bounty(
+            session,
+            repo="octo/docs",
+            issue_number=13,
+            issue_url="https://github.com/octo/docs/issues/13",
+            title="Docs typo cleanup",
+            reward_mrwk="25",
+            acceptance="Search should also match repo and issue number.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    title_rows = client.get("/bounties?q=activity")
+    assert title_rows.status_code == 200
+    assert "Activity feed polish" in title_rows.text
+    assert "Docs typo cleanup" not in title_rows.text
+    assert 'value="activity"' in title_rows.text
+
+    repo_rows = client.get("/bounties?q=octo/docs")
+    assert repo_rows.status_code == 200
+    assert "Docs typo cleanup" in repo_rows.text
+    assert "Activity feed polish" not in repo_rows.text
+
+    issue_rows = client.get("/bounties?q=87")
+    assert issue_rows.status_code == 200
+    assert "Activity feed polish" in issue_rows.text
+    assert "Docs typo cleanup" not in issue_rows.text
 
 
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
