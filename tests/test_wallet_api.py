@@ -97,6 +97,18 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
     assert client.get(f"/api/v1/wallets/{receiver_address}").json()["balance_mrwk"] == "3"
 
 
+def test_wallet_lookup_routes_reject_malformed_addresses(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex)
+
+    assert client.get(f"/api/v1/wallets/{address.upper()}").json()["address"] == address
+    assert client.get("/api/v1/wallets/not-a-wallet").status_code == 400
+    assert client.get(f"/api/v1/wallets/%20{address}%20").status_code == 400
+    assert client.get("/wallets/not-a-wallet").status_code == 400
+
+
 @pytest.mark.parametrize(
     ("body_overrides", "payload_overrides", "expected_detail"),
     [
