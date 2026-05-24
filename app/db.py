@@ -17,6 +17,8 @@ def _ensure_sqlite_parent(database_url: str) -> None:
         return
     parsed = urlparse(database_url)
     raw_path = unquote(parsed.path)
+    if len(raw_path) > 2 and raw_path[0] == "/" and raw_path[2] == ":":
+        raw_path = raw_path[1:]
     if raw_path:
         Path(raw_path).parent.mkdir(parents=True, exist_ok=True)
 

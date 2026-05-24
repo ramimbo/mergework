@@ -360,6 +360,8 @@ def create_bounty(
 ) -> Bounty:
     ensure_genesis(session)
     reward = parse_mrwk_amount(reward_mrwk)
+    if issue_number <= 0:
+        raise LedgerError("issue_number must be positive")
     if max_awards <= 0:
         raise LedgerError("max_awards must be positive")
     if max_awards > 1_000:
@@ -429,6 +431,8 @@ def submit_wallet_transfer(
     ensure_genesis(session)
     sender = _wallet_for_update(session, from_address)
     receiver = _wallet_for_update(session, to_address)
+    if sender.address == receiver.address:
+        raise LedgerError("sender and receiver must be different")
     amount = parse_mrwk_amount(amount_mrwk)
     clean_memo = memo.strip()
     if len(clean_memo) > 240:

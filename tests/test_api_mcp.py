@@ -34,6 +34,17 @@ def test_health_status_and_bounty_api(sqlite_url: str) -> None:
     assert bounties[0]["title"] == "First bounty"
 
 
+def test_account_api_rejects_empty_account_path(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert client.get("/api/v1/accounts/").status_code == 404
+    account = client.get("/api/v1/accounts/github:alice")
+    assert account.status_code == 200
+    assert account.json()["account"] == "github:alice"
+
+
 def test_bounty_api_reports_multi_award_capacity(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -215,6 +226,68 @@ def test_bounty_api_keeps_terminal_multi_awards_visible_but_inactive(sqlite_url:
     assert status["active_bounties"] == 0
 
 
+def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        open_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=40,
+            issue_url="https://github.com/ramimbo/mergework/issues/40",
+            title="Open status filter bounty",
+            reward_mrwk="5",
+            acceptance="Open rows should be filterable.",
+        )
+        paid_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=41,
+            issue_url="https://github.com/ramimbo/mergework/issues/41",
+            title="Paid status filter bounty",
+            reward_mrwk="5",
+            acceptance="Paid rows should be filterable.",
+        )
+        closed_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=42,
+            issue_url="https://github.com/ramimbo/mergework/issues/42",
+            title="Closed status filter bounty",
+            reward_mrwk="5",
+            acceptance="Closed rows should be filterable.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=paid_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/41",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        close_bounty(
+            session,
+            bounty_id=closed_bounty.id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/42#close",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert [item["id"] for item in client.get("/api/v1/bounties?status=open").json()] == [
+        open_bounty.id
+    ]
+    assert [item["id"] for item in client.get("/api/v1/bounties?status=paid").json()] == [
+        paid_bounty.id
+    ]
+    assert [item["id"] for item in client.get("/api/v1/bounties?status=closed").json()] == [
+        closed_bounty.id
+    ]
+    invalid = client.get("/api/v1/bounties?status=bogus")
+    assert invalid.status_code == 400
+    assert invalid.json()["detail"] == "status must be one of: open, paid, closed"
+
+
 def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -236,6 +309,81 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     ).json()
     assert balance["result"]["content"][0]["type"] == "text"
     assert "100000000" in balance["result"]["content"][0]["text"]
+
+
+def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    malformed = client.post("/mcp", data="not-json", headers={"content-type": "application/json"})
+    assert malformed.status_code == 400
+    assert malformed.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32700, "message": "parse error"},
+    }
+
+    non_object = client.post("/mcp", json=[])
+    assert non_object.status_code == 400
+    assert non_object.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": "invalid request"},
+    }
+
+    bad_params = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": []},
+    )
+    assert bad_params.status_code == 200
+    assert bad_params.json() == {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "error": {"code": -32602, "message": "invalid params"},
+    }
+
+
+def test_mcp_get_ledger_entry_includes_payment_proof_hash(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=45,
+            issue_url="https://github.com/ramimbo/mergework/issues/45",
+            title="MCP ledger proof hash",
+            reward_mrwk="75",
+            acceptance="MCP ledger entry agrees with REST ledger detail.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/54",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        ledger_sequence = proof.ledger_sequence
+        proof_hash = proof.hash
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "get_ledger_entry",
+                "arguments": {"sequence": ledger_sequence},
+            },
+        },
+    ).json()
+    payload = json.loads(result["result"]["content"][0]["text"])
+
+    assert payload["sequence"] == ledger_sequence
+    assert payload["proof_hash"] == proof_hash
 
 
 def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:

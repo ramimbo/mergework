@@ -38,6 +38,18 @@ def test_genesis_creates_fixed_supply_once(sqlite_url: str) -> None:
         assert verify_supply_conservation(session) is True
 
 
+def test_make_engine_accepts_windows_absolute_sqlite_url(tmp_path) -> None:
+    database_path = tmp_path / "nested" / "mergework.sqlite3"
+    engine = make_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("SELECT 1")
+    finally:
+        engine.dispose()
+
+    assert database_path.parent.exists()
+
+
 def test_bounty_reserve_and_payout_conserve_supply(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 
@@ -66,6 +78,24 @@ def test_bounty_reserve_and_payout_conserve_supply(sqlite_url: str) -> None:
         assert proof.hash
         assert verify_hash_chain(session) is True
         assert verify_supply_conservation(session) is True
+
+
+def test_create_bounty_rejects_non_positive_issue_number(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in (0, -1):
+            with pytest.raises(LedgerError, match="issue_number must be positive"):
+                create_bounty(
+                    session,
+                    repo="ramimbo/mergework",
+                    issue_number=issue_number,
+                    issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                    title="Invalid bounty",
+                    reward_mrwk="1",
+                    acceptance="Should not be created",
+                )
 
 
 def test_multi_award_bounty_pays_distinct_submissions_until_exhausted(

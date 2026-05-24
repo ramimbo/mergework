@@ -21,6 +21,10 @@ LINKED_ISSUE_RE = re.compile(
     r"(?:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?P<repo_number>\d+)|#(?P<number>\d+))",
     re.IGNORECASE,
 )
+GITHUB_ISSUE_URL_RE = re.compile(
+    r"https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/(?P<number>\d+)",
+    re.IGNORECASE,
+)
 
 
 def verify_github_signature(body: bytes, signature_header: str | None, secret: str) -> bool:
@@ -61,6 +65,12 @@ def _linked_issue_numbers(body: str, current_repo: str) -> list[int]:
         number = match.group("repo_number") or match.group("number")
         if number is not None and int(number) not in numbers:
             numbers.append(int(number))
+    for match in GITHUB_ISSUE_URL_RE.finditer(body):
+        if match.group("repo").lower() != current_repo.lower():
+            continue
+        number = int(match.group("number"))
+        if number not in numbers:
+            numbers.append(number)
     return numbers
 
 

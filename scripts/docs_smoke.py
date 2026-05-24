@@ -11,6 +11,7 @@ REQUIRED = [
     "docs/bounty-rules.md",
     "docs/paid-bounties.md",
     "docs/agent-guide.md",
+    "docs/api-examples.md",
     "docs/ledger.md",
     "docs/admin-runbook.md",
     "SECURITY.md",

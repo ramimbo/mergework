@@ -113,6 +113,38 @@ def test_admin_bounty_api_requires_admin_token_not_cookie_auth(
     assert token_auth.status_code == 200
 
 
+def test_admin_bounty_api_returns_400_for_malformed_json(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+
+    non_object = client.post(
+        "/api/v1/bounties",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+        json=["not", "an", "object"],
+    )
+    missing_field = client.post(
+        "/api/v1/bounties",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+        json={
+            "issue_number": 77,
+            "issue_url": "https://github.com/ramimbo/mergework/issues/77",
+            "title": "Missing repo",
+            "reward_mrwk": "10",
+            "acceptance": "Maintainer applies mrwk:accepted",
+        },
+    )
+
+    assert non_object.status_code == 400
+    assert non_object.json()["detail"] == "json body must be an object"
+    assert missing_field.status_code == 400
+    assert missing_field.json()["detail"] == "repo is required"
+
+
 def test_admin_payout_api_requires_admin_token_not_cookie_auth(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -157,6 +189,42 @@ def test_admin_payout_api_requires_admin_token_not_cookie_auth(
     assert token_auth.json()["to_account"] == wallet_address
     with session_scope(sqlite_url) as session:
         assert get_balance(session, wallet_address) == 25_000_000
+
+
+def test_admin_payout_api_returns_400_for_malformed_json(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_schema(sqlite_url)
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+        raise_server_exceptions=False,
+    )
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=3,
+            issue_url="https://github.com/ramimbo/mergework/issues/3",
+            title="Malformed payout JSON",
+            reward_mrwk="25",
+            acceptance="Maintainer verifies payout.",
+        )
+        bounty_id = bounty.id
+
+    invalid_json = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        content="{",
+        headers={
+            "x-mergework-admin-token": "admin-token-for-tests",
+            "content-type": "application/json",
+        },
+    )
+
+    assert invalid_json.status_code == 400
+    assert invalid_json.json()["detail"] == "invalid json body"
 
 
 def test_admin_close_bounty_api_releases_remaining_reserve(

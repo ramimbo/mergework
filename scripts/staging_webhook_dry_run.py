@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import sys
@@ -61,7 +62,11 @@ def _validate_http_url(url: str) -> None:
 def _enforce_staging_target(base_url: str) -> None:
     parsed = urlparse(base_url)
     host = parsed.hostname or ""
-    if host in {"127.0.0.1", "localhost"} or "staging" in host:
+    try:
+        is_loopback = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        is_loopback = host.lower() == "localhost"
+    if is_loopback or "staging" in host:
         return
     if os.environ.get("MERGEWORK_ALLOW_NON_STAGING_DRY_RUN") == "1":
         return

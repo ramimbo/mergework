@@ -323,6 +323,53 @@ def test_accepted_pr_label_pays_repo_qualified_multi_award_issue(sqlite_url: str
         assert get_balance(session, "github:reviewer") == 25_000_000
 
 
+def test_accepted_pr_label_pays_full_github_issue_url_reference(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    body = json.dumps(
+        {
+            "action": "labeled",
+            "label": {"name": "mrwk:accepted"},
+            "pull_request": {
+                "number": 12,
+                "html_url": "https://github.com/ramimbo/mergework/pull/12",
+                "body": "Implements the bounty at https://github.com/ramimbo/mergework/issues/5",
+                "user": {"login": "reviewer"},
+            },
+            "repository": {"full_name": "ramimbo/mergework"},
+            "sender": {"login": "maintainer"},
+        },
+        separators=(",", ":"),
+    ).encode()
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=5,
+            issue_url="https://github.com/ramimbo/mergework/issues/5",
+            title="Full issue URL bounty reference",
+            reward_mrwk="25",
+            max_awards=2,
+            acceptance="Accepted PR can link the full GitHub issue URL.",
+        )
+
+    result = handle_github_webhook(
+        sqlite_url,
+        {
+            "X-GitHub-Delivery": "delivery-full-url-pr",
+            "X-GitHub-Event": "pull_request",
+            "X-Hub-Signature-256": _signature("secret", body),
+        },
+        body,
+        "secret",
+    )
+
+    assert result["status"] == "paid"
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, "github:reviewer") == 25_000_000
+
+
 def test_accepted_maintainer_issue_label_requires_manual_payout(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     body = json.dumps(

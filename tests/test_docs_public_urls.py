@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from scripts.docs_smoke import REQUIRED
+
 
 def test_readme_lists_live_ltclab_urls() -> None:
     readme = Path("README.md").read_text(encoding="utf-8")
@@ -24,3 +26,7 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "/api/v1/bounties/<bounty_id>" in examples
     assert "not the GitHub issue" in examples
     assert "public_key_hex" in examples
+
+
+def test_docs_smoke_covers_public_api_examples() -> None:
+    assert "docs/api-examples.md" in REQUIRED

@@ -256,6 +256,13 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     app.state.webhook_secret = secret
     app.state.settings = settings
 
+    def post_only_route() -> None:
+        raise HTTPException(
+            status_code=405,
+            detail="Method Not Allowed",
+            headers={"Allow": "POST"},
+        )
+
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next: Any) -> Any:
         response = await call_next(request)
@@ -323,28 +330,37 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         }
 
     @app.get("/api/v1/bounties")
-    def api_bounties() -> list[dict[str, Any]]:
+    def api_bounties(status: str | None = Query(None)) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
-            bounties = session.scalars(select(Bounty).order_by(Bounty.id.desc())).all()
+            query = select(Bounty)
+            if status is not None:
+                if status not in {"open", "paid", "closed"}:
+                    raise HTTPException(
+                        status_code=400, detail="status must be one of: open, paid, closed"
+                    )
+                query = query.where(Bounty.status == status)
+            bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             return [bounty_to_dict(bounty) for bounty in bounties]
 
     @app.post("/api/v1/bounties")
     async def api_create_bounty(
         request: Request, admin_login: str = Depends(require_admin_token)
     ) -> dict[str, Any]:
-        data = await request.json()
+        data = await _json_object(request)
         with session_scope(db_url) as session:
             try:
                 bounty = create_bounty(
                     session,
-                    repo=data["repo"],
-                    issue_number=int(data["issue_number"]),
-                    issue_url=data["issue_url"],
-                    title=data["title"],
+                    repo=_required_str(data, "repo"),
+                    issue_number=_required_int(data, "issue_number"),
+                    issue_url=_required_str(data, "issue_url"),
+                    title=_required_str(data, "title"),
                     reward_mrwk=str(data["reward_mrwk"]),
                     max_awards=_optional_int(data, "max_awards", 1),
-                    acceptance=data["acceptance"],
+                    acceptance=_required_str(data, "acceptance"),
                 )
+            except KeyError as exc:
+                raise HTTPException(status_code=400, detail=f"{exc.args[0]} is required") from exc
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             result = bounty_to_dict(bounty)
@@ -365,9 +381,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         request: Request,
         admin_login: str = Depends(require_admin_token),
     ) -> dict[str, Any]:
-        data = await request.json()
-        if not isinstance(data, dict):
-            raise HTTPException(status_code=400, detail="json body must be an object")
+        data = await _json_object(request)
         try:
             requested_account = str(data["to_account"])
             submission_url = str(data["submission_url"])
@@ -428,7 +442,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "ledger_sequence": release.sequence if release else None,
             }
 
-    @app.get("/api/v1/accounts/{account:path}")
+    @app.get("/api/v1/accounts/{account}")
     def api_account(account: str) -> dict[str, Any]:
         with session_scope(db_url) as session:
             account_row = session.get(Account, account)
@@ -460,6 +474,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return wallet_to_dict(session, wallet)
+
+    @app.get("/api/v1/wallets/register")
+    def api_register_wallet_get() -> None:
+        post_only_route()
+
+    @app.get("/api/v1/wallets/link-github")
+    def api_link_wallet_github_get() -> None:
+        post_only_route()
 
     @app.get("/api/v1/wallets/{address}")
     def api_wallet(address: str) -> dict[str, Any]:
@@ -569,8 +591,27 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         return JSONResponse(result, status_code=code)
 
     @app.post("/mcp")
-    async def mcp(request: Request) -> dict[str, Any]:
-        payload = await request.json()
+    async def mcp(request: Request) -> Any:
+        try:
+            payload = await request.json()
+        except ValueError:
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "parse error"},
+                },
+                status_code=400,
+            )
+        if not isinstance(payload, dict):
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32600, "message": "invalid request"},
+                },
+                status_code=400,
+            )
         response_id = payload.get("id")
         method = payload.get("method")
         if method == "tools/list":
@@ -606,7 +647,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "id": response_id,
                 "error": {"code": -32601, "message": "unknown method"},
             }
-        params = payload.get("params") or {}
+        params = payload.get("params")
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            return {
+                "jsonrpc": "2.0",
+                "id": response_id,
+                "error": {"code": -32602, "message": "invalid params"},
+            }
         name = params.get("name")
         args = params.get("arguments") or {}
         if not isinstance(args, dict):
@@ -968,7 +1017,10 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str:
             entry = session.get(LedgerEntry, int(args["sequence"]))
             if entry is None:
                 return "ledger entry not found"
-            return json.dumps(ledger_to_dict(entry))
+            proof = session.scalar(
+                select(Proof).where(Proof.ledger_sequence == entry.sequence).limit(1)
+            )
+            return json.dumps(ledger_to_dict(entry, proof.hash if proof else None))
         if name == "get_proof":
             proof = session.get(Proof, str(args["hash"]))
             if proof is None:
