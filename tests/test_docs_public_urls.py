@@ -30,6 +30,16 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_status_response_fields() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/status" in examples
+    assert '"ledger_height": 42' in examples
+    assert '"active_bounties": 3' in examples
+    assert '"treasury_balance_mrwk": "99999000"' in examples
+    assert '"future_path": "public snapshots, bridges, and onchain claims"' in examples
+
+
 def test_agent_guide_explains_internal_bounty_ids() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 
