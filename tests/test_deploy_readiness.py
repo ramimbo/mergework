@@ -133,6 +133,20 @@ def test_deploy_readiness_accepts_absolute_sqlite_and_external_database_urls() -
     )
 
 
+def test_deploy_readiness_rejects_database_url_whitespace_and_control_characters() -> None:
+    whitespace_errors = validate_deploy_settings(
+        _settings(database_url=" sqlite:////srv/mergework/data/app.sqlite3")
+    )
+    control_errors = validate_deploy_settings(
+        _settings(database_url="sqlite:////srv/mergework/data/app.sqlite3\nextra")
+    )
+
+    assert "MERGEWORK_DATABASE_URL must not include leading or trailing whitespace" in (
+        whitespace_errors
+    )
+    assert "MERGEWORK_DATABASE_URL must not include control characters" in control_errors
+
+
 def test_deploy_readiness_requires_https_oauth_and_allowed_labelers() -> None:
     errors = validate_deploy_settings(
         _settings(
@@ -155,6 +169,20 @@ def test_deploy_readiness_rejects_malformed_oauth_client_id() -> None:
         whitespace_errors
     )
     assert "MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not include control characters" in control_errors
+
+
+def test_deploy_readiness_rejects_public_base_url_whitespace_and_control_characters() -> None:
+    whitespace_errors = validate_deploy_settings(
+        _settings(public_base_url=" https://mrwk.example.test")
+    )
+    control_errors = validate_deploy_settings(
+        _settings(public_base_url="https://mrwk.example.test\n")
+    )
+
+    assert "MERGEWORK_PUBLIC_BASE_URL must not include leading or trailing whitespace" in (
+        whitespace_errors
+    )
+    assert "MERGEWORK_PUBLIC_BASE_URL must not include control characters" in control_errors
 
 
 def test_deploy_readiness_rejects_non_admin_accepted_labelers() -> None:

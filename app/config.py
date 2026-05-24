@@ -96,6 +96,8 @@ def _sqlite_database_errors(database_url: str) -> list[str]:
 
 def validate_deploy_settings(settings: Settings) -> list[str]:
     errors: list[str] = []
+    errors.extend(_required_env_value_errors("MERGEWORK_DATABASE_URL", settings.database_url))
+    errors.extend(_required_env_value_errors("MERGEWORK_PUBLIC_BASE_URL", settings.public_base_url))
     errors.extend(_sqlite_database_errors(settings.database_url))
     errors.extend(_secret_errors("MERGEWORK_GITHUB_WEBHOOK_SECRET", settings.github_webhook_secret))
     errors.extend(
