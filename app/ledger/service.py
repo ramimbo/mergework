@@ -76,6 +76,8 @@ def canonical_json(data: dict[str, Any]) -> str:
 
 def validate_public_url(url: str) -> str:
     clean = url.strip()
+    if any(ord(char) < 32 or ord(char) == 127 for char in clean):
+        raise LedgerError("URL must not contain control characters")
     if len(clean) > 500:
         raise LedgerError("URL is too long")
     parsed = urlparse(clean)

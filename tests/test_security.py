@@ -444,6 +444,52 @@ def test_bounty_urls_reject_embedded_credentials(sqlite_url: str) -> None:
             )
 
 
+def test_bounty_urls_reject_control_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_url in (
+            "https://github.com/ramimbo/mergework/issues/11\nhttps://evil.example",
+            "https://github.com/ramimbo/mergework/issues/11\tbad",
+        ):
+            with pytest.raises(LedgerError, match="URL must not contain control characters"):
+                create_bounty(
+                    session,
+                    repo="ramimbo/mergework",
+                    issue_number=11,
+                    issue_url=issue_url,
+                    title="Control character URL",
+                    reward_mrwk="1",
+                    acceptance="Maintainer applies mrwk:accepted",
+                )
+
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=12,
+            issue_url="https://github.com/ramimbo/mergework/issues/12",
+            title="Safe URL",
+            reward_mrwk="1",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+        with pytest.raises(LedgerError, match="URL must not contain control characters"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/12\nhttps://evil.example",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+    assert (
+        ledger_service.public_url_or_none(
+            "https://github.com/ramimbo/mergework/issues/12\nhttps://evil.example"
+        )
+        is None
+    )
+
+
 def test_bounty_fields_reject_oversized_values(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
