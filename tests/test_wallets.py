@@ -56,6 +56,17 @@ def test_wallet_registration_rejects_oversized_label(sqlite_url: str) -> None:
         register_wallet(session, public_key_hex=public_hex, label="x" * 161)
 
 
+def test_wallet_registration_rejects_control_characters_in_label(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, _ = _keypair()
+
+    with (
+        session_scope(sqlite_url) as session,
+        pytest.raises(LedgerError, match="wallet label must not contain control characters"),
+    ):
+        register_wallet(session, public_key_hex=public_hex, label="Ops\nWallet")
+
+
 def test_signed_wallet_transfer_moves_balance_and_rejects_replay(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     sender_key, sender_public, sender_address = _keypair()
@@ -106,6 +117,44 @@ def test_signed_wallet_transfer_moves_balance_and_rejects_replay(sqlite_url: str
                 nonce=1,
                 memo="first transfer",
                 signature_hex=signature,
+            )
+
+
+def test_wallet_transfer_rejects_control_characters_in_memo(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    sender_key, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        register_wallet(session, public_key_hex=sender_public, label="Sender")
+        register_wallet(session, public_key_hex=receiver_public, label="Receiver")
+        add_ledger_entry(
+            session,
+            entry_type="test_funding",
+            from_account=TREASURY_ACCOUNT,
+            to_account=sender_address,
+            amount_microunits=10_000_000,
+            reference="test-funding",
+        )
+
+        payload = wallet_transfer_payload(
+            from_address=sender_address,
+            to_address=receiver_address,
+            amount_microunits=1_000_000,
+            nonce=1,
+            memo="bad\tmemo",
+        )
+
+        with pytest.raises(LedgerError, match="memo must not contain control characters"):
+            submit_wallet_transfer(
+                session,
+                from_address=sender_address,
+                to_address=receiver_address,
+                amount_mrwk="1",
+                nonce=1,
+                memo="bad\tmemo",
+                signature_hex=_sign(sender_key, payload),
             )
 
 

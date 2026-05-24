@@ -36,6 +36,7 @@ TREASURY_ACCOUNT = "treasury:mrwk"
 MICRO_UNITS = 1_000_000
 GENESIS_SUPPLY_MICRO = 100_000_000 * MICRO_UNITS
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+CONTROL_CHARACTER_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class LedgerError(RuntimeError):
@@ -127,6 +128,8 @@ def _clean_optional_text(value: str | None, field: str, max_length: int) -> str 
     if value is None:
         return None
     clean = value.strip()
+    if CONTROL_CHARACTER_RE.search(clean):
+        raise LedgerError(f"{field} must not contain control characters")
     if len(clean) > max_length:
         raise LedgerError(f"{field} is too long")
     return clean or None
@@ -437,6 +440,8 @@ def submit_wallet_transfer(
         raise LedgerError("sender and receiver must be different")
     amount = parse_mrwk_amount(amount_mrwk)
     clean_memo = memo.strip()
+    if CONTROL_CHARACTER_RE.search(clean_memo):
+        raise LedgerError("memo must not contain control characters")
     if len(clean_memo) > 240:
         raise LedgerError("memo is too long")
     if get_balance(session, sender.address) < amount:
