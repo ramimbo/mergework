@@ -59,9 +59,11 @@ from app.serializers import (
     activity_to_dict,
     bounty_awards_to_dict,
     bounty_list_summary,
+    bounty_payment_payload,
     bounty_to_dict,
     ledger_to_dict,
     payout_reconciliation_to_dict,
+    proof_public_payload,
     safe_accepted_work_for_account,
     safe_account_accepted_summary,
     wallet_to_dict,
@@ -214,8 +216,8 @@ def expire_stale_bounty_attempts(
 
 
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
-    data = json.loads(proof.public_json)
-    if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
+    data = bounty_payment_payload(proof)
+    if data is None:
         raise HTTPException(status_code=500, detail="invalid proof payload")
     return {
         "status": status,
@@ -1099,8 +1101,8 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             proof = session.get(Proof, proof_hash)
             if proof is None:
                 raise HTTPException(status_code=404, detail="proof not found")
-            data = json.loads(proof.public_json)
-            if not isinstance(data, dict):
+            data = proof_public_payload(proof)
+            if data is None:
                 raise HTTPException(status_code=500, detail="invalid proof payload")
             return data
 
@@ -1725,8 +1727,8 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             proof = session.get(Proof, _proof_hash_from_path(str_arg("hash")))
             if proof is None:
                 return "proof not found"
-            public_payload = json.loads(proof.public_json)
-            if not isinstance(public_payload, dict):
+            public_payload = proof_public_payload(proof)
+            if public_payload is None:
                 raise ValueError("invalid proof payload")
             return json.dumps(
                 {

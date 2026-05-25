@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import add_ledger_entry, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.models import Proof
 
 
 def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -> None:
@@ -109,6 +110,57 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     assert payload["recent"][0]["bounty_id"] == second_bounty.id
     assert payload["recent"][0]["bounty_url"] == f"/bounties/{second_bounty.id}"
     assert all("unproved" not in row["submission_url"] for row in payload["recent"])
+
+
+def test_activity_views_skip_malformed_proof_payloads(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=12,
+            issue_url="https://github.com/ramimbo/mergework/issues/12",
+            title="Activity malformed proof bounty",
+            reward_mrwk="25",
+            max_awards=2,
+            acceptance="Activity should skip malformed proof rows.",
+        )
+        valid_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/12",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        malformed_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/13",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        proof_row = session.get(Proof, malformed_proof.hash)
+        assert proof_row is not None
+        proof_row.public_json = "{"
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/activity")
+    page = client.get("/activity")
+
+    assert response.status_code == 200
+    assert page.status_code == 200
+    payload = response.json()
+    assert payload["totals"] == {
+        "accepted_awards": 1,
+        "accepted_mrwk": "25",
+        "contributors": 1,
+    }
+    assert [row["proof_hash"] for row in payload["recent"]] == [valid_proof.hash]
+    assert malformed_proof.hash not in page.text
 
 
 def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:

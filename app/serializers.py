@@ -37,6 +37,23 @@ def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
     }
 
 
+def proof_public_payload(proof: Proof) -> dict[str, Any] | None:
+    """Decode a stored public proof payload if it is a JSON object."""
+    try:
+        data = json.loads(proof.public_json)
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def bounty_payment_payload(proof: Proof) -> dict[str, Any] | None:
+    """Decode a stored bounty payment proof payload."""
+    data = proof_public_payload(proof)
+    if data is None or data.get("kind") != "bounty_payment":
+        return None
+    return data
+
+
 def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, Any]]:
     """Return accepted award proof rows for a bounty."""
     proofs = session.scalars(
@@ -46,8 +63,8 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
     ).all()
     awards: list[dict[str, Any]] = []
     for proof in proofs:
-        data = json.loads(proof.public_json)
-        if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
+        data = bounty_payment_payload(proof)
+        if data is None:
             continue
         proof_hash = str(proof.hash)
         awards.append(
@@ -128,8 +145,8 @@ def _bounty_detail_url(bounty_id: int | None) -> str | None:
 
 
 def _activity_row(entry: LedgerEntry, proof: Proof) -> dict[str, Any] | None:
-    data = json.loads(proof.public_json)
-    if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
+    data = bounty_payment_payload(proof)
+    if data is None:
         return None
     submission_url = str(data.get("submission_url") or entry.reference)
     repo = data.get("repo")
@@ -288,8 +305,8 @@ def accepted_work_for_account(session: Session, account: str) -> list[dict[str, 
     ).all()
     accepted_work: list[dict[str, Any]] = []
     for proof, entry in rows:
-        data = json.loads(proof.public_json)
-        if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
+        data = bounty_payment_payload(proof)
+        if data is None:
             continue
         repo = data.get("repo")
         issue_number = data.get("issue_number")

@@ -1129,6 +1129,51 @@ def test_mcp_get_proof_rejects_malformed_hash(sqlite_url: str) -> None:
     }
 
 
+def test_mcp_get_proof_rejects_malformed_stored_payload(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=46,
+            issue_url="https://github.com/ramimbo/mergework/issues/46",
+            title="Malformed proof payload",
+            reward_mrwk="25",
+            acceptance="Proof payloads should be valid JSON.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/46",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        proof_row = session.get(Proof, proof.hash)
+        assert proof_row is not None
+        proof_row.public_json = "{"
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "get_proof", "arguments": {"hash": proof.hash}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
 def test_mcp_submit_work_proof_returns_bounty_specific_guidance(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -1561,9 +1606,11 @@ def test_account_api_keeps_schema_when_accepted_work_proof_is_malformed(
 
     response = client.get("/api/v1/accounts/github:alice")
     account_page = client.get("/accounts/github:alice")
+    accepted_work_response = client.get("/api/v1/accounts/github:alice/accepted-work")
 
     assert response.status_code == 200
     assert account_page.status_code == 200
+    assert accepted_work_response.status_code == 200
     account_api = response.json()
     assert account_api["balance_mrwk"] == "25"
     assert account_api["accepted_work"] == {
@@ -1573,6 +1620,18 @@ def test_account_api_keeps_schema_when_accepted_work_proof_is_malformed(
         "latest_submission_url": None,
         "latest_proof_hash": None,
         "latest_proof_url": None,
+    }
+    assert accepted_work_response.json() == {
+        "account": "github:alice",
+        "summary": {
+            "accepted_awards": 0,
+            "accepted_mrwk": "0",
+            "latest_ledger_sequence": None,
+            "latest_submission_url": None,
+            "latest_proof_hash": None,
+            "latest_proof_url": None,
+        },
+        "accepted_work": [],
     }
 
 
