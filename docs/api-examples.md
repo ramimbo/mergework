@@ -54,7 +54,7 @@ MergeWork bounty `id` as `bounty_id`; `issue_number` is the source GitHub issue
 number, and `ledger_sequence` can be opened with `/api/v1/ledger/<sequence>`.
 
 ```json
-{"kind":"bounty_payment","bounty_id":32,"repo":"ramimbo/mergework","issue_number":156,"submission_url":"https://github.com/ramimbo/mergework/pull/155#pullrequestreview-4353350771","accepted_by":"ramimbo","to_account":"github:ckeplinger199","amount_mrwk":"40","ledger_sequence":322,"ledger_hash":"ae4d68cb6fb28d4bdce303a141ddc14ff8251da2c26009dc5449be230dc9b9ff","verifier_result":{"accepted_by":"ramimbo","note":"claim https://github.com/ramimbo/mergework/issues/107#issuecomment-4529851212","source":"admin_api"}}
+{"accepted_by":"ramimbo","amount_mrwk":"50","bounty_id":30,"issue_number":122,"kind":"bounty_payment","ledger_hash":"36ba31e67edece61c176055551e904ed2663ec80705b89650cb70e5b0fd624a7","ledger_sequence":252,"repo":"ramimbo/mergework","submission_url":"https://github.com/ramimbo/mergework/pull/123","to_account":"github:ckeplinger199","verifier_result":{"bounty_issue_number":122,"delivery_id":"e15fae40-578f-11f1-8bb8-862e130231a2","event":"pull_request","label":"mrwk:accepted"}}
 ```
 
 Register a wallet public key. Keep the private key local; only send the public
