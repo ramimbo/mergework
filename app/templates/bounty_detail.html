@@ -36,6 +36,35 @@
     </article>
   </div>
 
+  <section class="acceptance-card" aria-labelledby="contributor-action-heading">
+    <p class="eyebrow">Contributor action</p>
+    {% if bounty.status == "open" and bounty.awards_remaining > 0 %}
+      <h2 id="contributor-action-heading">Ready for contributors</h2>
+      <p>
+        This bounty is open for {{ bounty.awards_remaining }} more award{% if bounty.awards_remaining != 1 %}s{% endif %}.
+        Submit focused work that cites <code>Bounty #{{ bounty.issue_number }}</code> and matches the acceptance criteria.
+      </p>
+    {% elif bounty.status == "open" %}
+      <h2 id="contributor-action-heading">Review before starting</h2>
+      <p>
+        This bounty is still marked open, but no award slots remain.
+        Check maintainer comments or a newer round before starting new work.
+      </p>
+    {% elif bounty.status == "paid" %}
+      <h2 id="contributor-action-heading">All awards paid</h2>
+      <p>
+        This bounty has used its award slots.
+        Use the source issue and proof links to inspect accepted work instead of starting a new claim.
+      </p>
+    {% else %}
+      <h2 id="contributor-action-heading">Closed for new work</h2>
+      <p>
+        This bounty is closed.
+        Use the source issue and ledger history for context, but look for an open bounty before starting new work.
+      </p>
+    {% endif %}
+  </section>
+
   <section class="acceptance-card" aria-labelledby="acceptance-heading">
     <p class="eyebrow">Acceptance</p>
     <h2 id="acceptance-heading">What has to be true</h2>

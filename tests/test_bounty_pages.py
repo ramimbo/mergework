@@ -149,6 +149,9 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert "<span>Awards</span>" in response.text
     assert "<span>Issue</span>" in response.text
     assert "100 MRWK" in response.text
+    assert "Ready for contributors" in response.text
+    assert "open for 1 more award" in response.text
+    assert "Bounty #4" in response.text
     assert "What has to be true" in response.text
     assert "Focused PR improves status, reward, issue link, and acceptance text." in response.text
 
@@ -156,6 +159,59 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert missing_response.status_code == 404
     assert client.get("/api/v1/bounties/0").status_code == 400
     assert client.get("/bounties/0").status_code == 400
+
+
+def test_bounty_detail_explains_paid_and_closed_action_states(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        paid_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=14,
+            issue_url="https://github.com/ramimbo/mergework/issues/14",
+            title="Paid discovery bounty",
+            reward_mrwk="50",
+            max_awards=1,
+            acceptance="Accepted work should make the paid state obvious.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=paid_bounty.id,
+            to_account="github:contributor",
+            submission_url="https://github.com/ramimbo/mergework/pull/14",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        closed_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=15,
+            issue_url="https://github.com/ramimbo/mergework/issues/15",
+            title="Closed discovery bounty",
+            reward_mrwk="50",
+            acceptance="Closed work should not look claimable.",
+        )
+        close_bounty(
+            session,
+            bounty_id=closed_bounty.id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/15",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    paid_response = client.get(f"/bounties/{paid_bounty.id}")
+    assert paid_response.status_code == 200
+    assert "All awards paid" in paid_response.text
+    assert "used its award slots" in paid_response.text
+    assert "Ready for contributors" not in paid_response.text
+
+    closed_response = client.get(f"/bounties/{closed_bounty.id}")
+    assert closed_response.status_code == 200
+    assert "Closed for new work" in closed_response.text
+    assert "look for an open bounty" in closed_response.text
+    assert "Ready for contributors" not in closed_response.text
 
 
 def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) -> None:
