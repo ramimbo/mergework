@@ -40,6 +40,7 @@ from app.ledger.service import (
     submit_wallet_transfer,
 )
 from app.models import Account, Bounty, LedgerEntry, Proof, Wallet, WalletTransfer
+from app.wallets import WalletError, normalize_wallet_address
 from app.webhooks.github import handle_github_webhook
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -286,7 +287,10 @@ def _normalized_account(account: str) -> str:
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
     if clean.lower().startswith("mrwk1"):
-        return clean.lower()
+        try:
+            return normalize_wallet_address(clean)
+        except WalletError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     if clean.lower().startswith("github:"):
         login = clean.split(":", 1)[1].lower()
         if not GITHUB_LOGIN_RE.fullmatch(login):
