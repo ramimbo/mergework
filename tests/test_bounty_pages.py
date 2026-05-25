@@ -124,6 +124,72 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert [row["issue_number"] for row in backslash_search.json()] == [66]
 
 
+def test_bounties_page_and_api_sort_public_bounties(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        small = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=70,
+            issue_url="https://github.com/ramimbo/mergework/issues/70",
+            title="Small bounty",
+            reward_mrwk="25",
+            max_awards=1,
+            acceptance="Small public discovery task.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=71,
+            issue_url="https://github.com/ramimbo/mergework/issues/71",
+            title="Large bounty",
+            reward_mrwk="125",
+            max_awards=1,
+            acceptance="Large public discovery task.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=72,
+            issue_url="https://github.com/ramimbo/mergework/issues/72",
+            title="Multi-award bounty",
+            reward_mrwk="50",
+            max_awards=4,
+            acceptance="Multi-award public discovery task.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=small.id,
+            to_account="github:contributor",
+            submission_url="https://github.com/ramimbo/mergework/pull/70",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    reward_sorted = client.get("/api/v1/bounties?sort=reward")
+    assert reward_sorted.status_code == 200
+    assert [row["issue_number"] for row in reward_sorted.json()] == [71, 72, 70]
+
+    remaining_sorted = client.get("/api/v1/bounties?sort=remaining")
+    assert remaining_sorted.status_code == 200
+    assert [row["issue_number"] for row in remaining_sorted.json()] == [72, 71, 70]
+
+    page = client.get("/bounties?status=open&q=discovery&sort=remaining")
+    assert page.status_code == 200
+    assert 'aria-label="Bounty sort options"' in page.text
+    assert 'href="/bounties?sort=reward&status=open&q=discovery"' in page.text
+    assert (
+        'href="/bounties?sort=remaining&status=open&q=discovery" aria-current="page"' in page.text
+    )
+    assert page.text.index("Multi-award bounty") < page.text.index("Large bounty")
+
+    bad_sort = client.get("/api/v1/bounties?sort=random")
+    assert bad_sort.status_code == 400
+
+
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
