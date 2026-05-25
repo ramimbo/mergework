@@ -12,10 +12,25 @@ MCP_HOST=https://mcp.mrwk.ltclab.site
 Check service status and list bounties:
 
 ```bash
+curl -s "$API_HOST/health"
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
 ```
+
+The `/health` endpoint returns a compact public liveness payload:
+
+```json
+{
+  "ok": true,
+  "service": "mergework",
+  "ticker": "MRWK",
+  "ledger_height": 123
+}
+```
+
+`ledger_height` is a numeric ledger counter that changes whenever new ledger
+entries are appended, so treat the example value as illustrative.
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
 `open`, `paid`, or `closed`:
