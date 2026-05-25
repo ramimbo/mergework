@@ -24,6 +24,8 @@ BANNED_PUBLIC_PHRASES = [
 ]
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
+PR_TEMPLATE = ".github/pull_request_template.md"
+ISSUE_TEMPLATES = {".github/ISSUE_TEMPLATE/bounty.yml", ".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/security-report.yml", ".github/ISSUE_TEMPLATE/docs.yml", DOCS_ISSUE_TEMPLATE}
 
 
 def _local_target_exists(source: Path, target: str) -> bool:
@@ -63,6 +65,10 @@ def main() -> int:
         if "link the page, docs file, heading, command, or ui path" not in template:
             print("docs issue template location prompt must request actionable evidence")
             ok = False
+    pr_template = ROOT / PR_TEMPLATE
+    if not pr_template.exists():
+        print(f"missing PR template: {PR_TEMPLATE}")
+        ok = False
     if ok:
         print("docs smoke ok")
         return 0
