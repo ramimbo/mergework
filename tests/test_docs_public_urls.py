@@ -50,7 +50,7 @@ def test_api_examples_document_account_response_shape() -> None:
     assert '"ledger_address": "github:tatelyman"' in examples
     assert '"github_login": "tatelyman"' in examples
     assert '"exists": true' in examples
-    assert '"balance_mrwk": "395"' in examples
+    assert '"balance_mrwk": "1290"' in examples
     assert "Claim GitHub balances from /me" in examples
     assert "treasury:" in examples
     assert "registered `mrwk1` addresses" in examples
@@ -61,12 +61,12 @@ def test_api_examples_document_ledger_response_shape() -> None:
 
     assert "/api/v1/ledger?limit=10" in examples
     assert "/api/v1/ledger/<sequence>" in examples
-    assert '"sequence": 329' in examples
+    assert '"sequence": 392' in examples
     assert '"type": "bounty_reserve"' in examples
     assert '"from": "treasury:mrwk"' in examples
-    assert '"to": "reserve:bounty:36"' in examples
+    assert '"to": "reserve:bounty:39"' in examples
     assert (
-        '"entry_hash": "248e1e38f90ac42897486a2b52a938ad51f31849250c4a979358e9721ec7c64e"'
+        '"entry_hash": "d5cc60f7b8359a12a752471577e91560509019299abc15d4ad9e63b5fd6089bb"'
         in examples
     )
     assert '"proof_hash": null' in examples
@@ -87,14 +87,14 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
 
     assert "/api/v1/bounties?status=open" in examples
     assert "status` can be omitted or set to" in examples
-    assert '"id": 36' in examples
+    assert '"id": 39' in examples
     assert '"repo": "ramimbo/mergework"' in examples
-    assert '"issue_number": 164' in examples
-    assert '"reward_mrwk": "100"' in examples
-    assert '"reserved_mrwk": "500"' in examples
-    assert '"awards_paid": 4' in examples
-    assert '"awards_remaining": 1' in examples
-    assert "Award counters can change" in examples
+    assert '"issue_number": 229' in examples
+    assert '"reward_mrwk": "75"' in examples
+    assert '"reserved_mrwk": "450"' in examples
+    assert '"awards_paid": 2' in examples
+    assert '"awards_remaining": 4' in examples
+    assert "Award counters" in examples
     assert "Use `id` for the single-bounty API path" in examples
 
 
@@ -109,7 +109,7 @@ def test_api_examples_document_wallet_response_shape() -> None:
     )
     assert '"label": null' in examples
     assert '"github_login": "prettyboyvic"' in examples
-    assert '"balance_mrwk": "50"' in examples
+    assert '"balance_mrwk": "175"' in examples
     assert '"nonce": 2' in examples
     assert '"next_nonce": 3' in examples
     assert '"created_at": "2026-05-24T17:50:56.118158"' in examples
