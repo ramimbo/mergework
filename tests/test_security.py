@@ -604,6 +604,64 @@ def test_bounty_payment_proof_rejects_control_character_metadata(sqlite_url: str
         assert get_balance(session, "github:bob") == 0
 
 
+def test_bounty_payment_proof_rejects_non_string_metadata_keys(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=18,
+            issue_url="https://github.com/ramimbo/mergework/issues/18",
+            title="Proof metadata key validation",
+            reward_mrwk="1",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+        verifier_result = {"label": "mrwk:accepted"}
+        verifier_result[1] = "numeric key"
+
+        with pytest.raises(LedgerError, match="verifier_result keys must be strings"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/18",
+                accepted_by="maintainer",
+                verifier_result=verifier_result,
+            )
+
+        assert bounty.awards_paid == 0
+        assert get_balance(session, "github:alice") == 0
+
+
+def test_bounty_payment_proof_rejects_unserializable_metadata_values(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=19,
+            issue_url="https://github.com/ramimbo/mergework/issues/19",
+            title="Proof metadata value validation",
+            reward_mrwk="1",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+
+        with pytest.raises(LedgerError, match="verifier_result must be JSON serializable"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/19",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted", "raw": object()},
+            )
+
+        assert bounty.awards_paid == 0
+        assert get_balance(session, "github:alice") == 0
+
+
 def test_admin_payout_api_rejects_control_character_note(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

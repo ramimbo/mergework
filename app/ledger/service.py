@@ -152,9 +152,18 @@ def _clean_required_text(value: str, field: str, max_length: int) -> str:
 def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     clean = dict(verifier_result)
     for key, value in clean.items():
+        if not isinstance(key, str):
+            raise LedgerError("verifier_result keys must be strings")
         if isinstance(value, str) and CONTROL_CHAR_RE.search(value):
             raise LedgerError(f"verifier_result.{key} must not contain control characters")
     return clean
+
+
+def _ensure_json_serializable(value: dict[str, Any], field: str) -> None:
+    try:
+        canonical_json(value)
+    except (TypeError, ValueError) as exc:
+        raise LedgerError(f"{field} must be JSON serializable") from exc
 
 
 def wallet_transfer_payload(
@@ -583,6 +592,7 @@ def pay_bounty(
     clean_verifier_result = _clean_proof_metadata(verifier_result)
     if "accepted_by" in clean_verifier_result:
         clean_verifier_result["accepted_by"] = clean_accepted_by
+    _ensure_json_serializable(clean_verifier_result, "verifier_result")
     clean_submission_url = validate_public_url(submission_url)
     existing_submission = session.scalar(
         select(Submission)
