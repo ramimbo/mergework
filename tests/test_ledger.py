@@ -82,6 +82,38 @@ def test_bounty_reserve_and_payout_conserve_supply(sqlite_url: str) -> None:
         assert verify_supply_conservation(session) is True
 
 
+def test_pay_bounty_rejects_non_object_verifier_result(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=228,
+            issue_url="https://github.com/ramimbo/mergework/issues/228",
+            title="Reject malformed verifier metadata",
+            reward_mrwk="50",
+            acceptance="Accepted payouts must store object proof metadata.",
+        )
+        reserve_account = reserve_account_for_bounty(bounty.id)
+
+        with pytest.raises(LedgerError, match="verifier_result must be an object"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/228",
+                accepted_by="maintainer",
+                verifier_result=[],
+            )
+
+        assert get_balance(session, "github:alice") == 0
+        assert get_balance(session, reserve_account) == 50_000_000
+        assert session.query(Submission).count() == 0
+        assert session.query(Proof).count() == 0
+
+
 def test_resolve_payout_account_accepts_mixed_case_prefixes(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 

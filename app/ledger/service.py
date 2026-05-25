@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
@@ -149,7 +150,9 @@ def _clean_required_text(value: str, field: str, max_length: int) -> str:
     return clean
 
 
-def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
+def _clean_proof_metadata(verifier_result: Any) -> dict[str, Any]:
+    if not isinstance(verifier_result, Mapping):
+        raise LedgerError("verifier_result must be an object")
     clean = dict(verifier_result)
     for key, value in clean.items():
         if isinstance(value, str) and CONTROL_CHAR_RE.search(value):
