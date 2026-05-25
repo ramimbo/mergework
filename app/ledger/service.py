@@ -6,7 +6,7 @@ import re
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy import case, func, select, update
 from sqlalchemy.engine import CursorResult
@@ -36,6 +36,10 @@ TREASURY_ACCOUNT = "treasury:mrwk"
 MICRO_UNITS = 1_000_000
 GENESIS_SUPPLY_MICRO = 100_000_000 * MICRO_UNITS
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+GITHUB_SUBMISSION_PATH_RE = re.compile(
+    r"/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?P<kind>issues|pull)/(?P<number>\d+)/?",
+    re.IGNORECASE,
+)
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -87,6 +91,53 @@ def validate_public_url(url: str) -> str:
     if parsed.username or parsed.password:
         raise LedgerError("URL must not include credentials")
     return clean
+
+
+def canonical_submission_url(url: str) -> str:
+    clean = validate_public_url(url)
+    parsed = urlparse(clean)
+    netloc = parsed.netloc.lower()
+    path = parsed.path or "/"
+    if parsed.hostname and parsed.hostname.lower() == "github.com" and not parsed.params:
+        match = GITHUB_SUBMISSION_PATH_RE.fullmatch(path)
+        if match:
+            path = (
+                f"/{match['owner'].lower()}/{match['repo'].lower()}/"
+                f"{match['kind'].lower()}/{match['number']}"
+            )
+    return urlunparse(
+        (
+            parsed.scheme.lower(),
+            netloc,
+            path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+
+def _canonical_submission_exists(
+    session: Session, *, bounty_id: int, clean_submission_url: str
+) -> bool:
+    exact_match = session.scalar(
+        select(Submission.id)
+        .where(Submission.bounty_id == bounty_id, Submission.url == clean_submission_url)
+        .limit(1)
+    )
+    if exact_match is not None:
+        return True
+
+    legacy_submission_urls = session.scalars(
+        select(Submission.url).where(Submission.bounty_id == bounty_id)
+    )
+    for legacy_url in legacy_submission_urls:
+        try:
+            if canonical_submission_url(legacy_url) == clean_submission_url:
+                return True
+        except LedgerError:
+            continue
+    return False
 
 
 def public_url_or_none(url: str | None) -> str | None:
@@ -583,13 +634,10 @@ def pay_bounty(
     clean_verifier_result = _clean_proof_metadata(verifier_result)
     if "accepted_by" in clean_verifier_result:
         clean_verifier_result["accepted_by"] = clean_accepted_by
-    clean_submission_url = validate_public_url(submission_url)
-    existing_submission = session.scalar(
-        select(Submission)
-        .where(Submission.bounty_id == bounty.id, Submission.url == clean_submission_url)
-        .limit(1)
-    )
-    if existing_submission is not None:
+    clean_submission_url = canonical_submission_url(submission_url)
+    if _canonical_submission_exists(
+        session, bounty_id=bounty.id, clean_submission_url=clean_submission_url
+    ):
         raise LedgerError("submission already paid")
     reserve_account = reserve_account_for_bounty(bounty.id)
     if get_balance(session, reserve_account) < bounty.reward_microunits:

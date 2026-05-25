@@ -251,6 +251,125 @@ def test_multi_award_bounty_rejects_duplicate_submission_url(sqlite_url: str) ->
         assert get_balance(session, "github:bob") == 0
 
 
+def test_multi_award_bounty_rejects_canonical_duplicate_submission_url(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=12,
+            issue_url="https://github.com/ramimbo/mergework/issues/12",
+            title="Canonical proof guard",
+            reward_mrwk="10",
+            max_awards=2,
+            acceptance="Equivalent submission URLs should not earn twice.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://GITHUB.com/Ramimbo/MergeWork/PULL/12/",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+        with pytest.raises(LedgerError, match="submission already paid"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:bob",
+                submission_url="https://github.com/ramimbo/mergework/pull/12",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted", "delivery": "second"},
+            )
+
+        submission = session.get(Submission, proof.submission_id)
+        assert submission is not None
+        assert submission.url == "https://github.com/ramimbo/mergework/pull/12"
+        assert bounty.status == "open"
+        assert bounty.awards_paid == 1
+        assert get_balance(session, "github:bob") == 0
+
+
+def test_multi_award_bounty_rejects_legacy_canonical_duplicate_submission_url(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=13,
+            issue_url="https://github.com/ramimbo/mergework/issues/13",
+            title="Legacy canonical proof guard",
+            reward_mrwk="10",
+            max_awards=2,
+            acceptance="Legacy equivalent submission URLs should not earn twice.",
+        )
+        session.add(
+            Submission(
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+                url="https://GITHUB.com/Ramimbo/MergeWork/PULL/13/",
+                status="accepted",
+                verifier_result=canonical_json({"label": "mrwk:accepted"}),
+            )
+        )
+        bounty.awards_paid = 1
+        session.flush()
+
+        with pytest.raises(LedgerError, match="submission already paid"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:bob",
+                submission_url="https://github.com/ramimbo/mergework/pull/13",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted", "delivery": "second"},
+            )
+
+        assert bounty.status == "open"
+        assert bounty.awards_paid == 1
+        assert get_balance(session, "github:bob") == 0
+
+
+def test_submission_url_canonicalization_preserves_non_github_trailing_slash(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=14,
+            issue_url="https://github.com/ramimbo/mergework/issues/14",
+            title="External proof guard",
+            reward_mrwk="10",
+            max_awards=2,
+            acceptance="External evidence URLs keep their path semantics.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://example.com/reviews/14/",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+        submission = session.get(Submission, proof.submission_id)
+        assert submission is not None
+        assert submission.url == "https://example.com/reviews/14/"
+
+
 def test_close_bounty_releases_unpaid_awards(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 
