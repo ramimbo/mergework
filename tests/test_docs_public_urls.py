@@ -136,11 +136,15 @@ def test_api_examples_document_wallet_transfer_response() -> None:
     assert '"from_address":"<sender_mrwk1_address>"' in examples
     assert '"to_address":"<receiver_mrwk1_address>"' in examples
     assert '"signature_hex":"<128 lowercase hex chars>"' in examples
-    assert "sender wallet's `next_nonce` value" in examples
+    assert "current `next_nonce` is `3`" in examples
+    assert '"amount_microunits":1500000' in examples
+    assert '"type":"mrwk_transfer_v1"' in examples
+    assert "compact ASCII JSON with sorted keys" in examples
     assert '"type": "wallet_transfer"' in examples
     assert '"ledger_sequence": 42' in examples
     assert '"amount_mrwk": "1.5"' in examples
     assert '"memo": "agent payout consolidation"' in examples
+    assert '"created_at": "2026-05-24T20:05:00+00:00"' in examples
 
 
 def test_agent_guide_explains_internal_bounty_ids() -> None:

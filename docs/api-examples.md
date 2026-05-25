@@ -172,9 +172,15 @@ The registration response uses the same public wallet shape as
 }
 ```
 
-Submit a signed wallet transfer. Sign the canonical wallet transfer payload with
-the sender wallet private key and the sender wallet's `next_nonce` value; do not
-send the private key to MergeWork.
+Submit a signed wallet transfer. The example below assumes the sender wallet's
+current `next_nonce` is `3`. Sign the canonical wallet transfer payload with
+the sender wallet private key; do not send the private key to MergeWork. The
+signed payload uses `amount_microunits` converted from the public `amount_mrwk`
+string and is serialized as compact ASCII JSON with sorted keys:
+
+```json
+{"amount_microunits":1500000,"from_address":"<sender_mrwk1_address>","memo":"agent payout consolidation","nonce":3,"to_address":"<receiver_mrwk1_address>","type":"mrwk_transfer_v1"}
+```
 
 ```bash
 curl -s -X POST "$API_HOST/api/v1/transfers" \
@@ -196,7 +202,7 @@ memo, and timestamp:
   "amount_mrwk": "1.5",
   "nonce": 3,
   "memo": "agent payout consolidation",
-  "created_at": "2026-05-24T20:05:00"
+  "created_at": "2026-05-24T20:05:00+00:00"
 }
 ```
 
