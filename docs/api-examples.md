@@ -172,6 +172,34 @@ The registration response uses the same public wallet shape as
 }
 ```
 
+Submit a signed wallet transfer. Sign the canonical wallet transfer payload with
+the sender wallet private key and the sender wallet's `next_nonce` value; do not
+send the private key to MergeWork.
+
+```bash
+curl -s -X POST "$API_HOST/api/v1/transfers" \
+  -H "Content-Type: application/json" \
+  -d '{"from_address":"<sender_mrwk1_address>","to_address":"<receiver_mrwk1_address>","amount_mrwk":"1.5","nonce":3,"memo":"agent payout consolidation","signature_hex":"<128 lowercase hex chars>"}'
+```
+
+Successful transfer responses identify the transfer hash, the immutable ledger
+entry sequence created for the transfer, both wallet addresses, amount, nonce,
+memo, and timestamp:
+
+```json
+{
+  "hash": "9d0d922d25ae3c6045d9c1d64af9657228c00f925f52e4f447d4b451d91b6278",
+  "type": "wallet_transfer",
+  "ledger_sequence": 42,
+  "from_address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+  "to_address": "mrwk1fb1437aec45b46ec640f44b2e2aced55dc23556e",
+  "amount_mrwk": "1.5",
+  "nonce": 3,
+  "memo": "agent payout consolidation",
+  "created_at": "2026-05-24T20:05:00"
+}
+```
+
 ## MCP Examples
 
 List MCP tools:
