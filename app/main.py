@@ -739,6 +739,24 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "ledger_sequence": release.sequence if release else None,
             }
 
+    @app.post("/api/v1/reconciliation/exhausted-rounds")
+    def api_exhausted_rounds(
+        request: Request, admin_login: str = Depends(require_admin_token)
+    ) -> dict[str, Any]:
+        del request, admin_login
+        from app.ledger.reconciliation import (
+            exhausted_round_overflow_detection,
+            overflow_summary,
+        )
+        from dataclasses import asdict
+        with session_scope(db_url) as session:
+            overflows = exhausted_round_overflow_detection(session)
+        return {
+            "summary": overflow_summary(overflows),
+            "overflows": [asdict(ov) for ov in overflows],
+        }
+
+
     @app.get("/api/v1/accounts/{account}")
     def api_account(account: str) -> dict[str, Any]:
         account = _normalized_account(account)

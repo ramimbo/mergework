@@ -4,6 +4,8 @@ import pytest
 
 from app.db import create_schema, make_engine, session_scope
 from app.ledger.reconciliation import (
+    exhausted_round_overflow_detection,
+    overflow_summary,
     payout_reconciliation_summary,
     reconcile_accepted_payouts,
 )
@@ -525,3 +527,211 @@ def test_hash_chain_detects_tampering(sqlite_url: str) -> None:
         entry.amount_microunits = 1
 
         assert verify_hash_chain(session) is False
+
+
+# --- Exhausted round overflow detection tests ---
+
+
+def test_exhausted_round_overflow_detects_unpaid_accepted_submissions(sqlite_url: str) -> None:
+    """When max_awards=2 and 3 accepted submissions exist but only 2 paid, overflow should detect 1."""
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=281,
+            issue_url="https://github.com/ramimbo/mergework/issues/281",
+            title="Exhausted round overflow",
+            reward_mrwk="12",
+            max_awards=2,
+            acceptance="Maintainer applies mrwk:accepted.",
+        )
+
+        # Pay 2 accepted submissions (fills all award slots)
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/281-a",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/281-b",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+        # Add a 3rd accepted submission that wasn't paid (overflow)
+        session.add(
+            Submission(
+                bounty_id=bounty.id,
+                submitter_account="github:carol",
+                url="https://github.com/ramimbo/mergework/pull/281-c",
+                status="accepted",
+                verifier_result=canonical_json({"label": "mrwk:accepted"}),
+            )
+        )
+        session.flush()
+
+        # Close the bounty so it's considered exhausted
+        bounty = session.get(Bounty, bounty.id)
+        bounty.status = "closed"
+        session.flush()
+
+        overflows = exhausted_round_overflow_detection(session)
+        summary = overflow_summary(overflows)
+
+        assert summary["exhausted_rounds_with_overflow"] == 1
+        assert summary["total_overflow_submissions"] == 1
+        assert len(overflows) == 1
+        assert overflows[0].bounty_id == bounty.id
+        assert overflows[0].total_awards == 2
+        assert overflows[0].awards_paid == 2
+        assert len(overflows[0].overflow_submissions) == 1
+        assert overflows[0].overflow_submissions[0].submitter_account == "github:carol"
+        assert overflows[0].overflow_submissions[0].submission_url == "https://github.com/ramimbo/mergework/pull/281-c"
+
+
+def test_exhausted_round_no_overflow_when_submissions_within_awards(sqlite_url: str) -> None:
+    """When max_awards=3 and only 2 accepted submissions, there should be no overflow."""
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=282,
+            issue_url="https://github.com/ramimbo/mergework/issues/282",
+            title="No overflow case",
+            reward_mrwk="12",
+            max_awards=3,
+            acceptance="Maintainer applies mrwk:accepted.",
+        )
+
+        # Pay 2 accepted submissions (within the 3-award limit)
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/282-a",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/282-b",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+        # Close the bounty (exhausted but no overflow since awards > submissions)
+        bounty = session.get(Bounty, bounty.id)
+        bounty.status = "closed"
+        session.flush()
+
+        overflows = exhausted_round_overflow_detection(session)
+        summary = overflow_summary(overflows)
+
+        assert summary["exhausted_rounds_with_overflow"] == 0
+        assert summary["total_overflow_submissions"] == 0
+        assert len(overflows) == 0
+
+
+def test_exhausted_round_multiple_bounties_mixed(sqlite_url: str) -> None:
+    """Multiple bounties, only one with overflow."""
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        # Bounty 1: max_awards=2, paid 2, has 3 accepted (1 overflow)
+        bounty1 = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=283,
+            issue_url="https://github.com/ramimbo/mergework/issues/283",
+            title="Overflow bounty",
+            reward_mrwk="12",
+            max_awards=2,
+            acceptance="Maintainer applies mrwk:accepted.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty1.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/283-a",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty1.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/283-b",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        session.add(
+            Submission(
+                bounty_id=bounty1.id,
+                submitter_account="github:carol",
+                url="https://github.com/ramimbo/mergework/pull/283-c",
+                status="accepted",
+                verifier_result=canonical_json({"label": "mrwk:accepted"}),
+            )
+        )
+        bounty1 = session.get(Bounty, bounty1.id)
+        bounty1.status = "closed"
+        session.flush()
+
+        # Bounty 2: max_awards=3, paid 2, has 2 accepted (no overflow)
+        bounty2 = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=284,
+            issue_url="https://github.com/ramimbo/mergework/issues/284",
+            title="Clean bounty",
+            reward_mrwk="12",
+            max_awards=3,
+            acceptance="Maintainer applies mrwk:accepted.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty2.id,
+            to_account="github:dave",
+            submission_url="https://github.com/ramimbo/mergework/pull/284-a",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty2.id,
+            to_account="github:eve",
+            submission_url="https://github.com/ramimbo/mergework/pull/284-b",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        bounty2 = session.get(Bounty, bounty2.id)
+        bounty2.status = "paid"
+        session.flush()
+
+        overflows = exhausted_round_overflow_detection(session)
+        summary = overflow_summary(overflows)
+
+        assert summary["exhausted_rounds_with_overflow"] == 1
+        assert summary["total_overflow_submissions"] == 1
+        assert len(overflows) == 1
+        assert overflows[0].bounty_id == bounty1.id
+        assert overflows[0].total_awards == 2
+        assert overflows[0].awards_paid == 2
+        assert len(overflows[0].overflow_submissions) == 1
+        assert overflows[0].overflow_submissions[0].submitter_account == "github:carol"
