@@ -198,6 +198,28 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+The first content block is a JSON string containing an array of open bounty rows.
+The rows use the same public shape as `/api/v1/bounties`, ordered newest first
+and limited to the most recent 25 open bounties:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"id\":39,\"repo\":\"ramimbo/mergework\",\"issue_number\":229,\"issue_url\":\"https://github.com/ramimbo/mergework/issues/229\",\"title\":\"MRWK bounty: public API examples accuracy, round 2\",\"reward_mrwk\":\"75\",\"reserved_mrwk\":\"450\",\"max_awards\":6,\"awards_paid\":2,\"awards_remaining\":4,\"status\":\"open\",\"acceptance\":\"Focused public documentation PRs that make API or MCP examples match actual MergeWork response shapes, with evidence and docs/tests. Duplicate, invented, stale, style-only, or unrelated changes do not qualify.\",\"created_at\":\"2026-05-25T08:15:18.624552\"}]"
+      }
+    ]
+  }
+}
+```
+
+Award counters in MCP bounty rows can change for the same reasons as the REST
+bounty API. Refresh live values before relying on exact slot counts.
+
 Call `get_bounty` with the internal bounty `id` returned by `list_bounties`,
 not the GitHub issue number:
 
@@ -206,6 +228,27 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_bounty","arguments":{"id":11}}}'
 ```
+
+The response returns one JSON-string bounty row inside the JSON-RPC content
+block:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"id\":39,\"repo\":\"ramimbo/mergework\",\"issue_number\":229,\"issue_url\":\"https://github.com/ramimbo/mergework/issues/229\",\"title\":\"MRWK bounty: public API examples accuracy, round 2\",\"reward_mrwk\":\"75\",\"reserved_mrwk\":\"450\",\"max_awards\":6,\"awards_paid\":2,\"awards_remaining\":4,\"status\":\"open\",\"acceptance\":\"Focused public documentation PRs that make API or MCP examples match actual MergeWork response shapes, with evidence and docs/tests. Duplicate, invented, stale, style-only, or unrelated changes do not qualify.\",\"created_at\":\"2026-05-25T08:15:18.624552\"}"
+      }
+    ]
+  }
+}
+```
+
+If the internal id is valid but not found, `get_bounty` returns the plain text
+`bounty not found` inside the same JSON-RPC content wrapper.
 
 Call `get_proof` with the proof hash returned by `/api/v1/ledger`,
 `/api/v1/activity`, or `get_ledger_entry`:

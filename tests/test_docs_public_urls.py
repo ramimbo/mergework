@@ -30,6 +30,21 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_mcp_bounty_response_shapes() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert '"name":"list_bounties"' in examples
+    assert "JSON string containing an array of open bounty rows" in examples
+    assert "same public shape as `/api/v1/bounties`" in examples
+    assert "limited to the most recent 25 open bounties" in examples
+    assert '\\"repo\\":\\"ramimbo/mergework\\"' in examples
+    assert '\\"issue_number\\":229' in examples
+    assert '\\"awards_remaining\\":4' in examples
+    assert "Award counters in MCP bounty rows can change" in examples
+    assert "one JSON-string bounty row" in examples
+    assert "bounty not found" in examples
+
+
 def test_api_examples_document_mcp_get_proof_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
