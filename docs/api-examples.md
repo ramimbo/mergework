@@ -241,7 +241,9 @@ created from a GitHub bounty claim.
 Call `get_ledger_entry` with the sequence number from `/api/v1/ledger`:
 
 ```bash
-curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_ledger_entry","arguments":{"sequence":412}}}'
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_ledger_entry","arguments":{"sequence":412}}}'
 ```
 
 Returns the full ledger entry as a JSON string in the MCP text block:
@@ -266,7 +268,9 @@ Returns the full ledger entry as a JSON string in the MCP text block:
 Call `get_wallet` with a registered `mrwk1` address:
 
 ```bash
-curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_wallet","arguments":{"address":"mrwk1fb1437aec45b46ec640f44b2e2aced55dc23556e"}}}'
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_wallet","arguments":{"address":"mrwk1fb1437aec45b46ec640f44b2e2aced55dc23556e"}}}'
 ```
 
 Returns wallet details (address, public key, GitHub login, balance, nonces):
@@ -291,7 +295,9 @@ A wallet without a `github_login` has not yet linked a GitHub account; linking i
 Call `register_wallet` to register a new wallet public key. Keep the private key local; only the public key is sent to MergeWork:
 
 ```bash
-curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"register_wallet","arguments":{"public_key_hex":"<64 lowercase hex chars>","label":"agent wallet"}}}'
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"register_wallet","arguments":{"public_key_hex":"<64 lowercase hex chars>","label":"agent wallet"}}}'
 ```
 
 
