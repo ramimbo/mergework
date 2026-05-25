@@ -89,6 +89,20 @@ def validate_public_url(url: str) -> str:
     return clean
 
 
+def _github_issue_url_matches_bounty(issue_url: str, *, repo: str, issue_number: int) -> bool:
+    parsed = urlparse(issue_url)
+    if parsed.hostname is None or parsed.hostname.lower() != "github.com":
+        return True
+    parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if len(parts) < 4 or parts[2].lower() != "issues":
+        return True
+    if not parts[3].isdigit():
+        return True
+    return (
+        f"{parts[0].lower()}/{parts[1].lower()}" == repo.lower() and int(parts[3]) == issue_number
+    )
+
+
 def public_url_or_none(url: str | None) -> str | None:
     if not url:
         return None
@@ -397,6 +411,10 @@ def create_bounty(
     clean_acceptance = _clean_required_text(acceptance, "acceptance", 5_000)
     if get_balance(session, TREASURY_ACCOUNT) < reserved:
         raise LedgerError("treasury balance too low")
+    if not _github_issue_url_matches_bounty(
+        clean_issue_url, repo=clean_repo, issue_number=issue_number
+    ):
+        raise LedgerError("issue_url must match repo and issue_number")
     bounty = Bounty(
         repo=clean_repo,
         issue_number=issue_number,

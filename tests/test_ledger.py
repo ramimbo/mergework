@@ -139,6 +139,34 @@ def test_create_bounty_rejects_duplicate_repo_issue(sqlite_url: str) -> None:
             )
 
 
+def test_create_bounty_rejects_mismatched_github_issue_url(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        with pytest.raises(LedgerError, match="issue_url must match repo and issue_number"):
+            create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=7,
+                issue_url="https://github.com/ramimbo/mergework/issues/8",
+                title="Mismatched issue number",
+                reward_mrwk="25",
+                acceptance="Issue URL should point at the same bounty issue.",
+            )
+        with pytest.raises(LedgerError, match="issue_url must match repo and issue_number"):
+            create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=7,
+                issue_url="https://github.com/other/project/issues/7",
+                title="Mismatched repository",
+                reward_mrwk="25",
+                acceptance="Issue URL should point at the same bounty repository.",
+            )
+
+
 def test_multi_award_bounty_pays_distinct_submissions_until_exhausted(
     sqlite_url: str,
 ) -> None:
