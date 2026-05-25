@@ -55,7 +55,7 @@ Wallet addresses look like `mrwk1...` and are derived from Ed25519 public keys:
 Transfer payloads use this shape:
 
 ```json
-{"type":"mrwk_transfer_v1","from_address":"mrwk1...","to_address":"mrwk1...","amount_microunits":1000000,"nonce":1,"memo":"optional"}
+{"type":"mrwk_transfer_v1","from_address":"mrwk1...","to_address":"mrwk1...","amount_microunits":1000000,"nonce":1,"memo":"payment for issue #123"}
 ```
 
 GitHub payout accounts still exist for contributors who were paid before linking

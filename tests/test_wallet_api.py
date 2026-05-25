@@ -105,6 +105,7 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
         ({"amount_mrwk": "1.0000001"}, {}, "MRWK supports at most 6 decimal places"),
         ({"memo": "x" * 241}, {"memo": "x" * 241}, "memo is too long"),
         ({"memo": "   "}, {"memo": ""}, "memo is required"),
+        ({"memo": None}, {"memo": ""}, "memo is required"),
     ],
 )
 def test_wallet_transfer_api_rejects_invalid_requests(
