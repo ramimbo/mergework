@@ -157,6 +157,19 @@ def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def _required_int(value: int, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise LedgerError(f"{field} must be an integer")
+    return value
+
+
+def _required_positive_int(value: int, field: str) -> int:
+    value = _required_int(value, field)
+    if value <= 0:
+        raise LedgerError(f"{field} must be positive")
+    return value
+
+
 def wallet_transfer_payload(
     *,
     from_address: str,
@@ -381,10 +394,8 @@ def create_bounty(
 ) -> Bounty:
     ensure_genesis(session)
     reward = parse_mrwk_amount(reward_mrwk)
-    if issue_number <= 0:
-        raise LedgerError("issue_number must be positive")
-    if max_awards <= 0:
-        raise LedgerError("max_awards must be positive")
+    issue_number = _required_positive_int(issue_number, "issue_number")
+    max_awards = _required_positive_int(max_awards, "max_awards")
     if max_awards > 1_000:
         raise LedgerError("max_awards is too large")
     reserved = reward * max_awards
@@ -572,6 +583,7 @@ def pay_bounty(
     verifier_result: dict[str, Any],
 ) -> Proof:
     ensure_genesis(session)
+    bounty_id = _required_positive_int(bounty_id, "bounty_id")
     bounty = session.get(Bounty, bounty_id)
     if bounty is None:
         raise LedgerError("bounty not found")
@@ -667,6 +679,7 @@ def close_bounty(
     reference: str | None = None,
 ) -> LedgerEntry | None:
     ensure_genesis(session)
+    bounty_id = _required_positive_int(bounty_id, "bounty_id")
     bounty = session.get(Bounty, bounty_id)
     if bounty is None:
         raise LedgerError("bounty not found")

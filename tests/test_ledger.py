@@ -112,6 +112,39 @@ def test_create_bounty_rejects_non_positive_issue_number(sqlite_url: str) -> Non
                 )
 
 
+def test_create_bounty_rejects_non_integer_issue_number_and_max_awards(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in (True, 1.5):
+            with pytest.raises(LedgerError, match="issue_number must be an integer"):
+                create_bounty(
+                    session,
+                    repo="ramimbo/mergework",
+                    issue_number=issue_number,
+                    issue_url="https://github.com/ramimbo/mergework/issues/1",
+                    title="Invalid bounty",
+                    reward_mrwk="1",
+                    acceptance="Should not be created",
+                )
+
+        for max_awards in (True, 1.5):
+            with pytest.raises(LedgerError, match="max_awards must be an integer"):
+                create_bounty(
+                    session,
+                    repo="ramimbo/mergework",
+                    issue_number=14,
+                    issue_url="https://github.com/ramimbo/mergework/issues/14",
+                    title="Invalid award count",
+                    reward_mrwk="1",
+                    max_awards=max_awards,
+                    acceptance="Should not be created",
+                )
+
+
 def test_create_bounty_rejects_duplicate_repo_issue(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 
@@ -469,6 +502,40 @@ def test_bounty_max_awards_must_be_positive(sqlite_url: str) -> None:
                 reward_mrwk="10",
                 max_awards=0,
                 acceptance="Accepted label",
+            )
+
+
+def test_bounty_mutations_reject_boolean_bounty_ids(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=13,
+            issue_url="https://github.com/ramimbo/mergework/issues/13",
+            title="Reject malformed bounty ids",
+            reward_mrwk="10",
+            acceptance="Accepted label",
+        )
+
+        with pytest.raises(LedgerError, match="bounty_id must be an integer"):
+            pay_bounty(
+                session,
+                bounty_id=True,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/13",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+        with pytest.raises(LedgerError, match="bounty_id must be an integer"):
+            close_bounty(
+                session,
+                bounty_id=True,
+                closed_by="maintainer",
+                reference="https://github.com/ramimbo/mergework/issues/13#close",
             )
 
 
