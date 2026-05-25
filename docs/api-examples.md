@@ -49,6 +49,14 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
 
+A proof response is the public payment proof payload. It uses the internal
+MergeWork bounty `id` as `bounty_id`; `issue_number` is the source GitHub issue
+number, and `ledger_sequence` can be opened with `/api/v1/ledger/<sequence>`.
+
+```json
+{"kind":"bounty_payment","bounty_id":32,"repo":"ramimbo/mergework","issue_number":156,"submission_url":"https://github.com/ramimbo/mergework/pull/155#pullrequestreview-4353350771","accepted_by":"ramimbo","to_account":"github:ckeplinger199","amount_mrwk":"40","ledger_sequence":322,"ledger_hash":"ae4d68cb6fb28d4bdce303a141ddc14ff8251da2c26009dc5449be230dc9b9ff","verifier_result":{"accepted_by":"ramimbo","note":"claim https://github.com/ramimbo/mergework/issues/107#issuecomment-4529851212","source":"admin_api"}}
+```
+
 Register a wallet public key. Keep the private key local; only send the public
 key to MergeWork.
 

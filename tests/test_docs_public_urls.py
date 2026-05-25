@@ -27,6 +27,12 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert '"arguments":{"id":11}' in examples
     assert '"id":4' in examples
     assert "not the GitHub issue" in examples
+    assert "/api/v1/proofs/<proof_hash>" in examples
+    assert '"kind":"bounty_payment"' in examples
+    assert '"bounty_id":32' in examples
+    assert '"issue_number":156' in examples
+    assert '"ledger_sequence":322' in examples
+    assert "source GitHub issue" in examples
     assert "public_key_hex" in examples
 
 
