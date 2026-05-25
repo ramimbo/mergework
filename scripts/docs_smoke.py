@@ -25,7 +25,13 @@ BANNED_PUBLIC_PHRASES = [
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
-ISSUE_TEMPLATES = {".github/ISSUE_TEMPLATE/bounty.yml", ".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/security-report.yml", ".github/ISSUE_TEMPLATE/docs.yml", DOCS_ISSUE_TEMPLATE}
+ISSUE_TEMPLATES = {
+    ".github/ISSUE_TEMPLATE/bounty.yml",
+    ".github/ISSUE_TEMPLATE/bug.yml",
+    ".github/ISSUE_TEMPLATE/security-report.yml",
+    ".github/ISSUE_TEMPLATE/docs.yml",
+    DOCS_ISSUE_TEMPLATE,
+}
 
 
 def _local_target_exists(source: Path, target: str) -> bool:
