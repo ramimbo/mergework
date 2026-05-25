@@ -158,6 +158,45 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert client.get("/bounties/0").status_code == 400
 
 
+def test_bounty_detail_links_paid_award_proofs(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=46,
+            issue_url="https://github.com/ramimbo/mergework/issues/46",
+            title="Expose bounty award proofs",
+            reward_mrwk="25",
+            max_awards=2,
+            acceptance="Bounty details should link accepted award proofs.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/46",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/bounties/{bounty.id}")
+
+    assert response.status_code == 200
+    assert "Award proofs" in response.text
+    assert "Paid awards" in response.text
+    assert f'href="/proofs/{proof.hash}"' in response.text
+    assert proof.hash[:12] in response.text
+    assert 'href="/accounts/github:alice"' in response.text
+    assert 'href="https://github.com/ramimbo/mergework/pull/46" rel="nofollow noopener"' in (
+        response.text
+    )
+    assert f'href="/ledger/{proof.ledger_sequence}"' in response.text
+
+
 def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

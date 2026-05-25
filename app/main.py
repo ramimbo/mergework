@@ -238,6 +238,30 @@ def activity_to_dict(session: Session, query: str | None = None) -> dict[str, An
     }
 
 
+def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, Any]]:
+    rows = session.execute(
+        select(LedgerEntry, Proof)
+        .join(Proof, Proof.ledger_sequence == LedgerEntry.sequence)
+        .where(
+            LedgerEntry.entry_type == "bounty_payment",
+            Proof.kind == "bounty_payment",
+            Proof.bounty_id == bounty_id,
+        )
+        .order_by(LedgerEntry.sequence.desc())
+    ).all()
+    awards: list[dict[str, Any]] = []
+    seen_sequences: set[int] = set()
+    for entry, proof in rows:
+        if entry.sequence in seen_sequences:
+            continue
+        row = _activity_row(entry, proof)
+        if row is None:
+            continue
+        seen_sequences.add(entry.sequence)
+        awards.append(row)
+    return awards
+
+
 def account_accepted_summary(session: Session, account: str) -> dict[str, Any]:
     rows = session.execute(
         select(LedgerEntry, Proof)
@@ -1059,8 +1083,20 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/bounties/{bounty_id}", response_class=HTMLResponse)
     def bounty_page(request: Request, bounty_id: int) -> HTMLResponse:
+        bounty_id = _positive_bounty_id(bounty_id)
+        with session_scope(db_url) as session:
+            bounty = session.get(Bounty, bounty_id)
+            if bounty is None:
+                raise HTTPException(status_code=404, detail="bounty not found")
+            bounty_data = bounty_to_dict(bounty)
+            awards = bounty_awards_to_dict(session, bounty_id)
         return templates.TemplateResponse(
-            request, "bounty_detail.html", {"bounty": api_bounty(bounty_id)}
+            request,
+            "bounty_detail.html",
+            {
+                "bounty": bounty_data,
+                "awards": awards,
+            },
         )
 
     @app.get("/ledger", response_class=HTMLResponse)

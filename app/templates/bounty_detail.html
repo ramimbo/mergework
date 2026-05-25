@@ -41,5 +41,31 @@
     <h2 id="acceptance-heading">What has to be true</h2>
     <p>{{ bounty.acceptance }}</p>
   </section>
+
+  <section class="acceptance-card" aria-labelledby="award-proofs-heading">
+    <p class="eyebrow">Award proofs</p>
+    <h2 id="award-proofs-heading">Paid awards</h2>
+    {% if awards %}
+    <ul>
+      {% for award in awards %}
+      <li>
+        <a href="{{ award.proof_url }}">Proof {{ award.proof_hash[:12] }}</a>
+        paid {{ award.amount_mrwk }} MRWK to
+        <a href="/accounts/{{ award.account }}">{{ award.account }}</a>
+        via
+        {% set submission_url = safe_public_url(award.submission_url) %}
+        {% if submission_url %}
+          <a href="{{ submission_url }}" rel="nofollow noopener">submission</a>
+        {% else %}
+          submission
+        {% endif %}
+        on ledger <a href="/ledger/{{ award.ledger_sequence }}">#{{ award.ledger_sequence }}</a>.
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No paid award proofs yet.</p>
+    {% endif %}
+  </section>
 </section>
 {% endblock %}
