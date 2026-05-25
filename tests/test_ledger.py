@@ -11,6 +11,7 @@ from app.ledger.service import (
     GENESIS_SUPPLY_MICRO,
     TREASURY_ACCOUNT,
     LedgerError,
+    add_ledger_entry,
     canonical_json,
     close_bounty,
     create_bounty,
@@ -80,6 +81,54 @@ def test_bounty_reserve_and_payout_conserve_supply(sqlite_url: str) -> None:
         assert proof.hash
         assert verify_hash_chain(session) is True
         assert verify_supply_conservation(session) is True
+
+
+def test_add_ledger_entry_rejects_blank_or_control_character_accounts(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        with pytest.raises(LedgerError, match="from_account is required"):
+            add_ledger_entry(
+                session,
+                entry_type="test",
+                from_account="   ",
+                to_account="github:alice",
+                amount_microunits=1,
+                reference="test",
+            )
+        with pytest.raises(LedgerError, match="to_account must not contain control characters"):
+            add_ledger_entry(
+                session,
+                entry_type="test",
+                from_account=TREASURY_ACCOUNT,
+                to_account="github:alice\nadmin",
+                amount_microunits=1,
+                reference="test",
+            )
+
+        assert get_balance(session, "github:alice\nadmin") == 0
+
+
+def test_add_ledger_entry_trims_account_ids(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        entry = add_ledger_entry(
+            session,
+            entry_type="test",
+            from_account=f" {TREASURY_ACCOUNT} ",
+            to_account=" github:alice ",
+            amount_microunits=1,
+            reference="test",
+        )
+
+        assert entry.from_account == TREASURY_ACCOUNT
+        assert entry.to_account == "github:alice"
+        assert get_balance(session, "github:alice") == 1
 
 
 def test_resolve_payout_account_accepts_mixed_case_prefixes(sqlite_url: str) -> None:

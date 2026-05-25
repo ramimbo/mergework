@@ -218,11 +218,14 @@ def compute_entry_hash(entry: LedgerEntry) -> str:
 
 
 def ensure_account(session: Session, account_id: str) -> Account:
-    account = session.get(Account, account_id)
+    clean_account_id = _clean_required_text(account_id, "account_id", 128)
+    account = session.get(Account, clean_account_id)
     if account is not None:
         return account
-    github_login = account_id.removeprefix("github:") if account_id.startswith("github:") else None
-    account = Account(id=account_id, github_login=github_login, display_name=github_login)
+    github_login = (
+        clean_account_id.removeprefix("github:") if clean_account_id.startswith("github:") else None
+    )
+    account = Account(id=clean_account_id, github_login=github_login, display_name=github_login)
     session.add(account)
     session.flush()
     return account
@@ -332,15 +335,23 @@ def add_ledger_entry(
 ) -> LedgerEntry:
     if amount_microunits < 0:
         raise LedgerError("ledger amount cannot be negative")
-    if from_account:
-        ensure_account(session, from_account)
-    if to_account:
-        ensure_account(session, to_account)
+    clean_from_account = (
+        _clean_required_text(from_account, "from_account", 128)
+        if from_account is not None
+        else None
+    )
+    clean_to_account = (
+        _clean_required_text(to_account, "to_account", 128) if to_account is not None else None
+    )
+    if clean_from_account is not None:
+        ensure_account(session, clean_from_account)
+    if clean_to_account is not None:
+        ensure_account(session, clean_to_account)
     entry = LedgerEntry(
         sequence=_next_sequence(session),
         entry_type=entry_type,
-        from_account=from_account,
-        to_account=to_account,
+        from_account=clean_from_account,
+        to_account=clean_to_account,
         amount_microunits=amount_microunits,
         reference=reference,
         previous_hash=_previous_hash(session),
