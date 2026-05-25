@@ -41,6 +41,14 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 curl -s "$API_HOST/api/v1/activity"
 ```
 
+Check whether the current browser session is authenticated:
+
+```bash
+curl -s "$API_HOST/api/v1/auth/me"
+```
+
+Unauthenticated requests return `{"authenticated":false,"github_login":null}`.
+
 Inspect a proof, account, or registered wallet:
 
 ```bash

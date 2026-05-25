@@ -396,7 +396,9 @@ def test_auth_routes_exist_when_oauth_is_unconfigured(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     assert client.get("/auth/github/login").status_code == 503
-    assert client.get("/api/v1/auth/me").json()["authenticated"] is False
+    auth_me = client.get("/api/v1/auth/me").json()
+    assert auth_me["authenticated"] is False
+    assert auth_me["github_login"] is None
 
 
 def test_github_login_redirects_when_oauth_is_configured(sqlite_url: str, monkeypatch) -> None:
