@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from scripts.docs_smoke import REQUIRED
@@ -38,9 +39,11 @@ def test_api_examples_document_status_response_shape() -> None:
     assert '"name": "MergeWork"' in examples
     assert '"ticker": "MRWK"' in examples
     assert '"genesis_supply_mrwk": "100000000"' in examples
-    assert '"ledger_height": 410' in examples
-    assert '"active_bounties": 4' in examples
-    assert '"treasury_balance_mrwk": "99980315"' in examples
+    assert re.search(r'"ledger_height": \d+', examples)
+    assert re.search(r'"active_bounties": \d+', examples)
+    assert re.search(r'"treasury_balance_mrwk": "\d+"', examples)
+    assert '"ledger_height": 410' not in examples
+    assert "illustrative values" in examples
     assert "Values that depend on ledger activity can change" in examples
 
 
