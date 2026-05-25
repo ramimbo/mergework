@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -19,7 +21,14 @@ from app.ledger.service import (
     wallet_link_payload,
     wallet_transfer_payload,
 )
-from app.wallets import address_from_public_key_hex, canonical_wallet_json
+from app.wallets import (
+    WalletError,
+    address_from_public_key_hex,
+    canonical_wallet_json,
+    normalize_public_key_hex,
+    normalize_signature_hex,
+    normalize_wallet_address,
+)
 
 
 def _keypair() -> tuple[Ed25519PrivateKey, str, str]:
@@ -43,6 +52,29 @@ def test_wallet_address_is_derived_from_public_key() -> None:
     assert address.startswith("mrwk1")
     assert len(address) == 45
     assert address_from_public_key_hex(public_hex) == address
+
+
+@pytest.mark.parametrize(
+    ("normalizer", "value", "message"),
+    (
+        (
+            normalize_public_key_hex,
+            123,
+            "public key must be 32 bytes encoded as lowercase hex",
+        ),
+        (
+            normalize_signature_hex,
+            ["00"],
+            "signature must be 64 bytes encoded as lowercase hex",
+        ),
+        (normalize_wallet_address, {"address": "mrwk1"}, "invalid MRWK wallet address"),
+    ),
+)
+def test_wallet_normalizers_reject_non_string_inputs(
+    normalizer: Callable[[object], str], value: object, message: str
+) -> None:
+    with pytest.raises(WalletError, match=message):
+        normalizer(value)
 
 
 def test_wallet_registration_rejects_oversized_label(sqlite_url: str) -> None:
