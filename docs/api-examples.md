@@ -237,3 +237,61 @@ string with proof metadata plus the stored public proof payload:
 In that MCP payload, `bounty_id` is the internal MergeWork bounty id. The
 `proof.issue_number` value is the source GitHub issue number when the proof was
 created from a GitHub bounty claim.
+
+Call `get_ledger_entry` with the sequence number from `/api/v1/ledger`:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_ledger_entry","arguments":{"sequence":412}}}'
+```
+
+Returns the full ledger entry as a JSON string in the MCP text block:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"sequence\": 412, \"type\": \"github_claim\", \"from\": \"github:terryfyl\", \"to\": \"mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d\", \"amount_mrwk\": \"50\", \"reference\": \"github-claim:terryfyl:mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d:2\", \"previous_hash\": \"906c8ebc94eaa232a4db767c41ea73ceb73385826755f5e724e23d08ae3a0c2f\", \"entry_hash\": \"018832dca87fb28a0c2a91d638ba8617351ded288caf39bd16fce3b1da9d0e81\", \"proof_hash\": null, \"created_at\": \"2026-05-25T08:56:49.151461\"}
+      }
+    ]
+  }
+}
+```
+
+`proof_hash` is `null` for claim-type entries that have not yet been processed into a proof. For entries with a non-null `proof_hash`, use `get_proof` to inspect.
+
+Call `get_wallet` with a registered `mrwk1` address:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_wallet","arguments":{"address":"mrwk1fb1437aec45b46ec640f44b2e2aced55dc23556e"}}}'
+```
+
+Returns wallet details (address, public key, GitHub login, balance, nonces):
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"address\": \"mrwk1fb1437aec45b46ec640f44b2e2aced55dc23556e\", \"public_key_hex\": \"d88d3edf935ba932ee2737ee5500c795f21caeb4a2fdeacb55a4ff63c52c9d51\", \"label\": null, \"github_login\": \"prettyboyvic\", \"balance_mrwk\": \"175\", \"nonce\": 2, \"next_nonce\": 3, \"created_at\": \"2026-05-24T17:50:56.118158\"}"
+      }
+    ]
+  }
+}
+```
+
+A wallet without a `github_login` has not yet linked a GitHub account; linking is done through the `/api/v1/auth/me` session flow after registration.
+
+Call `register_wallet` to register a new wallet public key. Keep the private key local; only the public key is sent to MergeWork:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \  -H "Content-Type: application/json" \  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"register_wallet","arguments":{"public_key_hex":"<64 lowercase hex chars>","label":"agent wallet"}}}'
+```
+
+
