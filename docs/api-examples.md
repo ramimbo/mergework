@@ -17,6 +17,24 @@ curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
 ```
 
+The status response reports public service metadata, current ledger height,
+active bounty count, treasury balance, and the planned future path:
+
+```json
+{
+  "name": "MergeWork",
+  "ticker": "MRWK",
+  "genesis_supply_mrwk": "100000000",
+  "ledger_height": 410,
+  "active_bounties": 4,
+  "treasury_balance_mrwk": "99980315",
+  "future_path": "public snapshots, bridges, and onchain claims"
+}
+```
+
+Values that depend on ledger activity can change as bounties are reserved,
+paid, or closed, so refresh live examples before using exact counts.
+
 The bounties list returns public bounty rows. `status` can be omitted or set to
 `open`, `paid`, or `closed`:
 

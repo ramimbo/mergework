@@ -30,6 +30,20 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_status_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/status" in examples
+    assert "status response reports" in examples
+    assert '"name": "MergeWork"' in examples
+    assert '"ticker": "MRWK"' in examples
+    assert '"genesis_supply_mrwk": "100000000"' in examples
+    assert '"ledger_height": 410' in examples
+    assert '"active_bounties": 4' in examples
+    assert '"treasury_balance_mrwk": "99980315"' in examples
+    assert "Values that depend on ledger activity can change" in examples
+
+
 def test_api_examples_document_mcp_get_proof_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
