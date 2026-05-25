@@ -30,6 +30,19 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_account_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/accounts/treasury:mrwk" in examples
+    assert "GitHub-backed accounts" in examples
+    assert '"account": "github:prettyboyvic"' in examples
+    assert '"ledger_address": "github:prettyboyvic"' in examples
+    assert '"github_login": "prettyboyvic"' in examples
+    assert '"exists": true' in examples
+    assert '"balance_mrwk": "0"' in examples
+    assert "Claim GitHub balances from /me" in examples
+
+
 def test_agent_guide_explains_internal_bounty_ids() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 

@@ -49,6 +49,21 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
 
+Account responses use the same string account id in `account` and
+`ledger_address`. GitHub-backed accounts also include the login that can be
+linked from public pages:
+
+```json
+{
+  "account": "github:prettyboyvic",
+  "ledger_address": "github:prettyboyvic",
+  "github_login": "prettyboyvic",
+  "exists": true,
+  "balance_mrwk": "0",
+  "transfer_status": "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
+}
+```
+
 Register a wallet public key. Keep the private key local; only send the public
 key to MergeWork.
 
