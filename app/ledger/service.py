@@ -152,6 +152,8 @@ def _clean_required_text(value: str, field: str, max_length: int) -> str:
 def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     clean = dict(verifier_result)
     for key, value in clean.items():
+        if not isinstance(key, str):
+            raise LedgerError("verifier_result keys must be strings")
         if isinstance(value, str) and CONTROL_CHAR_RE.search(value):
             raise LedgerError(f"verifier_result.{key} must not contain control characters")
     return clean

@@ -913,3 +913,42 @@ def test_pay_bounty_rejects_reentrant_duplicate_before_ledger_write(
         ).all()
         assert reentered is True
         assert len(payments) == 1
+
+def test_clean_proof_metadata_rejects_non_string_keys(sqlite_url: str) -> None:
+    from app.ledger.service import _clean_proof_metadata, LedgerError, ensure_genesis, create_bounty, pay_bounty, add_ledger_entry, TREASURY_ACCOUNT
+    from app.db import create_schema, session_scope
+    
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=95,
+            issue_url="https://github.com/ramimbo/mergework/issues/95",
+            title="Proof metadata key type guard",
+            reward_mrwk="1",
+            acceptance="Verify non-string metadata keys are rejected.",
+        )
+        
+        with pytest.raises(LedgerError, match="verifier_result keys must be strings"):
+            _clean_proof_metadata({1: "integer-key"})
+        
+        with pytest.raises(LedgerError, match="verifier_result keys must be strings"):
+            _clean_proof_metadata({True: "boolean-key"})
+        
+        with pytest.raises(LedgerError, match="verifier_result keys must be strings"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/95",
+                accepted_by="maintainer",
+                verifier_result={123: "numeric-key"},
+            )
+        
+        # String keys should still pass
+        result = _clean_proof_metadata({"label": "mrwk:accepted", "note": "valid"})
+        assert result == {"label": "mrwk:accepted", "note": "valid"}
+        
+        assert get_balance(session, "github:alice") == 0
