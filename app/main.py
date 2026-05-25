@@ -592,7 +592,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         }
 
     def list_bounties_by_status(
-        status: str | None = None, query_text: str | None = None
+        status: str | None = None,
+        query_text: str | None = None,
+        open_awards_only: bool = False,
     ) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
             query = select(Bounty)
@@ -624,14 +626,18 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                     if issue_number is not None:
                         text_filter = or_(text_filter, Bounty.issue_number == issue_number)
                     query = query.where(text_filter)
+            if open_awards_only:
+                query = query.where(Bounty.status == "open", Bounty.max_awards > Bounty.awards_paid)
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             return [bounty_to_dict(bounty) for bounty in bounties]
 
     @app.get("/api/v1/bounties")
     def api_bounties(
-        status: str | None = Query(None), q: str | None = Query(None)
+        status: str | None = Query(None),
+        q: str | None = Query(None),
+        open_awards_only: bool = Query(False),
     ) -> list[dict[str, Any]]:
-        return list_bounties_by_status(status, q)
+        return list_bounties_by_status(status, q, open_awards_only)
 
     @app.post("/api/v1/bounties")
     async def api_create_bounty(

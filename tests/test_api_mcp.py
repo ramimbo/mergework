@@ -411,6 +411,64 @@ def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
     assert invalid.json()["detail"] == "status must be one of: open, paid, closed"
 
 
+def test_bounty_api_filters_to_open_award_slots(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        open_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=43,
+            issue_url="https://github.com/ramimbo/mergework/issues/43",
+            title="Open award slot bounty",
+            reward_mrwk="5",
+            max_awards=2,
+            acceptance="Available award slots should be discoverable.",
+        )
+        exhausted_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=44,
+            issue_url="https://github.com/ramimbo/mergework/issues/44",
+            title="Exhausted award slot bounty",
+            reward_mrwk="5",
+            acceptance="Paid rows should not appear in the open-slot filter.",
+        )
+        closed_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=45,
+            issue_url="https://github.com/ramimbo/mergework/issues/45",
+            title="Closed award slot bounty",
+            reward_mrwk="5",
+            acceptance="Closed rows should not appear in the open-slot filter.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=exhausted_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/44",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        close_bounty(
+            session,
+            bounty_id=closed_bounty.id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/45#close",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    available = client.get("/api/v1/bounties?open_awards_only=true").json()
+    search_match = client.get("/api/v1/bounties?open_awards_only=true&q=slot").json()
+    paid_with_filter = client.get("/api/v1/bounties?status=paid&open_awards_only=true").json()
+
+    assert [item["id"] for item in available] == [open_bounty.id]
+    assert [item["id"] for item in search_match] == [open_bounty.id]
+    assert paid_with_filter == []
+
+
 def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

@@ -15,10 +15,12 @@ Check service status and list bounties:
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
+curl -s "$API_HOST/api/v1/bounties?open_awards_only=true"
 ```
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
-`open`, `paid`, or `closed`:
+`open`, `paid`, or `closed`. Set `open_awards_only=true` when an agent only
+wants bounties that are still open and have at least one award slot remaining:
 
 ```json
 {
