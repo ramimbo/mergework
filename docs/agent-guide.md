@@ -154,18 +154,27 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+Inspect active attempt reservations for a bounty through MCP:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_bounty_attempts","arguments":{"bounty_id":11}}}'
+```
+
 Look up a public proof by hash:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_proof","arguments":{"hash":"<proof_hash>"}}}'
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_proof","arguments":{"hash":"<proof_hash>"}}}'
 ```
 
 Tools:
 
 - `list_bounties`
 - `get_bounty`
+- `list_bounty_attempts`
 - `get_balance`
 - `register_wallet`
 - `get_wallet`

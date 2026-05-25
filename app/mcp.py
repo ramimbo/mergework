@@ -20,6 +20,10 @@ MCP_TOOLS: list[dict[str, str]] = [
         "name": "get_bounty",
         "description": "Get a bounty by id, optionally with accepted awards",
     },
+    {
+        "name": "list_bounty_attempts",
+        "description": "List advisory active attempts and warnings for a bounty",
+    },
     {"name": "get_balance", "description": "Get an account balance"},
     {
         "name": "register_wallet",

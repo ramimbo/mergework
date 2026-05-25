@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
@@ -225,3 +226,136 @@ def test_attempt_registration_rejects_closed_and_exhausted_bounties(
         "bounty is paid",
         "bounty has no award slots remaining",
     ]
+
+
+def test_mcp_lists_bounty_attempts_for_agent_visibility(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=321,
+            issue_url="https://github.com/ramimbo/mergework/issues/321",
+            title="MCP attempt visibility",
+            reward_mrwk="250",
+            max_awards=3,
+            acceptance="Agents should see active attempts before opening PRs.",
+        )
+        session.add_all(
+            [
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account="github:alice",
+                    source_url="https://github.com/ramimbo/mergework/pull/501",
+                    status="active",
+                    expires_at=now + timedelta(hours=1),
+                    created_at=now - timedelta(minutes=3),
+                    updated_at=now - timedelta(minutes=3),
+                ),
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account="github:bob",
+                    source_url="https://github.com/ramimbo/mergework/pull/502",
+                    status="active",
+                    expires_at=now + timedelta(hours=1),
+                    created_at=now - timedelta(minutes=2),
+                    updated_at=now - timedelta(minutes=2),
+                ),
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account="github:carol",
+                    source_url=None,
+                    status="released",
+                    expires_at=now + timedelta(hours=1),
+                    created_at=now - timedelta(minutes=4),
+                    updated_at=now - timedelta(minutes=1),
+                ),
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account="github:dave",
+                    source_url=None,
+                    status="active",
+                    expires_at=now - timedelta(minutes=1),
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                ),
+            ]
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
+    tool_names = {tool["name"] for tool in tools["result"]["tools"]}
+    assert "list_bounty_attempts" in tool_names
+
+    active_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": bounty.id},
+            },
+        },
+    ).json()
+
+    active_payload = active_result["result"]["structuredContent"]
+    assert active_payload["warnings"] == ["bounty has 2 active attempts"]
+    assert [attempt["submitter_account"] for attempt in active_payload["attempts"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+    assert json.loads(active_result["result"]["content"][0]["text"]) == active_payload
+
+    all_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": bounty.id, "include_expired": True},
+            },
+        },
+    ).json()
+
+    all_payload = all_result["result"]["structuredContent"]
+    assert [attempt["status"] for attempt in all_payload["attempts"]] == [
+        "active",
+        "active",
+        "released",
+        "expired",
+    ]
+
+    unknown_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": 999},
+            },
+        },
+    ).json()
+    assert unknown_result["result"]["content"][0]["text"] == "bounty not found"
+
+    invalid_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": bounty.id, "include_expired": "yes"},
+            },
+        },
+    ).json()
+    assert invalid_result["error"] == {"code": -32602, "message": "invalid tool arguments"}

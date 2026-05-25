@@ -213,6 +213,23 @@ def expire_stale_bounty_attempts(
     session.execute(query.values(status="expired", updated_at=now))
 
 
+def bounty_attempts_to_dict(
+    session: Session, bounty: Bounty, *, include_expired: bool = False, now: datetime | None = None
+) -> dict[str, Any]:
+    now = now or _utc_now()
+    query = select(BountyAttempt).where(BountyAttempt.bounty_id == bounty.id)
+    if not include_expired:
+        query = query.where(*_active_attempt_conditions(bounty.id, now))
+    attempts = session.scalars(
+        query.order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
+    ).all()
+    return {
+        "bounty_id": bounty.id,
+        "warnings": bounty_attempt_warnings(session, bounty, now),
+        "attempts": [bounty_attempt_to_dict(attempt, now) for attempt in attempts],
+    }
+
+
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
     data = json.loads(proof.public_json)
     if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
@@ -693,17 +710,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             bounty = session.get(Bounty, bounty_id)
             if bounty is None:
                 raise HTTPException(status_code=404, detail="bounty not found")
-            query = select(BountyAttempt).where(BountyAttempt.bounty_id == bounty_id)
-            if not include_expired:
-                query = query.where(*_active_attempt_conditions(bounty_id, now))
-            attempts = session.scalars(
-                query.order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
-            ).all()
-            return {
-                "bounty_id": bounty_id,
-                "warnings": bounty_attempt_warnings(session, bounty, now),
-                "attempts": [bounty_attempt_to_dict(attempt, now) for attempt in attempts],
-            }
+            return bounty_attempts_to_dict(
+                session, bounty, include_expired=include_expired, now=now
+            )
 
     @app.post("/api/v1/bounties/{bounty_id}/attempts")
     async def api_create_bounty_attempt(
@@ -1687,6 +1696,15 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             if optional_bool_arg("include_awards"):
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
+        if name == "list_bounty_attempts":
+            bounty = session.get(Bounty, positive_int_arg("bounty_id"))
+            if bounty is None:
+                return "bounty not found"
+            return bounty_attempts_to_dict(
+                session,
+                bounty,
+                include_expired=optional_bool_arg("include_expired"),
+            )
         if name == "get_balance":
             account = _normalized_account(str_arg("account"))
             return f"{account}: {format_mrwk(get_balance(session, account))} MRWK"
