@@ -1759,3 +1759,89 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert fetched_wallet["address"] == registered_wallet["address"]
     assert fetched_wallet["label"] == "MCP wallet"
     assert fetched_wallet["created_at"] == registered_wallet["created_at"]
+
+def test_bounty_attempt_api_tracks_visibility_and_warnings(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=3213,
+            issue_url="https://github.com/ramimbo/mergework/issues/3213",
+            title="Attempt API",
+            reward_mrwk="20",
+            max_awards=2,
+            acceptance="Attempt API stays advisory.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    first = client.post(
+        f"/api/v1/bounties/{bounty_id}/attempts",
+        json={"submitter_account": "github:alice", "expires_in_seconds": 60},
+    )
+    assert first.status_code == 200
+    assert first.json()["warnings"] == []
+
+    second = client.post(
+        f"/api/v1/bounties/{bounty_id}/attempts",
+        json={"submitter_account": "github:bob", "expires_in_seconds": 60},
+    )
+    assert second.status_code == 200
+    assert second.json()["warnings"] == ["multiple_active_attempts"]
+
+    visible = client.get(f"/api/v1/bounties/{bounty_id}/attempts").json()
+    assert visible["active_count"] == 2
+    assert visible["warnings"] == ["multiple_active_attempts"]
+    assert {item["submitter_account"] for item in visible["attempts"]} == {"github:alice", "github:bob"}
+
+
+def test_bounty_attempt_api_rejects_paid_bounties_and_releases_attempts(
+    sqlite_url: str, monkeypatch
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=3214,
+            issue_url="https://github.com/ramimbo/mergework/issues/3214",
+            title="Attempt release",
+            reward_mrwk="20",
+            acceptance="Release admin flow should be tested.",
+        )
+        bounty_id = bounty.id
+
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "t" * 32)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    created = client.post(
+        f"/api/v1/bounties/{bounty_id}/attempts",
+        json={"submitter_account": "github:alice", "expires_in_seconds": 60},
+    ).json()
+    released = client.post(
+        f"/api/v1/bounties/{bounty_id}/attempts/{created['id']}/release",
+        json={},
+        headers={"x-mergework-admin-token": "t" * 32},
+    )
+    assert released.status_code == 200
+    assert released.json()["status"] == "released"
+
+    with session_scope(sqlite_url) as session:
+        pay_bounty(
+            session,
+            bounty_id=bounty_id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/3214",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    rejected = client.post(
+        f"/api/v1/bounties/{bounty_id}/attempts",
+        json={"submitter_account": "github:bob", "expires_in_seconds": 60},
+    )
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"] == "bounty is not open"

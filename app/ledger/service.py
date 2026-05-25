@@ -4,7 +4,7 @@ import hashlib
 import ipaddress
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Account,
     Bounty,
+    BountyAttempt,
     LedgerEntry,
     Proof,
     Submission,
@@ -40,6 +41,7 @@ SQLITE_INTEGER_MAX = 2**63 - 1
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 MRWK_AMOUNT_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+ATTEMPT_TTL_SECONDS = 4 * 60 * 60
 
 
 class LedgerError(RuntimeError):
@@ -489,6 +491,101 @@ def find_bounty_by_issue(session: Session, repo: str, issue_number: int) -> Boun
         .limit(1)
     )
 
+
+def _attempt_now(now: datetime | None = None) -> datetime:
+    return now or utc_now()
+
+def _expire_bounty_attempts(session: Session, *, now: datetime | None = None) -> int:
+    current = _attempt_now(now)
+    expired = session.scalars(
+        select(BountyAttempt).where(
+            BountyAttempt.status == "active",
+            BountyAttempt.expires_at <= current,
+        )
+    ).all()
+    for attempt in expired:
+        attempt.status = "expired"
+        attempt.active_marker = None
+        attempt.updated_at = current
+    if expired:
+        session.flush()
+    return len(expired)
+
+def register_bounty_attempt(
+    session: Session,
+    *,
+    bounty_id: int,
+    submitter_account: str,
+    source_url: str | None = None,
+    branch_ref: str | None = None,
+    expires_in_seconds: int = ATTEMPT_TTL_SECONDS,
+) -> BountyAttempt:
+    ensure_genesis(session)
+    bounty = session.get(Bounty, bounty_id)
+    if bounty is None:
+        raise LedgerError("bounty not found")
+    _expire_bounty_attempts(session)
+    if bounty.status != "open":
+        raise LedgerError("bounty is not open")
+    if bounty.awards_paid >= bounty.max_awards:
+        raise LedgerError("bounty has no award slots remaining")
+    clean_submitter = _clean_required_text(submitter_account, "submitter_account", 128)
+    clean_source = validate_public_url(source_url) if source_url is not None else None
+    clean_branch = _clean_optional_text(branch_ref, "branch_ref", 240)
+    active_attempt = session.scalar(
+        select(BountyAttempt).where(
+            BountyAttempt.bounty_id == bounty.id,
+            BountyAttempt.submitter_account == clean_submitter,
+            BountyAttempt.status == "active",
+        )
+    )
+    if active_attempt is not None:
+        raise LedgerError("active attempt already exists for submitter")
+    if expires_in_seconds <= 0:
+        raise LedgerError("expires_in_seconds must be positive")
+    attempt = BountyAttempt(
+        bounty_id=bounty.id,
+        submitter_account=clean_submitter,
+        source_url=clean_source,
+        branch_ref=clean_branch,
+        status="active",
+        active_marker=1,
+        expires_at=_attempt_now() + timedelta(seconds=expires_in_seconds),
+    )
+    session.add(attempt)
+    session.flush()
+    return attempt
+
+def release_bounty_attempt(
+    session: Session,
+    *,
+    attempt_id: int,
+    released_by: str,
+) -> BountyAttempt:
+    attempt = session.get(BountyAttempt, attempt_id)
+    if attempt is None:
+        raise LedgerError("bounty attempt not found")
+    _clean_required_text(released_by, "released_by", 80)
+    _expire_bounty_attempts(session)
+    if attempt.status != "active":
+        raise LedgerError("bounty attempt is not active")
+    attempt.status = "released"
+    attempt.active_marker = None
+    attempt.updated_at = _attempt_now()
+    session.flush()
+    return attempt
+
+def list_bounty_attempts(
+    session: Session,
+    *,
+    bounty_id: int,
+    include_inactive: bool = True,
+) -> list[BountyAttempt]:
+    _expire_bounty_attempts(session)
+    query = select(BountyAttempt).where(BountyAttempt.bounty_id == bounty_id)
+    if not include_inactive:
+        query = query.where(BountyAttempt.status == "active")
+    return list(session.scalars(query.order_by(BountyAttempt.id.desc())).all())
 
 def get_balance(session: Session, account_id: str) -> int:
     credits = session.scalar(

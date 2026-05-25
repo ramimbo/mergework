@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import select
 
@@ -21,14 +23,17 @@ from app.ledger.service import (
     ensure_genesis,
     find_bounty_by_issue,
     get_balance,
+    list_bounty_attempts,
     pay_bounty,
+    register_bounty_attempt,
     register_wallet,
+    release_bounty_attempt,
     reserve_account_for_bounty,
     resolve_payout_account,
     verify_hash_chain,
     verify_supply_conservation,
 )
-from app.models import Bounty, LedgerEntry, Proof, Submission
+from app.models import Bounty, BountyAttempt, LedgerEntry, Proof, Submission
 
 
 def test_genesis_creates_fixed_supply_once(sqlite_url: str) -> None:
@@ -929,3 +934,75 @@ def test_hash_chain_detects_tampering(sqlite_url: str) -> None:
         entry.amount_microunits = 1
 
         assert verify_hash_chain(session) is False
+
+def test_bounty_attempt_register_duplicate_release_cycle(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=3211,
+            issue_url="https://github.com/ramimbo/mergework/issues/3211",
+            title="Attempt reservation",
+            reward_mrwk="15",
+            acceptance="Reservation is advisory.",
+        )
+        first = register_bounty_attempt(
+            session,
+            bounty_id=bounty.id,
+            submitter_account="github:alice",
+            source_url="https://github.com/ramimbo/mergework/pull/3211",
+            branch_ref="duongynhi000005-oss:agent5/attempts",
+        )
+        with pytest.raises(LedgerError, match="active attempt already exists"):
+            register_bounty_attempt(
+                session,
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+            )
+        released = release_bounty_attempt(
+            session,
+            attempt_id=first.id,
+            released_by="maintainer",
+        )
+        assert released.status == "released"
+        second = register_bounty_attempt(
+            session,
+            bounty_id=bounty.id,
+            submitter_account="github:alice",
+        )
+        assert second.status == "active"
+
+
+def test_bounty_attempt_expiration_unblocks_submitter(sqlite_url: str, monkeypatch) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=3212,
+            issue_url="https://github.com/ramimbo/mergework/issues/3212",
+            title="Attempt expiry",
+            reward_mrwk="15",
+            acceptance="Expired attempts should clear cleanly.",
+        )
+        monkeypatch.setattr("app.ledger.service.utc_now", lambda: datetime(2026, 1, 1, tzinfo=UTC))
+        register_bounty_attempt(
+            session,
+            bounty_id=bounty.id,
+            submitter_account="github:alice",
+            expires_in_seconds=5,
+        )
+        monkeypatch.setattr("app.ledger.service.utc_now", lambda: datetime(2026, 1, 1, 0, 0, 10, tzinfo=UTC))
+        expired = list_bounty_attempts(session, bounty_id=bounty.id)
+        assert expired[0].status == "expired"
+        next_attempt = register_bounty_attempt(
+            session,
+            bounty_id=bounty.id,
+            submitter_account="github:alice",
+            expires_in_seconds=30,
+        )
+        assert next_attempt.status == "active"
+        assert session.scalar(select(BountyAttempt).where(BountyAttempt.id == next_attempt.id)) is not None

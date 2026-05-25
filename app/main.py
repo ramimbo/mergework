@@ -40,6 +40,9 @@ from app.ledger.service import (
     linked_wallet_for_github,
     pay_bounty,
     public_url_or_none,
+    list_bounty_attempts,
+    register_bounty_attempt,
+    release_bounty_attempt,
     register_wallet,
     resolve_payout_account,
     submit_github_claim,
@@ -49,6 +52,7 @@ from app.ledger.service import (
 from app.models import (
     Account,
     Bounty,
+    BountyAttempt,
     LedgerEntry,
     Proof,
     Submission,
@@ -129,6 +133,19 @@ def _issue_number_search_value(query: str) -> int | None:
         return None
     return issue_number if issue_number <= SQLITE_INTEGER_MAX else None
 
+
+def bounty_attempt_to_dict(attempt: BountyAttempt) -> dict[str, Any]:
+    return {
+        "id": attempt.id,
+        "bounty_id": attempt.bounty_id,
+        "submitter_account": attempt.submitter_account,
+        "source_url": attempt.source_url,
+        "branch_ref": attempt.branch_ref,
+        "status": attempt.status,
+        "expires_at": attempt.expires_at.isoformat(),
+        "created_at": attempt.created_at.isoformat(),
+        "updated_at": attempt.updated_at.isoformat(),
+    }
 
 def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
     awards_remaining = max(0, bounty.max_awards - bounty.awards_paid)
@@ -944,6 +961,16 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="bounty not found")
             result = bounty_to_dict(bounty)
             result["accepted_awards"] = bounty_awards_to_dict(session, bounty.id)
+            attempts = list_bounty_attempts(session, bounty_id=bounty.id)
+            active_attempts = [attempt for attempt in attempts if attempt.status == "active"]
+            result["attempts_active"] = len(active_attempts)
+            result["attempt_warnings"] = []
+            if bounty.status != "open":
+                result["attempt_warnings"].append("bounty_not_open")
+            if bounty.awards_paid >= bounty.max_awards:
+                result["attempt_warnings"].append("no_award_slots_remaining")
+            if len(active_attempts) > 1:
+                result["attempt_warnings"].append("multiple_active_attempts")
             return result
 
     @app.get("/api/v1/reconciliation/payouts")
@@ -957,6 +984,73 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "summary": payout_reconciliation_summary(checks),
                 "checks": [payout_reconciliation_to_dict(check) for check in checks],
             }
+
+    @app.get("/api/v1/bounties/{bounty_id}/attempts")
+    def api_bounty_attempts(bounty_id: int, active_only: bool = Query(False)) -> dict[str, Any]:
+        with session_scope(db_url) as session:
+            bounty = session.get(Bounty, bounty_id)
+            if bounty is None:
+                raise HTTPException(status_code=404, detail="bounty not found")
+            attempts = list_bounty_attempts(
+                session,
+                bounty_id=bounty_id,
+                include_inactive=not active_only,
+            )
+            active_count = sum(1 for attempt in attempts if attempt.status == "active")
+            warnings: list[str] = []
+            if bounty.status != "open":
+                warnings.append("bounty_not_open")
+            if bounty.awards_paid >= bounty.max_awards:
+                warnings.append("no_award_slots_remaining")
+            if active_count > 1:
+                warnings.append("multiple_active_attempts")
+            return {
+                "bounty_id": bounty_id,
+                "active_count": active_count,
+                "warnings": warnings,
+                "attempts": [bounty_attempt_to_dict(attempt) for attempt in attempts],
+            }
+
+    @app.post("/api/v1/bounties/{bounty_id}/attempts")
+    async def api_register_bounty_attempt(bounty_id: int, request: Request) -> dict[str, Any]:
+        data = await _json_object(request)
+        with session_scope(db_url) as session:
+            try:
+                attempt = register_bounty_attempt(
+                    session,
+                    bounty_id=bounty_id,
+                    submitter_account=_required_str(data, "submitter_account"),
+                    source_url=_optional_str(data, "source_url") if data.get("source_url") is not None else None,
+                    branch_ref=_optional_str(data, "branch_ref") if data.get("branch_ref") is not None else None,
+                    expires_in_seconds=_optional_int(data, "expires_in_seconds", 14400),
+                )
+            except KeyError as exc:
+                raise HTTPException(status_code=400, detail=f"{exc.args[0]} is required") from exc
+            except LedgerError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            attempts = list_bounty_attempts(session, bounty_id=bounty_id, include_inactive=False)
+            payload = bounty_attempt_to_dict(attempt)
+            payload["warnings"] = ["multiple_active_attempts"] if len(attempts) > 1 else []
+            return payload
+
+    @app.post("/api/v1/bounties/{bounty_id}/attempts/{attempt_id}/release")
+    async def api_release_bounty_attempt(
+        bounty_id: int,
+        attempt_id: int,
+        request: Request,
+        admin_login: str = Depends(require_admin_token),
+    ) -> dict[str, Any]:
+        data = await _json_object(request)
+        released_by = _optional_str(data, "released_by", admin_login)
+        with session_scope(db_url) as session:
+            attempt = session.get(BountyAttempt, attempt_id)
+            if attempt is None or attempt.bounty_id != bounty_id:
+                raise HTTPException(status_code=404, detail="bounty attempt not found")
+            try:
+                released = release_bounty_attempt(session, attempt_id=attempt_id, released_by=released_by)
+            except LedgerError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            return bounty_attempt_to_dict(released)
 
     @app.post("/api/v1/bounties/{bounty_id}/pay")
     async def api_pay_bounty(

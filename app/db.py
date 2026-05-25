@@ -68,6 +68,42 @@ def _migrate_schema(engine: Engine) -> None:
                     "ON submissions (bounty_id, url)"
                 )
             )
+        if "bounty_attempts" not in inspector.get_table_names():
+            connection.execute(
+                text(
+                    "CREATE TABLE bounty_attempts ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "bounty_id INTEGER NOT NULL,"
+                    "submitter_account VARCHAR(128) NOT NULL,"
+                    "source_url VARCHAR(500),"
+                    "branch_ref VARCHAR(240),"
+                    "status VARCHAR(40) NOT NULL DEFAULT 'active',"
+                    "active_marker INTEGER,"
+                    "expires_at DATETIME NOT NULL,"
+                    "created_at DATETIME NOT NULL,"
+                    "updated_at DATETIME NOT NULL,"
+                    "FOREIGN KEY(bounty_id) REFERENCES bounties (id)"
+                    ")"
+                )
+            )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_bounty_attempts_bounty_id "
+                "ON bounty_attempts (bounty_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_bounty_attempts_status "
+                "ON bounty_attempts (status)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_bounty_attempt_active "
+                "ON bounty_attempts (bounty_id, submitter_account, active_marker)"
+            )
+        )
 
 
 @contextmanager

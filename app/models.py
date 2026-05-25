@@ -67,6 +67,23 @@ class Submission(Base):
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
     bounty: Mapped[Bounty] = relationship(back_populates="submissions")
 
+class BountyAttempt(Base):
+    __tablename__ = "bounty_attempts"
+    __table_args__ = (
+        UniqueConstraint("bounty_id", "submitter_account", "active_marker", name="uq_bounty_attempt_active"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bounty_id: Mapped[int] = mapped_column(ForeignKey("bounties.id"), index=True)
+    submitter_account: Mapped[str] = mapped_column(String(128), index=True)
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    branch_ref: Mapped[str | None] = mapped_column(String(240))
+    status: Mapped[str] = mapped_column(String(40), default="active", index=True)
+    active_marker: Mapped[int | None] = mapped_column(Integer, default=1)
+    expires_at: Mapped[datetime] = mapped_column(index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(default=utc_now)
+
 
 class LedgerEntry(Base):
     __tablename__ = "ledger_entries"

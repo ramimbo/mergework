@@ -21,3 +21,6 @@ def test_alembic_upgrade_head_builds_deploy_schema(tmp_path, monkeypatch) -> Non
 
     submission_indexes = inspector.get_indexes("submissions")
     assert any(index["name"] == "uq_submission_bounty_url" for index in submission_indexes)
+    assert "bounty_attempts" in inspector.get_table_names()
+    attempt_indexes = inspector.get_indexes("bounty_attempts")
+    assert any(index["name"] == "uq_bounty_attempt_active" for index in attempt_indexes)
