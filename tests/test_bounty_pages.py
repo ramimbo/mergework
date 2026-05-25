@@ -217,3 +217,85 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert "Accepted bounty payment" in proof_page.text
     assert "Bounty issue" in proof_page.text
     assert f'href="/ledger/{payment_sequence}"' in proof_page.text
+
+
+def test_bounty_api_available_mrwk_is_correctly_computed(sqlite_url: str) -> None:
+    """Regression: available_mrwk = awards_remaining * reward_mrwk."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        # Open bounty with 3 max_awards, 75 MRWK each
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=248,
+            issue_url="https://github.com/ramimbo/mergework/issues/164",
+            title="Available MRWK regression test",
+            reward_mrwk="75",
+            max_awards=3,
+            acceptance="Test available_mrwk computation.",
+        )
+        open_id = bounty.id
+
+        # Pay 1 award: awards_remaining=2, available_mrwk=150
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/248a",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        partial_id = bounty.id
+
+        # Pay second award: awards_remaining=1, available_mrwk=75
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/248b",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        paid_bounty_id = bounty.id
+
+        # Closed bounty: available_mrwk=0
+        closed_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=249,
+            issue_url="https://github.com/ramimbo/mergework/issues/249",
+            title="Closed available MRWK test",
+            reward_mrwk="50",
+            acceptance="Closed bounty has 0 available.",
+        )
+        close_bounty(
+            session,
+            bounty_id=closed_bounty.id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/249",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    # Open bounty with 0 paid: 3*75 = 225 available
+    open_row = client.get("/api/v1/bounties").json()[0]
+    assert open_row["available_mrwk"] == "225", f"Expected 225, got {open_row['available_mrwk']}"
+    assert open_row["awards_remaining"] == 3
+    assert open_row["reward_mrwk"] == "75"
+
+    # 1 paid: 2*75 = 150 available
+    partial = client.get(f"/api/v1/bounties/{partial_id}").json()
+    assert partial["available_mrwk"] == "150", f"Expected 150, got {partial['available_mrwk']}"
+    assert partial["awards_remaining"] == 2
+
+    # 2 paid: 1*75 = 75 available
+    paid = client.get(f"/api/v1/bounties/{paid_bounty_id}").json()
+    assert paid["available_mrwk"] == "75", f"Expected 75, got {paid['available_mrwk']}"
+    assert paid["awards_remaining"] == 1
+
+    # Closed: 0 available
+    closed = client.get(f"/api/v1/bounties/{closed_bounty.id}").json()
+    assert closed["available_mrwk"] == "0", f"Expected 0, got {closed['available_mrwk']}"
+    assert closed["awards_remaining"] == 0
+    assert closed["status"] == "closed"
