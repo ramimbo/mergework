@@ -112,6 +112,35 @@ def test_create_bounty_rejects_non_positive_issue_number(sqlite_url: str) -> Non
                 )
 
 
+def test_create_bounty_rejects_boolean_issue_number_or_awards(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        with pytest.raises(LedgerError, match="issue_number must be an integer"):
+            create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=True,
+                issue_url="https://github.com/ramimbo/mergework/issues/1",
+                title="Boolean issue number",
+                reward_mrwk="1",
+                acceptance="Should not be created",
+            )
+
+        with pytest.raises(LedgerError, match="max_awards must be an integer"):
+            create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=12,
+                issue_url="https://github.com/ramimbo/mergework/issues/12",
+                title="Boolean max awards",
+                reward_mrwk="1",
+                max_awards=True,
+                acceptance="Should not be created",
+            )
+
+
 def test_create_bounty_rejects_duplicate_repo_issue(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 
@@ -301,6 +330,45 @@ def test_close_bounty_releases_unpaid_awards(sqlite_url: str) -> None:
             )
         assert verify_hash_chain(session) is True
         assert verify_supply_conservation(session) is True
+
+
+def test_bounty_mutations_reject_boolean_bounty_id(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=14,
+            issue_url="https://github.com/ramimbo/mergework/issues/14",
+            title="Boolean bounty id guard",
+            reward_mrwk="10",
+            max_awards=2,
+            acceptance="Boolean ids must not alias bounty 1.",
+        )
+
+        with pytest.raises(LedgerError, match="bounty_id must be an integer"):
+            pay_bounty(
+                session,
+                bounty_id=True,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/14",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+        with pytest.raises(LedgerError, match="bounty_id must be an integer"):
+            close_bounty(
+                session,
+                bounty_id=True,
+                closed_by="maintainer",
+                reference="https://github.com/ramimbo/mergework/issues/14#close",
+            )
+
+        assert bounty.status == "open"
+        assert bounty.awards_paid == 0
+        assert get_balance(session, "github:alice") == 0
 
 
 def test_payout_is_idempotent_for_same_bounty(sqlite_url: str) -> None:

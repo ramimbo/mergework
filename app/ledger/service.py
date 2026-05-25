@@ -149,6 +149,14 @@ def _clean_required_text(value: str, field: str, max_length: int) -> str:
     return clean
 
 
+def _positive_int(value: int, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise LedgerError(f"{field} must be an integer")
+    if value <= 0:
+        raise LedgerError(f"{field} must be positive")
+    return value
+
+
 def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     clean = dict(verifier_result)
     for key, value in clean.items():
@@ -381,15 +389,13 @@ def create_bounty(
 ) -> Bounty:
     ensure_genesis(session)
     reward = parse_mrwk_amount(reward_mrwk)
-    if issue_number <= 0:
-        raise LedgerError("issue_number must be positive")
-    if max_awards <= 0:
-        raise LedgerError("max_awards must be positive")
-    if max_awards > 1_000:
+    clean_issue_number = _positive_int(issue_number, "issue_number")
+    clean_max_awards = _positive_int(max_awards, "max_awards")
+    if clean_max_awards > 1_000:
         raise LedgerError("max_awards is too large")
-    reserved = reward * max_awards
+    reserved = reward * clean_max_awards
     clean_repo = _clean_required_text(repo, "repo", 200)
-    existing_bounty = find_bounty_by_issue(session, clean_repo, issue_number)
+    existing_bounty = find_bounty_by_issue(session, clean_repo, clean_issue_number)
     if existing_bounty is not None:
         raise LedgerError("bounty already exists for issue")
     clean_issue_url = validate_public_url(issue_url)
@@ -399,12 +405,12 @@ def create_bounty(
         raise LedgerError("treasury balance too low")
     bounty = Bounty(
         repo=clean_repo,
-        issue_number=issue_number,
+        issue_number=clean_issue_number,
         issue_url=clean_issue_url,
         title=clean_title,
         reward_microunits=reward,
         reserved_microunits=reserved,
-        max_awards=max_awards,
+        max_awards=clean_max_awards,
         awards_paid=0,
         status="open",
         acceptance=clean_acceptance,
@@ -423,8 +429,11 @@ def create_bounty(
 
 
 def find_bounty_by_issue(session: Session, repo: str, issue_number: int) -> Bounty | None:
+    clean_issue_number = _positive_int(issue_number, "issue_number")
     return session.scalar(
-        select(Bounty).where(Bounty.repo == repo, Bounty.issue_number == issue_number).limit(1)
+        select(Bounty)
+        .where(Bounty.repo == repo, Bounty.issue_number == clean_issue_number)
+        .limit(1)
     )
 
 
@@ -572,6 +581,7 @@ def pay_bounty(
     verifier_result: dict[str, Any],
 ) -> Proof:
     ensure_genesis(session)
+    bounty_id = _positive_int(bounty_id, "bounty_id")
     bounty = session.get(Bounty, bounty_id)
     if bounty is None:
         raise LedgerError("bounty not found")
@@ -667,6 +677,7 @@ def close_bounty(
     reference: str | None = None,
 ) -> LedgerEntry | None:
     ensure_genesis(session)
+    bounty_id = _positive_int(bounty_id, "bounty_id")
     bounty = session.get(Bounty, bounty_id)
     if bounty is None:
         raise LedgerError("bounty not found")
