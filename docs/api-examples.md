@@ -16,6 +16,20 @@ curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 ```
 
+Example `/api/v1/status` response shape:
+
+```json
+{
+  "name": "MergeWork",
+  "ticker": "MRWK",
+  "genesis_supply_mrwk": "100000000",
+  "ledger_height": 330,
+  "active_bounties": 6,
+  "treasury_balance_mrwk": "99982965",
+  "future_path": "public snapshots, bridges, and onchain claims"
+}
+```
+
 Read a single bounty with its internal `id` from `/api/v1/bounties`:
 
 ```bash

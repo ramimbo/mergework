@@ -28,6 +28,10 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert '"id":4' in examples
     assert "not the GitHub issue" in examples
     assert "public_key_hex" in examples
+    assert '"name": "MergeWork"' in examples
+    assert '"ticker": "MRWK"' in examples
+    assert '"active_bounties": 6' in examples
+    assert '"future_path": "public snapshots, bridges, and onchain claims"' in examples
 
 
 def test_agent_guide_explains_internal_bounty_ids() -> None:
