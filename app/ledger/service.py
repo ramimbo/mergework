@@ -461,6 +461,8 @@ def submit_wallet_transfer(
     if CONTROL_CHAR_RE.search(memo):
         raise LedgerError("memo must not contain control characters")
     clean_memo = memo.strip()
+    if not clean_memo:
+        raise LedgerError("memo is required")
     if len(clean_memo) > 240:
         raise LedgerError("memo is too long")
     if get_balance(session, sender.address) < amount:

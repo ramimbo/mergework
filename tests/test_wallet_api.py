@@ -104,6 +104,7 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
         ({"to_address": "mrwk1" + ("0" * 40)}, {}, "wallet not found"),
         ({"amount_mrwk": "1.0000001"}, {}, "MRWK supports at most 6 decimal places"),
         ({"memo": "x" * 241}, {"memo": "x" * 241}, "memo is too long"),
+        ({"memo": "   "}, {"memo": ""}, "memo is required"),
     ],
 )
 def test_wallet_transfer_api_rejects_invalid_requests(
@@ -126,7 +127,7 @@ def test_wallet_transfer_api_rejects_invalid_requests(
         "to_address": receiver_address,
         "amount_microunits": 1_000_000,
         "nonce": 1,
-        "memo": "",
+        "memo": "test transfer",
         **payload_overrides,
     }
     body = {
@@ -134,7 +135,7 @@ def test_wallet_transfer_api_rejects_invalid_requests(
         "to_address": receiver_address,
         "amount_mrwk": "1",
         "nonce": 1,
-        "memo": "",
+        "memo": "test transfer",
         "signature_hex": _sign(sender_key, payload),
         **body_overrides,
     }
@@ -160,7 +161,7 @@ def test_wallet_transfer_api_returns_validation_error(sqlite_url: str) -> None:
             "to_address": receiver_address,
             "amount_mrwk": "1",
             "nonce": 1,
-            "memo": "",
+            "memo": "test transfer",
             "signature_hex": "00" * 64,
         },
     )
