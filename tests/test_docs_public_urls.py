@@ -43,6 +43,23 @@ def test_api_examples_document_mcp_get_proof_response_shape() -> None:
     assert "proof.issue_number" in examples
 
 
+def test_api_examples_document_rest_proof_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/proofs/<proof_hash>" in examples
+    assert "REST proof endpoint" in examples
+    assert '"kind": "bounty_payment"' in examples
+    assert '"ledger_sequence": 397' in examples
+    assert (
+        '"ledger_hash": "89296912e15fee4e3ede321ce695b0e212e8f03dc2e2dbb43fd2c45becd0a32c"'
+        in examples
+    )
+    assert '"submission_url": "https://github.com/ramimbo/mergework/pull/224"' in examples
+    assert '"verifier_result": {' in examples
+    assert '"source": "admin_api"' in examples
+    assert "does not wrap the proof" in examples
+
+
 def test_api_examples_document_account_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 

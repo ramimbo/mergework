@@ -112,6 +112,29 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/<wallet_address>"
 ```
 
+The REST proof endpoint returns the stored public proof payload directly. It
+does not wrap the proof in the MCP JSON-RPC `result.content[0].text` envelope:
+
+```json
+{
+  "accepted_by": "ramimbo",
+  "amount_mrwk": "75",
+  "bounty_id": 39,
+  "issue_number": 229,
+  "kind": "bounty_payment",
+  "ledger_hash": "89296912e15fee4e3ede321ce695b0e212e8f03dc2e2dbb43fd2c45becd0a32c",
+  "ledger_sequence": 397,
+  "repo": "ramimbo/mergework",
+  "submission_url": "https://github.com/ramimbo/mergework/pull/224",
+  "to_account": "github:p3xill",
+  "verifier_result": {
+    "accepted_by": "ramimbo",
+    "note": "maintainer cleanup; claim https://github.com/ramimbo/mergework/issues/122#issuecomment-4532333835",
+    "source": "admin_api"
+  }
+}
+```
+
 The wallet endpoint is a read-only wallet lookup. It returns the registered
 address, public key, optional label and linked GitHub login, current balance,
 current nonce, next nonce to sign with, and registration timestamp:
