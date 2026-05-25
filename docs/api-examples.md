@@ -12,8 +12,15 @@ MCP_HOST=https://mcp.mrwk.ltclab.site
 Check service status and list bounties:
 
 ```bash
+curl -s "$API_HOST/health"
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
+```
+
+Expected public health response shape:
+
+```json
+{"ok":true,"service":"mergework","ticker":"MRWK","ledger_height":330}
 ```
 
 Read a single bounty with its internal `id` from `/api/v1/bounties`:

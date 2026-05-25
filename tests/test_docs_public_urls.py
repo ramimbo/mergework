@@ -20,6 +20,9 @@ def test_readme_lists_live_ltclab_urls() -> None:
 def test_api_examples_document_internal_bounty_ids() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
+    assert "$API_HOST/health" in examples
+    assert '"ok":true' in examples
+    assert '"service":"mergework"' in examples
     assert "https://api.mrwk.ltclab.site" in examples
     assert "https://mcp.mrwk.ltclab.site" in examples
     assert "/api/v1/bounties/<bounty_id>" in examples
