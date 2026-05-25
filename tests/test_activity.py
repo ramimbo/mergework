@@ -156,6 +156,51 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     assert no_match["recent"] == []
 
 
+def test_activity_api_limits_recent_rows(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=164,
+            issue_url="https://github.com/ramimbo/mergework/issues/164",
+            title="Activity limit bounty",
+            reward_mrwk="50",
+            max_awards=3,
+            acceptance="Agents should be able to request only the newest rows.",
+        )
+        first_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/170",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        second_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/171",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    limited = client.get("/api/v1/activity?limit=1")
+    too_small = client.get("/api/v1/activity?limit=0")
+    too_large = client.get("/api/v1/activity?limit=201")
+
+    assert limited.status_code == 200
+    assert limited.json()["totals"]["accepted_awards"] == 2
+    assert [row["proof_hash"] for row in limited.json()["recent"]] == [second_proof.hash]
+    assert first_proof.hash not in {row["proof_hash"] for row in limited.json()["recent"]}
+    assert too_small.status_code == 422
+    assert too_large.status_code == 422
+
+
 def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))

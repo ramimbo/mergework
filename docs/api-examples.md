@@ -102,7 +102,11 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 
 ```bash
 curl -s "$API_HOST/api/v1/activity"
+curl -s "$API_HOST/api/v1/activity?limit=10"
 ```
+
+Use `limit` to choose how many recent accepted-work rows to return from 1 to
+200.
 
 Inspect a proof, account, or registered wallet:
 
