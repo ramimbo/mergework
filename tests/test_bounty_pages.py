@@ -146,3 +146,72 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert "Accepted bounty payment" in proof_page.text
     assert "Bounty issue" in proof_page.text
     assert f'href="/ledger/{payment_sequence}"' in proof_page.text
+
+
+def test_bounties_page_supports_query_search(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=60,
+            issue_url="https://github.com/ramimbo/mergework/issues/60",
+            title="Improve accepted proof history view",
+            reward_mrwk="75",
+            acceptance="Accepted proof history should be easy to inspect.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=61,
+            issue_url="https://github.com/ramimbo/mergework/issues/61",
+            title="Refine account badges",
+            reward_mrwk="75",
+            acceptance="Public badges should be clearer.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/bounties?q=proof")
+    assert response.status_code == 200
+    assert "Improve accepted proof history view" in response.text
+    assert "Refine account badges" not in response.text
+    assert 'value="proof"' in response.text
+
+    status_and_query = client.get("/bounties?status=open&q=badges")
+    assert status_and_query.status_code == 200
+    assert "Refine account badges" in status_and_query.text
+    assert "Improve accepted proof history view" not in status_and_query.text
+
+
+def test_bounties_api_supports_query_search(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=70,
+            issue_url="https://github.com/ramimbo/mergework/issues/70",
+            title="Improve bounty discovery filters",
+            reward_mrwk="80",
+            acceptance="Discovery filters should be obvious.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=71,
+            issue_url="https://github.com/ramimbo/mergework/issues/71",
+            title="Polish docs section",
+            reward_mrwk="80",
+            acceptance="Docs polish.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/bounties?q=discovery")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["issue_number"] == 70

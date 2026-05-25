@@ -2,6 +2,14 @@
 {% block title %}MRWK Bounties{% endblock %}
 {% block content %}
 <h1>Bounties</h1>
+<form method="get" action="/bounties" role="search" aria-label="Search bounties">
+  {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+  <label for="q">Search</label>
+  <input id="q" name="q" value="{{ search_query or '' }}" placeholder="repo, title, acceptance">
+  <button type="submit">Apply</button>
+  {% if search_query %}<a href="/bounties{% if selected_status %}?status={{ selected_status }}{% endif %}">Clear</a>{% endif %}
+</form>
+
 <nav aria-label="Bounty status filters">
   <a href="/bounties"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
   <a href="/bounties?status=open"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
