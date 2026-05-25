@@ -106,6 +106,7 @@ def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
     awards_remaining = max(0, bounty.max_awards - bounty.awards_paid)
     if bounty.status != "open":
         awards_remaining = 0
+    available_microunits = awards_remaining * bounty.reward_microunits
     return {
         "id": bounty.id,
         "repo": bounty.repo,
@@ -114,6 +115,7 @@ def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
         "title": bounty.title,
         "reward_mrwk": format_mrwk(bounty.reward_microunits),
         "reserved_mrwk": format_mrwk(bounty.reserved_microunits),
+        "available_mrwk": format_mrwk(available_microunits),
         "max_awards": bounty.max_awards,
         "awards_paid": bounty.awards_paid,
         "awards_remaining": awards_remaining,

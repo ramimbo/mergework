@@ -29,6 +29,7 @@ The bounties list returns public bounty rows. `status` can be omitted or set to
   "title": "MRWK bounty: contributor activity and bounty discovery improvements",
   "reward_mrwk": "100",
   "reserved_mrwk": "500",
+  "available_mrwk": "100",
   "max_awards": 5,
   "awards_paid": 4,
   "awards_remaining": 1,
