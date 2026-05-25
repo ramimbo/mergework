@@ -25,7 +25,7 @@ from app.ledger.service import (
     register_wallet,
 )
 from app.main import _signed_value, create_app
-from app.models import LedgerEntry, WebhookEvent
+from app.models import LedgerEntry, Proof, WebhookEvent
 from app.webhooks.github import handle_github_webhook
 
 
@@ -641,6 +641,49 @@ def test_admin_payout_api_rejects_control_character_note(
     assert response.json()["detail"] == ("verifier_result.note must not contain control characters")
     with session_scope(sqlite_url) as session:
         assert get_balance(session, "github:alice") == 0
+
+
+def test_admin_payout_api_ignores_blank_note(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_schema(sqlite_url)
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=18,
+            issue_url="https://github.com/ramimbo/mergework/issues/18",
+            title="Admin proof metadata blank note",
+            reward_mrwk="25",
+            acceptance="Maintainer verifies payout.",
+        )
+        bounty_id = bounty.id
+
+    response = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+        json={
+            "to_account": "github:alice",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/18",
+            "accepted_by": "maintainer",
+            "note": "   ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "paid"
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, "github:alice") == 25_000_000
+        proof = session.get(Proof, response.json()["proof_hash"])
+        assert proof is not None
+        verifier_result = json.loads(proof.public_json)["verifier_result"]
+        assert "note" not in verifier_result
 
 
 def test_bounty_urls_reject_control_characters(sqlite_url: str) -> None:

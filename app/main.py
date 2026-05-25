@@ -691,7 +691,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             "accepted_by": accepted_by,
         }
         if data.get("note") is not None:
-            verifier_result["note"] = _optional_str(data, "note")[:240]
+            note = _optional_str(data, "note")
+            if note.strip():
+                verifier_result["note"] = note[:240]
         with session_scope(db_url) as session:
             try:
                 to_account = resolve_payout_account(session, requested_account)
