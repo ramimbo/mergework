@@ -256,7 +256,7 @@ Returns the full ledger entry as a JSON string in the MCP text block:
     "content": [
       {
         "type": "text",
-        "text": "{\"sequence\": 412, \"type\": \"github_claim\", \"from\": \"github:terryfyl\", \"to\": \"mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d\", \"amount_mrwk\": \"50\", \"reference\": \"github-claim:terryfyl:mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d:2\", \"previous_hash\": \"906c8ebc94eaa232a4db767c41ea73ceb73385826755f5e724e23d08ae3a0c2f\", \"entry_hash\": \"018832dca87fb28a0c2a91d638ba8617351ded288caf39bd16fce3b1da9d0e81\", \"proof_hash\": null, \"created_at\": \"2026-05-25T08:56:49.151461\"}
+        "text": "{\"sequence\": 412, \"type\": \"github_claim\", \"from\": \"github:terryfyl\", \"to\": \"mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d\", \"amount_mrwk\": \"50\", \"reference\": \"github-claim:terryfyl:mrwk1186ffdc6912c5459f6f4117c3f48cfd38901789d:2\", \"previous_hash\": \"906c8ebc94eaa232a4db767c41ea73ceb73385826755f5e724e23d08ae3a0c2f\", \"entry_hash\": \"018832dca87fb28a0c2a91d638ba8617351ded288caf39bd16fce3b1da9d0e81\", \"proof_hash\": null, \"created_at\": \"2026-05-25T08:56:49.151461\"}"
       }
     ]
   }
