@@ -16,6 +16,7 @@ UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable
 GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
+API_BOUNTY_SAFETY_CAP = 200
 DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 
 
@@ -305,7 +306,7 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int, dict[str, Any]]:
-    url = f"{api_host.rstrip('/')}/api/v1/bounties?limit=200"
+    url = f"{api_host.rstrip('/')}/api/v1/bounties?limit={API_BOUNTY_SAFETY_CAP}"
     try:
         with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -313,19 +314,41 @@ def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int,
         raise RuntimeError(f"MergeWork API bounty data unavailable: {exc}") from exc
     if not isinstance(payload, list):
         raise RuntimeError("MergeWork API bounty data must be a list")
+    if len(payload) >= API_BOUNTY_SAFETY_CAP:
+        raise RuntimeError(
+            f"MergeWork API bounty list reached the {API_BOUNTY_SAFETY_CAP} item safety cap; "
+            "use API pagination or server-side repository filtering before trusting "
+            "this live report"
+        )
 
     bounties: dict[int, dict[str, Any]] = {}
-    for item in payload:
-        if not isinstance(item, dict) or item.get("repo") != repo:
+    for index, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise RuntimeError(f"MergeWork API bounty row {index} must be an object")
+        if item.get("repo") != repo:
             continue
         issue_number = item.get("issue_number")
-        if not isinstance(issue_number, int):
-            continue
+        if isinstance(issue_number, bool) or not isinstance(issue_number, int):
+            raise RuntimeError(f"MergeWork API bounty row {index} has invalid issue_number")
+        status = item.get("status")
+        if not isinstance(status, str) or not status.strip():
+            raise RuntimeError(f"MergeWork API bounty row {index} missing status")
+        awards_remaining = item.get("awards_remaining")
+        if awards_remaining is None:
+            raise RuntimeError(f"MergeWork API bounty row {index} missing awards_remaining")
+        if isinstance(awards_remaining, bool):
+            raise RuntimeError(f"MergeWork API bounty row {index} has invalid awards_remaining")
+        try:
+            normalized_awards_remaining = int(awards_remaining)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"MergeWork API bounty row {index} missing awards_remaining"
+            ) from exc
         bounties[issue_number] = {
             "number": issue_number,
             "title": item.get("title"),
-            "state": item.get("status", "open"),
-            "awards_remaining": item.get("awards_remaining"),
+            "state": status.strip(),
+            "awards_remaining": normalized_awards_remaining,
         }
     return bounties
 

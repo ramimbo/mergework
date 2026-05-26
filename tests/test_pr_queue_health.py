@@ -411,3 +411,131 @@ def test_pr_queue_health_live_mode_falls_back_on_bad_api_utf8(monkeypatch) -> No
     markdown_report = format_markdown_report(report)
     assert "**bounty data source**: `github_issues`" in markdown_report
     assert "> **Warning:** MergeWork API bounty metadata unavailable" in markdown_report
+
+
+@pytest.mark.parametrize(
+    ("api_item", "warning_text"),
+    [
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 406,
+                "title": "MRWK bounty: useful bug reports",
+                "awards_remaining": 3,
+            },
+            "missing status",
+        ),
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 406,
+                "title": "MRWK bounty: useful bug reports",
+                "status": "open",
+            },
+            "missing awards_remaining",
+        ),
+    ],
+)
+def test_pr_queue_health_live_mode_falls_back_on_malformed_api_fields(
+    monkeypatch, api_item, warning_text
+) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 73,
+                        "title": "Fallback path remains payable",
+                        "body": "Refs #406",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps(
+                [{"number": 406, "title": "MRWK bounty: useful bug reports", "state": "OPEN"}]
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return json.dumps([api_item]).encode()
+
+    def fake_urlopen(url, timeout):
+        return FakeResponse()
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+    monkeypatch.setattr(pr_queue_health, "urlopen", fake_urlopen)
+
+    report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
+
+    assert report["data_sources"] == {"bounties": "github_issues"}
+    assert warning_text in report["api_bounty_warning"]
+    assert report["summary"]["closed_bounty_references"] == 0
+    assert report["summary"]["open_bounties"] == 1
+
+
+def test_pr_queue_health_live_mode_falls_back_when_api_fetch_hits_cap(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 74,
+                        "title": "Fallback path remains payable",
+                        "body": "Refs #406",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps(
+                [{"number": 406, "title": "MRWK bounty: useful bug reports", "state": "OPEN"}]
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                [
+                    {
+                        "repo": "ramimbo/mergework",
+                        "issue_number": number,
+                        "title": "MRWK bounty: many rows",
+                        "status": "open",
+                        "awards_remaining": 1,
+                    }
+                    for number in range(1, pr_queue_health.API_BOUNTY_SAFETY_CAP + 1)
+                ]
+            ).encode()
+
+    def fake_urlopen(url, timeout):
+        return FakeResponse()
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+    monkeypatch.setattr(pr_queue_health, "urlopen", fake_urlopen)
+
+    report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
+
+    assert report["data_sources"] == {"bounties": "github_issues"}
+    assert "bounty list reached the 200 item safety cap" in report["api_bounty_warning"]
+    assert report["summary"]["closed_bounty_references"] == 0
+    assert report["summary"]["open_bounties"] == 1
