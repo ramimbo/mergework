@@ -50,6 +50,9 @@
     {% set submission_url = safe_public_url(proof.submission_url) %}
     <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ proof.submission_url }}</a>{% else %}{{ proof.submission_url }}{% endif %}</dd>
   </dl>
-  <pre>{{ proof | tojson(indent=2) }}</pre>
+  <details class="raw-proof">
+    <summary>Raw proof JSON</summary>
+    <pre>{{ proof | tojson(indent=2) }}</pre>
+  </details>
 </section>
 {% endblock %}

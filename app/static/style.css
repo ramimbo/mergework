@@ -324,6 +324,17 @@ button { cursor: pointer; color: white; background: var(--accent); border-color:
   word-break: break-word;
 }
 .wallet-tool form + h2 { margin-top: 34px; }
+.raw-proof {
+  margin-top: 24px;
+}
+.raw-proof summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.raw-proof pre {
+  margin-top: 0;
+}
 @media (max-width: 640px) {
   header { align-items: flex-start; flex-direction: column; }
   .search-row { grid-template-columns: 1fr; }
