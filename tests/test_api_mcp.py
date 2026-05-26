@@ -185,6 +185,7 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_schema["properties"]["bounty_id"]["minimum"] == 1
     assert submit_schema["properties"]["issue_number"]["minimum"] == 1
     assert submit_schema["properties"]["repo"]["maxLength"] == 200
+    assert submit_schema["dependentRequired"] == {"repo": ["issue_number"]}
     assert submit_schema["not"] == {"required": ["bounty_id", "issue_number"]}
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]

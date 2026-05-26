@@ -61,7 +61,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 "repo": {
                     "type": "string",
                     "maxLength": 200,
-                    "description": "Optional owner/name repository scope for issue_number lookups.",
+                    "description": "Owner/name repository scope. Only valid with issue_number.",
                 },
                 "format": {
                     "type": "string",
@@ -71,6 +71,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
             },
             "additionalProperties": False,
+            "dependentRequired": {"repo": ["issue_number"]},
             "not": {"required": ["bounty_id", "issue_number"]},
         },
     },
