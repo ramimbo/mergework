@@ -9,14 +9,14 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,13 @@ from app.admin import (
     normalize_webhook_status_filter,
     webhook_events_to_dict,
     webhook_status_summary,
+)
+from app.bounty_attempts import (
+    active_attempt_conditions,
+    attempt_effective_status,
+    bounty_attempt_to_dict,
+    bounty_attempt_warnings,
+    expire_stale_bounty_attempts,
 )
 from app.config import Settings, get_settings
 from app.db import create_schema, session_scope
@@ -153,71 +160,6 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
-
-
-def _attempt_effective_status(attempt: BountyAttempt, now: datetime) -> str:
-    if attempt.status == "active" and _as_utc(attempt.expires_at) <= now:
-        return "expired"
-    return attempt.status
-
-
-def bounty_attempt_to_dict(attempt: BountyAttempt, now: datetime | None = None) -> dict[str, Any]:
-    now = now or _utc_now()
-    return {
-        "id": attempt.id,
-        "bounty_id": attempt.bounty_id,
-        "submitter_account": attempt.submitter_account,
-        "source_url": attempt.source_url,
-        "status": _attempt_effective_status(attempt, now),
-        "expires_at": _as_utc(attempt.expires_at).isoformat(),
-        "created_at": _as_utc(attempt.created_at).isoformat(),
-        "updated_at": _as_utc(attempt.updated_at).isoformat(),
-    }
-
-
-def _active_attempt_conditions(bounty_id: int, now: datetime) -> tuple[Any, ...]:
-    return (
-        BountyAttempt.bounty_id == bounty_id,
-        BountyAttempt.status == "active",
-        BountyAttempt.expires_at > now,
-    )
-
-
-def bounty_attempt_warnings(session: Session, bounty: Bounty, now: datetime) -> list[str]:
-    warnings: list[str] = []
-    awards_remaining = max(0, bounty.max_awards - bounty.awards_paid)
-    if bounty.status != "open":
-        warnings.append(f"bounty is {bounty.status}")
-        awards_remaining = 0
-    if awards_remaining <= 0:
-        warnings.append("bounty has no award slots remaining")
-    active_count = session.scalar(
-        select(func.count())
-        .select_from(BountyAttempt)
-        .where(*_active_attempt_conditions(bounty.id, now))
-    )
-    if active_count and active_count > 1:
-        warnings.append(f"bounty has {active_count} active attempts")
-    return warnings
-
-
-def expire_stale_bounty_attempts(
-    session: Session, bounty_id: int, now: datetime, submitter_account: str | None = None
-) -> None:
-    query = update(BountyAttempt).where(
-        BountyAttempt.bounty_id == bounty_id,
-        BountyAttempt.status == "active",
-        BountyAttempt.expires_at <= now,
-    )
-    if submitter_account is not None:
-        query = query.where(BountyAttempt.submitter_account == submitter_account)
-    session.execute(query.values(status="expired", updated_at=now))
-
-
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
     data = json.loads(proof.public_json)
     if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
@@ -278,13 +220,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -680,7 +626,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="bounty not found")
             query = select(BountyAttempt).where(BountyAttempt.bounty_id == bounty_id)
             if not include_expired:
-                query = query.where(*_active_attempt_conditions(bounty_id, now))
+                query = query.where(*active_attempt_conditions(bounty_id, now))
             attempts = session.scalars(
                 query.order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
             ).all()
@@ -728,7 +674,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             existing = session.scalar(
                 select(BountyAttempt)
                 .where(
-                    *_active_attempt_conditions(bounty_id, now),
+                    *active_attempt_conditions(bounty_id, now),
                     BountyAttempt.submitter_account == submitter_account,
                 )
                 .order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
@@ -761,7 +707,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 existing = session.scalar(
                     select(BountyAttempt)
                     .where(
-                        *_active_attempt_conditions(bounty_id, now),
+                        *active_attempt_conditions(bounty_id, now),
                         BountyAttempt.submitter_account == submitter_account,
                     )
                     .order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
@@ -807,7 +753,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="attempt not found")
             if attempt.submitter_account != submitter_account:
                 raise HTTPException(status_code=403, detail="submitter_account does not match")
-            effective_status = _attempt_effective_status(attempt, now)
+            effective_status = attempt_effective_status(attempt, now)
             if effective_status != "active":
                 return {
                     "status": f"already_{effective_status}",
@@ -1687,7 +1633,7 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             now = _utc_now()
             attempt_query = select(BountyAttempt).where(BountyAttempt.bounty_id == bounty_id)
             if not optional_bool_arg("include_expired"):
-                attempt_query = attempt_query.where(*_active_attempt_conditions(bounty_id, now))
+                attempt_query = attempt_query.where(*active_attempt_conditions(bounty_id, now))
             attempts = session.scalars(
                 attempt_query.order_by(
                     BountyAttempt.created_at.desc(), BountyAttempt.id.desc()
