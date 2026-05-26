@@ -6,10 +6,11 @@ import json
 import re
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from sqlalchemy import case, func, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -656,16 +657,19 @@ def pay_bounty(
     reserve_account = reserve_account_for_bounty(bounty.id)
     if get_balance(session, reserve_account) < bounty.reward_microunits:
         raise LedgerError("bounty reserve balance too low")
-    claimed = session.execute(
-        update(Bounty)
-        .where(Bounty.id == bounty.id, Bounty.awards_paid < Bounty.max_awards)
-        .values(
-            awards_paid=Bounty.awards_paid + 1,
-            status=case(
-                (Bounty.awards_paid + 1 >= Bounty.max_awards, "paid"),
-                else_="open",
-            ),
-        )
+    claimed = cast(
+        CursorResult[Any],
+        session.execute(
+            update(Bounty)
+            .where(Bounty.id == bounty.id, Bounty.awards_paid < Bounty.max_awards)
+            .values(
+                awards_paid=Bounty.awards_paid + 1,
+                status=case(
+                    (Bounty.awards_paid + 1 >= Bounty.max_awards, "paid"),
+                    else_="open",
+                ),
+            )
+        ),
     )
     if claimed.rowcount != 1:
         raise LedgerError("bounty already paid")
@@ -733,10 +737,13 @@ def close_bounty(
         raise LedgerError("bounty is not open")
     _clean_required_text(closed_by, "closed_by", 80)
     clean_reference = validate_public_url(reference or bounty.issue_url)
-    claimed = session.execute(
-        update(Bounty)
-        .where(Bounty.id == bounty.id, Bounty.status == "open")
-        .values(status="closed")
+    claimed = cast(
+        CursorResult[Any],
+        session.execute(
+            update(Bounty)
+            .where(Bounty.id == bounty.id, Bounty.status == "open")
+            .values(status="closed")
+        ),
     )
     if claimed.rowcount != 1:
         raise LedgerError("bounty is not open")
