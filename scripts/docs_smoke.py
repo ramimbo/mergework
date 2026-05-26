@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
     "README.md",
@@ -55,6 +57,7 @@ REQUIRED_PUBLIC_PHRASES = {
     ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+ISSUE_TEMPLATE_DIR = ".github/ISSUE_TEMPLATE"
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
 
@@ -68,6 +71,16 @@ def _local_target_exists(source: Path, target: str) -> bool:
 
 def _squash(text: str) -> str:
     return " ".join(text.split())
+
+
+def _load_yaml_mapping(path: Path) -> tuple[bool, str | None]:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        return False, f"invalid YAML: {exc}"
+    if not isinstance(data, dict):
+        return False, "must parse to a YAML mapping"
+    return True, None
 
 
 def main() -> int:
@@ -92,6 +105,17 @@ def main() -> int:
         for link in LINK_RE.findall(text):
             if not _local_target_exists(path, link):
                 print(f"broken local link in {relative}: {link}")
+                ok = False
+    issue_template_dir = ROOT / ISSUE_TEMPLATE_DIR
+    if not issue_template_dir.exists():
+        print(f"missing issue template directory: {ISSUE_TEMPLATE_DIR}")
+        ok = False
+    else:
+        for template_path in sorted(issue_template_dir.glob("*.yml")):
+            parsed, error = _load_yaml_mapping(template_path)
+            if not parsed:
+                relative = template_path.relative_to(ROOT)
+                print(f"invalid issue template YAML in {relative}: {error}")
                 ok = False
     docs_issue_template = ROOT / DOCS_ISSUE_TEMPLATE
     if not docs_issue_template.exists():

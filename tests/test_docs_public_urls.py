@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.docs_smoke import REQUIRED
+from scripts.docs_smoke import REQUIRED, _load_yaml_mapping
 
 
 def test_readme_lists_live_ltclab_urls() -> None:
@@ -254,6 +254,27 @@ def test_agent_guide_explains_internal_bounty_ids() -> None:
 
 def test_docs_smoke_covers_public_api_examples() -> None:
     assert "docs/api-examples.md" in REQUIRED
+
+
+def test_docs_smoke_validates_issue_template_yaml(tmp_path: Path) -> None:
+    valid_template = Path(".github/ISSUE_TEMPLATE/bounty.yml")
+    parsed, error = _load_yaml_mapping(valid_template)
+    assert parsed is True
+    assert error is None
+
+    invalid_template = tmp_path / "broken.yml"
+    invalid_template.write_text(
+        "name: Broken\n"
+        "body:\n"
+        "  - type: textarea\n"
+        "    attributes:\n"
+        "      description: docs/bounty-rules.md: reward, max awards\n",
+        encoding="utf-8",
+    )
+    parsed, error = _load_yaml_mapping(invalid_template)
+    assert parsed is False
+    assert error is not None
+    assert "invalid YAML" in error
 
 
 def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:
