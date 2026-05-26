@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -275,13 +275,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
