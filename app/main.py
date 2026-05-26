@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -20,6 +20,12 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.accounts import (
+    AccountError,
+    account_summary,
+    github_login_from_account,
+    normalize_account,
+)
 from app.admin import (
     list_webhook_events,
     normalize_webhook_status_filter,
@@ -28,6 +34,7 @@ from app.admin import (
 )
 from app.config import Settings, get_settings
 from app.db import create_schema, session_scope
+from app.explorer import ledger_transactions_for_account, proof_hashes_by_sequence
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
     GENESIS_SUPPLY_MICRO,
@@ -96,7 +103,6 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
 }
-GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 API_DOCS_CSP = (
     "default-src 'self'; "
@@ -260,15 +266,6 @@ def _is_ltc_lab_host(request: Request) -> bool:
     return _host_without_port(request) in {"ltclab.site", "www.ltclab.site"}
 
 
-def _proof_hashes_by_sequence(session: Session, sequences: list[int]) -> dict[int, str]:
-    if not sequences:
-        return {}
-    rows = session.execute(
-        select(Proof.ledger_sequence, Proof.hash).where(Proof.ledger_sequence.in_(sequences))
-    ).all()
-    return {int(sequence): str(proof_hash) for sequence, proof_hash in rows}
-
-
 def _oauth_configured(settings: Settings) -> bool:
     return bool(
         settings.github_oauth_client_id
@@ -278,62 +275,31 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
 
 
 def _normalized_account(account: str) -> str:
-    if not account or not account.strip():
-        raise HTTPException(status_code=400, detail="account must not be empty")
-    if re.search(r"[\x00-\x1f\x7f]", account):
-        raise HTTPException(status_code=400, detail="account must not contain control characters")
-    clean = account.strip()
-    lower = clean.lower()
-    if lower == TREASURY_ACCOUNT:
-        return TREASURY_ACCOUNT
-    if lower.startswith("treasury:"):
-        raise HTTPException(status_code=400, detail="treasury account must be treasury:mrwk")
-    if lower.startswith("reserve:"):
-        reserve_prefix = "reserve:bounty:"
-        if not lower.startswith(reserve_prefix):
-            raise HTTPException(
-                status_code=400, detail="reserve account must use reserve:bounty:<id>"
-            )
-        bounty_id = lower.removeprefix(reserve_prefix)
-        try:
-            normalized_bounty_id = int(bounty_id) if bounty_id.isdigit() else 0
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="reserve bounty id is too large") from exc
-        if normalized_bounty_id <= 0:
-            raise HTTPException(status_code=400, detail="reserve bounty id must be positive")
-        if normalized_bounty_id > SQLITE_INTEGER_MAX:
-            raise HTTPException(status_code=400, detail="reserve bounty id is too large")
-        return f"{reserve_prefix}{normalized_bounty_id}"
-    if lower.startswith("mrwk1"):
-        return _normalized_wallet_address(clean)
-    if lower.startswith("github:"):
-        login = clean.split(":", 1)[1].lower()
-        if not GITHUB_LOGIN_RE.fullmatch(login):
-            raise HTTPException(status_code=400, detail="github login must be valid")
-        return f"github:{login}"
-    return clean
+    try:
+        return normalize_account(account)
+    except AccountError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _github_login_from_account(account: str) -> str | None:
-    if not account.startswith("github:"):
-        return None
-    login = account.removeprefix("github:")
-    if not GITHUB_LOGIN_RE.fullmatch(login):
-        return None
-    return login
+    return github_login_from_account(account)
 
 
 def _positive_bounty_id(bounty_id: int) -> int:
@@ -933,30 +899,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.get("/api/v1/accounts/{account}")
     def api_account(account: str) -> dict[str, Any]:
         account = _normalized_account(account)
-        github_login = _github_login_from_account(account)
-        if account.startswith("github:"):
-            transfer_status = (
-                "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
-            )
-        elif account.startswith(("treasury:", "reserve:")):
-            transfer_status = (
-                "Internal ledger account. MRWK wallet transfers are only available "
-                "for registered mrwk1 addresses."
-            )
-        else:
-            transfer_status = "MRWK wallet transfers are enabled for registered mrwk1 addresses."
         with session_scope(db_url) as session:
             account_row = session.get(Account, account)
             accepted_work = safe_account_accepted_summary(session, account)
-            return {
-                "account": account,
-                "ledger_address": account,
-                "github_login": github_login,
-                "exists": account_row is not None,
-                "balance_mrwk": format_mrwk(get_balance(session, account)),
-                "transfer_status": transfer_status,
-                "accepted_work": accepted_work,
-            }
+            return account_summary(
+                account,
+                exists=account_row is not None,
+                balance_mrwk=format_mrwk(get_balance(session, account)),
+                accepted_work=accepted_work,
+            )
 
     @app.get("/api/v1/accounts/{account}/accepted-work")
     def api_account_accepted_work(account: str) -> dict[str, Any]:
@@ -1064,7 +1015,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             entries = session.scalars(
                 select(LedgerEntry).order_by(LedgerEntry.sequence.desc()).limit(limit)
             ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
+            proofs = proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
             return [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
 
     @app.get("/api/v1/ledger/{sequence}")
@@ -1197,14 +1148,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             account_data = api_account(account)
             accepted_summary = safe_account_accepted_summary(session, account)
-            entries = session.scalars(
-                select(LedgerEntry)
-                .where(or_(LedgerEntry.from_account == account, LedgerEntry.to_account == account))
-                .order_by(LedgerEntry.sequence.desc())
-                .limit(100)
-            ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
-            transactions = [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
+            transactions = ledger_transactions_for_account(session, account)
             accepted_work = safe_accepted_work_for_account(session, account)
         return templates.TemplateResponse(
             request,
@@ -1234,19 +1178,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             if wallet is None:
                 raise HTTPException(status_code=404, detail="wallet not found")
             wallet_data = wallet_to_dict(session, wallet)
-            entries = session.scalars(
-                select(LedgerEntry)
-                .where(
-                    or_(
-                        LedgerEntry.from_account == wallet.address,
-                        LedgerEntry.to_account == wallet.address,
-                    )
-                )
-                .order_by(LedgerEntry.sequence.desc())
-                .limit(100)
-            ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
-            transactions = [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
+            transactions = ledger_transactions_for_account(session, wallet.address)
         return templates.TemplateResponse(
             request,
             "wallet_detail.html",
