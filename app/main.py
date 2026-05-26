@@ -9,11 +9,11 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select, update
@@ -28,6 +28,7 @@ from app.admin import (
 )
 from app.config import Settings, get_settings
 from app.db import create_schema, session_scope
+from app.http_middleware import apply_http_response_safety, run_with_head_as_get
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
     GENESIS_SUPPLY_MICRO,
@@ -79,64 +80,12 @@ BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["safe_public_url"] = public_url_or_none
 
-SECURITY_HEADERS = {
-    "Content-Security-Policy": (
-        "default-src 'self'; "
-        "base-uri 'self'; "
-        "frame-ancestors 'none'; "
-        "form-action 'self'; "
-        "connect-src 'self'; "
-        "img-src 'self' data:; "
-        "object-src 'none'; "
-        "script-src 'self'; "
-        "style-src 'self'"
-    ),
-    "Referrer-Policy": "no-referrer",
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-}
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
-API_DOCS_CSP = (
-    "default-src 'self'; "
-    "base-uri 'self'; "
-    "frame-ancestors 'none'; "
-    "form-action 'self'; "
-    "connect-src 'self'; "
-    "font-src 'self' data: https://fonts.gstatic.com; "
-    "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.redoc.ly; "
-    "object-src 'none'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
-    "worker-src 'self' blob:"
-)
-API_DOCS_PATHS = {"/api/docs", "/api/redoc"}
 SQLITE_INTEGER_MAX = 2**63 - 1
 DEFAULT_ATTEMPT_TTL_SECONDS = 24 * 60 * 60
 MIN_ATTEMPT_TTL_SECONDS = 60
 MAX_ATTEMPT_TTL_SECONDS = 7 * 24 * 60 * 60
-
-
-def _request_was_forwarded_https(request: Request) -> bool:
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
-    if forwarded_proto:
-        return forwarded_proto.split(",", 1)[0].strip().lower() == "https"
-    return request.url.scheme == "https"
-
-
-def _preserve_forwarded_https_redirect(request: Request, response: Response) -> None:
-    if response.status_code not in {307, 308} or not _request_was_forwarded_https(request):
-        return
-    location = response.headers.get("location")
-    if not location:
-        return
-    parsed = urlsplit(location)
-    if parsed.scheme != "http" or parsed.netloc != request.url.netloc:
-        return
-    response.headers["location"] = urlunsplit(
-        ("https", parsed.netloc, parsed.path, parsed.query, parsed.fragment)
-    )
 
 
 def _issue_number_search_value(query: str) -> int | None:
@@ -278,13 +227,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -488,27 +441,8 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next: Any) -> Any:
-        original_method = request.scope["method"]
-        if original_method == "HEAD":
-            request.scope["method"] = "GET"
-        try:
-            response = await call_next(request)
-        finally:
-            request.scope["method"] = original_method
-        if original_method == "HEAD":
-            headers = dict(response.headers)
-            headers["content-length"] = "0"
-            response = Response(
-                status_code=response.status_code,
-                headers=headers,
-                media_type=response.media_type,
-            )
-        if request.url.path in API_DOCS_PATHS:
-            response.headers["Content-Security-Policy"] = API_DOCS_CSP
-        _preserve_forwarded_https_redirect(request, response)
-        for name, value in SECURITY_HEADERS.items():
-            response.headers.setdefault(name, value)
-        return response
+        response = await run_with_head_as_get(request, call_next)
+        return apply_http_response_safety(request, response)
 
     static_dir = BASE_DIR / "static"
     if static_dir.exists():
