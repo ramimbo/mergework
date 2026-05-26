@@ -9,9 +9,7 @@ from app.wallets import WalletError, normalize_wallet_address
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 SQLITE_INTEGER_MAX = 2**63 - 1
 
-GITHUB_TRANSFER_STATUS = (
-    "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
-)
+GITHUB_TRANSFER_STATUS = "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
 INTERNAL_LEDGER_TRANSFER_STATUS = (
     "Internal ledger account. MRWK wallet transfers are only available "
     "for registered mrwk1 addresses."
