@@ -278,8 +278,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         lines.append("## Likely duplicate bounty scope")
         for item in duplicates:
             prs = ", ".join(
-                _pr_ref({"pull_request": number, "url": None})
-                for number in item["pull_requests"]
+                _pr_ref({"pull_request": number, "url": None}) for number in item["pull_requests"]
             )
             scope = item["scope"] or "(no scope)"
             lines.append(f"- Bounty #{item['bounty']}: {scope} ({prs})")
