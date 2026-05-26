@@ -1539,7 +1539,7 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
         if repo is None:
             return None
         if len(repo) > 200:
-            raise ValueError("repo is too long")
+            raise ValueError("repo is too long (max 200 characters)")
         return repo.lower()
 
     def mcp_issue_number_search_value(query_text: str) -> int | None:
@@ -1783,12 +1783,19 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
                     else work_proof_guidance(bounty)
                 )
             if has_issue_number:
-                issue_query = select(Bounty).where(
-                    Bounty.issue_number == positive_int_arg("issue_number")
-                )
+                issue_number = positive_int_arg("issue_number")
+                issue_query = select(Bounty).where(Bounty.issue_number == issue_number)
                 if repo_selector is not None:
-                    issue_query = issue_query.where(func.lower(Bounty.repo) == repo_selector)
+                    issue_query = issue_query.where(Bounty.repo == repo_selector)
                 bounties = session.scalars(issue_query.order_by(Bounty.id.desc()).limit(2)).all()
+                if repo_selector is not None and not bounties:
+                    legacy_issue_query = select(Bounty).where(
+                        Bounty.issue_number == issue_number,
+                        func.lower(Bounty.repo) == repo_selector,
+                    )
+                    bounties = session.scalars(
+                        legacy_issue_query.order_by(Bounty.id.desc()).limit(2)
+                    ).all()
                 if not bounties:
                     return "bounty not found"
                 if len(bounties) > 1:

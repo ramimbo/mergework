@@ -429,7 +429,7 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
-    assert "bounty_id or issue_number" in submit_tool["description"]
+    assert "issue_number optionally scoped by repo" in submit_tool["description"]
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]
     attempt_tool = next(

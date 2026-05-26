@@ -39,8 +39,8 @@ MCP_TOOLS: list[dict[str, str]] = [
     {
         "name": "submit_work_proof",
         "description": (
-            "Return submission instructions, optionally for a bounty_id or issue_number "
-            "and repo, with text or json format"
+            "Return submission instructions for a bounty_id, or for an issue_number "
+            "optionally scoped by repo; supports text or json format"
         ),
     },
 ]
