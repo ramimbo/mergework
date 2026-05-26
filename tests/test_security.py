@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import re
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +27,7 @@ from app.ledger.service import (
     register_wallet,
     validate_public_url,
 )
-from app.main import _safe_next_path, _signed_value, create_app
+from app.main import _safe_next_path, _signed_value, _verified_value, create_app
 from app.models import Bounty, LedgerEntry, Proof, Submission, WebhookEvent
 from app.webhooks.github import handle_github_webhook
 
@@ -871,6 +872,32 @@ def test_oauth_next_path_rejects_external_or_headerlike_paths(
     next_path: str | None, expected: str
 ) -> None:
     assert _safe_next_path(next_path) == expected
+
+
+@pytest.mark.parametrize(
+    "next_path",
+    (
+        "/%255cevil.example/me",
+        "/me%250d%250aLocation:%20https://evil.example",
+    ),
+)
+def test_github_login_stores_safe_default_for_encoded_next_route(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, next_path: str
+) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/auth/github/login?next={next_path}", follow_redirects=False)
+
+    assert response.status_code == 302
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    state_value = _verified_value(query["state"][0], "test-cookie-secret", 600)
+    assert state_value is not None
+    _nonce, stored_next_path = state_value.split(",", 1)
+    assert stored_next_path == "/me"
 
 
 def test_amount_parser_rejects_non_finite_values() -> None:
