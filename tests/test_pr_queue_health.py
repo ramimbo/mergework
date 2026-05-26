@@ -289,3 +289,113 @@ def test_pr_queue_health_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="pr list reached the 201 item safety cap"):
         pr_queue_health.load_live_queue("ramimbo/mergework")
+
+
+def test_pr_queue_health_live_mode_uses_api_award_capacity(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 71,
+                        "title": "Late fix for exhausted bounty",
+                        "body": "Refs #406",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                        "url": "https://github.com/ramimbo/mergework/pull/71",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 406,
+                        "title": "MRWK bounty: useful bug reports",
+                        "state": "OPEN",
+                    }
+                ]
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                [
+                    {
+                        "repo": "ramimbo/mergework",
+                        "issue_number": 406,
+                        "title": "MRWK bounty: useful bug reports",
+                        "status": "open",
+                        "awards_remaining": 0,
+                    }
+                ]
+            ).encode()
+
+    def fake_urlopen(url, timeout):
+        assert url == "https://api.mrwk.ltclab.site/api/v1/bounties?limit=200"
+        assert timeout == pr_queue_health.GH_TIMEOUT_SECONDS
+        return FakeResponse()
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+    monkeypatch.setattr(pr_queue_health, "urlopen", fake_urlopen)
+
+    report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
+
+    assert report["summary"]["closed_bounty_references"] == 1
+    assert report["closed_bounty_references"][0]["pull_request"] == 71
+    assert report["closed_bounty_references"][0]["detail"] == (
+        "Referenced bounty #406 is not payable"
+    )
+
+
+def test_pr_queue_health_live_mode_falls_back_on_bad_api_utf8(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 72,
+                        "title": "Fallback path still payable",
+                        "body": "Refs #406",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps(
+                [{"number": 406, "title": "MRWK bounty: useful bug reports", "state": "OPEN"}]
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    class BadUtf8Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return b"\xff\xfe"
+
+    def fake_urlopen(url, timeout):
+        return BadUtf8Response()
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+    monkeypatch.setattr(pr_queue_health, "urlopen", fake_urlopen)
+
+    report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
+
+    assert report["summary"]["closed_bounty_references"] == 0
+    assert report["summary"]["open_bounties"] == 1

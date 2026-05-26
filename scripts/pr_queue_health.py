@@ -7,6 +7,8 @@ import subprocess
 import sys
 from collections import defaultdict
 from typing import Any
+from urllib.error import URLError
+from urllib.request import urlopen
 
 BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
@@ -14,6 +16,7 @@ UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable
 GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
+DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 
 
 def _labels(raw: dict[str, Any]) -> list[str]:
@@ -281,6 +284,32 @@ def _run_gh_json(args: list[str]) -> Any:
     return json.loads(completed.stdout)
 
 
+def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int, dict[str, Any]]:
+    url = f"{api_host.rstrip('/')}/api/v1/bounties?limit=200"
+    try:
+        with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"MergeWork API bounty data unavailable: {exc}") from exc
+    if not isinstance(payload, list):
+        raise RuntimeError("MergeWork API bounty data must be a list")
+
+    bounties: dict[int, dict[str, Any]] = {}
+    for item in payload:
+        if not isinstance(item, dict) or item.get("repo") != repo:
+            continue
+        issue_number = item.get("issue_number")
+        if not isinstance(issue_number, int):
+            continue
+        bounties[issue_number] = {
+            "number": issue_number,
+            "title": item.get("title"),
+            "state": item.get("status", "open"),
+            "awards_remaining": item.get("awards_remaining"),
+        }
+    return bounties
+
+
 def load_live_queue(repo: str) -> dict[str, Any]:
     prs = _run_gh_json(
         [
@@ -322,16 +351,27 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
             "use an API-paginated collector before trusting this live report"
         )
-    bounty_issues = [
-        {
-            "number": issue["number"],
-            "title": issue.get("title"),
-            "state": issue.get("state"),
-            "awards_remaining": 1 if issue.get("state") == "OPEN" else 0,
-        }
-        for issue in issues
-        if "bounty" in str(issue.get("title", "")).lower()
-    ]
+    try:
+        api_bounties = _load_api_bounties(repo)
+    except RuntimeError:
+        api_bounties = {}
+
+    bounty_issues = []
+    for issue in issues:
+        if "bounty" not in str(issue.get("title", "")).lower():
+            continue
+        issue_number = issue["number"]
+        api_bounty = api_bounties.get(issue_number, {})
+        bounty_issues.append(
+            {
+                "number": issue_number,
+                "title": issue.get("title"),
+                "state": api_bounty.get("state", issue.get("state")),
+                "awards_remaining": api_bounty.get(
+                    "awards_remaining", 1 if issue.get("state") == "OPEN" else 0
+                ),
+            }
+        )
     return {"pull_requests": prs, "bounties": bounty_issues}
 
 
