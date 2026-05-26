@@ -45,6 +45,41 @@
     <h2 id="acceptance-heading">What has to be true</h2>
     <p>{{ bounty.acceptance }}</p>
   </section>
+
+  <section class="acceptance-card" aria-labelledby="attempts-heading">
+    <p class="eyebrow">Coordination</p>
+    <h2 id="attempts-heading">Active attempts</h2>
+    {% if attempts.warnings %}
+      <ul>
+        {% for warning in attempts.warnings %}
+          <li>{{ warning }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if attempts.attempts %}
+      <div class="ledger-list">
+        {% for attempt in attempts.attempts %}
+        <article class="ledger-row">
+          <div class="ledger-entry-card">
+            <div class="ledger-card-head">
+              <div class="ledger-card-title">
+                <strong>{{ attempt.submitter_account }}</strong>
+                <span class="ledger-type">{{ attempt.status }}</span>
+              </div>
+              <span>Expires {{ attempt.expires_at[:16] | replace("T", " ") }}</span>
+            </div>
+            {% set source_url = safe_public_url(attempt.source_url) %}
+            {% if source_url %}
+              <p><a href="{{ source_url }}">{{ attempt.source_url | replace("https://github.com/", "") }}</a></p>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No active attempts are registered for this bounty.</p>
+    {% endif %}
+  </section>
 </section>
 
 <section>

@@ -10,10 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.accounts import normalized_wallet_address
+from app.bounty_attempts import list_bounty_attempts
 from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort
 from app.db import session_scope
 from app.ledger_views import account_ledger_transactions
-from app.models import Wallet
+from app.models import Bounty, Wallet
 from app.path_params import proof_hash_from_path
 from app.serializers import bounty_list_summary, wallet_to_dict
 
@@ -40,6 +41,13 @@ def public_bounties_context(
 def wallets_page_context(session: Session) -> dict[str, Any]:
     wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(100)).all()
     return {"wallets": [wallet_to_dict(session, wallet) for wallet in wallets]}
+
+
+def bounty_page_attempts_context(session: Session, bounty_id: int) -> dict[str, Any]:
+    bounty = session.get(Bounty, bounty_id)
+    if bounty is None:
+        raise HTTPException(status_code=404, detail="bounty not found")
+    return list_bounty_attempts(session, bounty, limit=5)
 
 
 def wallet_page_context(session: Session, address: str) -> dict[str, Any]:
@@ -80,8 +88,13 @@ def register_public_routes(
 
     @app.get("/bounties/{bounty_id}", response_class=HTMLResponse)
     def bounty_page(request: Request, bounty_id: int) -> HTMLResponse:
+        bounty = api_bounty(bounty_id)
+        with session_scope(db_url) as session:
+            attempts_context = bounty_page_attempts_context(session, bounty_id)
         return templates.TemplateResponse(
-            request, "bounty_detail.html", {"bounty": api_bounty(bounty_id)}
+            request,
+            "bounty_detail.html",
+            {"bounty": bounty, "attempts": attempts_context},
         )
 
     @app.get("/ledger", response_class=HTMLResponse)

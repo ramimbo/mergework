@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.models import BountyAttempt
 
 
 def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
@@ -308,6 +311,59 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert oversized_api_response.json()["detail"] == "bounty id is too large"
     oversized_page_response = client.get(f"/bounties/{oversized_bounty_id}")
     assert oversized_page_response.status_code == 400
+
+
+def test_bounty_detail_shows_active_attempt_coordination(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=427,
+            issue_url="https://github.com/ramimbo/mergework/issues/427",
+            title="Improve bounty coordination",
+            reward_mrwk="125",
+            max_awards=3,
+            acceptance="Bounty detail pages should make active attempts visible.",
+        )
+        session.add(
+            BountyAttempt(
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+                source_url="https://github.com/ramimbo/mergework/pull/451",
+                status="active",
+                expires_at=now + timedelta(hours=2),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        session.add(
+            BountyAttempt(
+                bounty_id=bounty.id,
+                submitter_account="github:expired",
+                source_url="https://github.com/ramimbo/mergework/pull/999",
+                status="active",
+                expires_at=now - timedelta(minutes=1),
+                created_at=now - timedelta(hours=3),
+                updated_at=now - timedelta(hours=3),
+            )
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/bounties/{bounty_id}")
+
+    assert response.status_code == 200
+    assert "Active attempts" in response.text
+    assert "github:alice" in response.text
+    assert "active" in response.text
+    assert 'href="https://github.com/ramimbo/mergework/pull/451"' in response.text
+    assert "github:expired" not in response.text
+    assert "https://github.com/ramimbo/mergework/pull/999" not in response.text
+    assert "No active attempts are registered for this bounty." not in response.text
 
 
 def test_bounty_detail_shows_accepted_award_history(sqlite_url: str) -> None:
