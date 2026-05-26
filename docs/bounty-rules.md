@@ -80,6 +80,21 @@ PR bounty submissions should link the bounty issue with `Bounty #<issue>` or
 `Refs #<issue>`. Use a closing reference only when the issue should close after
 that PR.
 
+Before opening a bounty PR, contributors and agents should confirm the live
+bounty state rather than relying on stale issue text:
+
+- check the bounty still has `status: "open"` and `awards_remaining` above
+  zero;
+- check active attempts and open PRs for the same issue;
+- avoid exhausted, paid, closed, or stale rounds unless a maintainer explicitly
+  redirects the work;
+- keep one bounty target per PR unless the issue asks for a combined change.
+
+Good PR bodies make the claim window easy to review. Include the exact bounty
+reference, the intended files or surfaces, the test plan, and the evidence that
+shows the work satisfies the acceptance text. If another active attempt already
+covers the same exact scope, do not race it with a duplicate PR.
+
 Paid bounty links are tracked in
 [docs/paid-bounties.md](paid-bounties.md) and the public
 [GitHub discussion](https://github.com/ramimbo/mergework/discussions/16).

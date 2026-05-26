@@ -199,16 +199,34 @@ Tools:
 
 Use this checklist before opening a PR for `mrwk:bounty` issues:
 
-1. Confirm no active claim or duplicate PR already covers the same scope.
-2. When the bounty is active and has open award slots, register an advisory
+1. Confirm the bounty is still open and has award capacity with
+   `/api/v1/bounties/{id}`.
+2. Inspect active attempts with `/api/v1/bounties/{id}/attempts` and open PRs
+   for the same bounty issue. If another active attempt or PR already covers
+   your exact scope, pick a different scope or wait for maintainer direction.
+3. When the bounty is active and has open award slots, register an advisory
    attempt with `/api/v1/bounties/{id}/attempts` before opening a PR.
-3. Keep changes small and directly tied to one bounty issue.
-4. Include `Bounty #<issue>` or `Refs #<issue>` in PR body.
-5. Explain the exact user or maintainer pain point you fixed.
-6. Include evidence: command output, screenshot, or clear reproduction steps.
-7. Run the required checks from the issue text (for docs work, run
+4. Keep changes small and directly tied to one bounty issue.
+5. Include `Bounty #<issue>` or `Refs #<issue>` in PR body.
+6. Explain the exact user or maintainer pain point you fixed.
+7. Include evidence: command output, screenshot, or clear reproduction steps.
+8. Run the required checks from the issue text (for docs work, run
    `./.venv/bin/python scripts/docs_smoke.py`).
-8. Avoid private data, secret material, and speculative price claims.
+9. Avoid private data, secret material, and speculative price claims.
+
+Do not target exhausted, paid, closed, or stale bounty rounds unless a
+maintainer explicitly redirects the work. A stale round is one where the bounty
+text, latest maintainer comment, or open PR queue suggests the requested work is
+already handled or no longer being reviewed.
+
+For claim-window style bounties, keep the PR body precise enough that a
+maintainer can see the intended review window without reading the whole diff:
+
+- exact bounty issue and internal bounty id checked;
+- files or surfaces intentionally changed;
+- files or surfaces intentionally left alone;
+- expected PR size and why the scope is not a duplicate;
+- required evidence and checks for this bounty.
 
 Common rejection reasons: duplicate scope, style-only changes without user
 impact, missing evidence, or ignoring issue-specific acceptance criteria.
