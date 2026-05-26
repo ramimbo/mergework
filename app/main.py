@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -55,9 +55,9 @@ from app.models import (
     BountyAttempt,
     LedgerEntry,
     Proof,
-    Submission,
     Wallet,
 )
+from app.payouts import existing_payout_proof_for_submission, payout_response_from_proof
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
@@ -218,40 +218,6 @@ def expire_stale_bounty_attempts(
     session.execute(query.values(status="expired", updated_at=now))
 
 
-def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
-    data = json.loads(proof.public_json)
-    if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
-        raise HTTPException(status_code=500, detail="invalid proof payload")
-    return {
-        "status": status,
-        "bounty_id": proof.bounty_id,
-        "to_account": data.get("to_account"),
-        "submission_id": proof.submission_id,
-        "submission_url": data.get("submission_url"),
-        "ledger_sequence": proof.ledger_sequence,
-        "ledger_url": f"/ledger/{proof.ledger_sequence}",
-        "proof_hash": proof.hash,
-        "proof_url": f"/proofs/{proof.hash}",
-    }
-
-
-def _existing_payout_proof_for_submission(
-    session: Session, bounty_id: int, submission_url: str
-) -> Proof | None:
-    submission = session.scalar(
-        select(Submission)
-        .where(Submission.bounty_id == bounty_id, Submission.url == submission_url)
-        .limit(1)
-    )
-    if submission is None:
-        return None
-    return session.scalar(
-        select(Proof)
-        .where(Proof.submission_id == submission.id, Proof.kind == "bounty_payment")
-        .limit(1)
-    )
-
-
 def _host_without_port(request: Request) -> str:
     return request.headers.get("host", "").split(":", 1)[0].lower()
 
@@ -278,13 +244,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -881,18 +851,18 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 proof_payload = json.loads(proof.public_json)
             except LedgerError as exc:
                 if str(exc) == "submission already paid":
-                    existing_proof = _existing_payout_proof_for_submission(
+                    existing_proof = existing_payout_proof_for_submission(
                         session, bounty_id, clean_submission_url
                     )
                     if existing_proof is not None:
                         return JSONResponse(
                             status_code=409,
-                            content=_payout_response_from_proof(
+                            content=payout_response_from_proof(
                                 existing_proof, status="already_paid"
                             ),
                         )
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-            payout_response = _payout_response_from_proof(proof, status="paid")
+            payout_response = payout_response_from_proof(proof, status="paid")
             payout_response.update(
                 {
                     "bounty_status": bounty_state["status"],
