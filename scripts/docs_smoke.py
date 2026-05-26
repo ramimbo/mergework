@@ -146,6 +146,7 @@ def main() -> int:
             "bounty #<issue>",
             "refs #<issue>",
             "public artifact cautions",
+            "investment claims",
         ]
         for phrase in required_bounty_template_phrases:
             if phrase not in bounty_template:

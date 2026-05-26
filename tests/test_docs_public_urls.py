@@ -303,6 +303,7 @@ def test_bounty_issue_template_matches_agent_friendly_guidance() -> None:
     assert "Bounty #<issue>" in template
     assert "Refs #<issue>" in template
     assert "Public artifact cautions" in template
+    assert "investment claims" in template
 
 
 def test_admin_runbook_points_maintainers_to_bounty_template() -> None:
