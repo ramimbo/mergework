@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
-from app.models import BountyAttempt, Proof
+from app.models import Bounty, BountyAttempt, Proof
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -1593,6 +1593,52 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
     assert structured["title"] == "Second bounty"
     assert structured["reward_mrwk"] == "250"
     assert structured["acceptance"] == "Second acceptance."
+
+
+def test_mcp_submit_work_proof_scopes_legacy_mixed_case_repo(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = Bounty(
+            repo="Ramimbo/MergeWork",
+            issue_number=284,
+            issue_url="https://github.com/ramimbo/mergework/issues/284",
+            title="Legacy bounty",
+            reward_microunits=100_000_000,
+            reserved_microunits=100_000_000,
+            max_awards=1,
+            awards_paid=0,
+            status="open",
+            acceptance="Legacy rows should still match repo-scoped MCP guidance.",
+        )
+        session.add(bounty)
+        session.flush()
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 33,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {
+                    "issue_number": 284,
+                    "repo": "ramimbo/mergework",
+                    "format": "json",
+                },
+            },
+        },
+    )
+
+    result = response.json()["result"]
+    structured = result["structuredContent"]
+    assert structured["bounty_id"] == bounty_id
+    assert structured["repository"] == "Ramimbo/MergeWork"
+    assert structured["title"] == "Legacy bounty"
 
 
 @pytest.mark.parametrize(
