@@ -38,7 +38,10 @@ MCP_TOOLS: list[dict[str, str]] = [
     {"name": "get_proof", "description": "Get a public proof by hash"},
     {
         "name": "submit_work_proof",
-        "description": "Return submission instructions, optionally for a bounty_id or issue_number",
+        "description": (
+            "Return submission instructions, optionally for a bounty_id or issue_number "
+            "and repo, with text or json format"
+        ),
     },
 ]
 

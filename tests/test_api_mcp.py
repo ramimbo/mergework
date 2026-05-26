@@ -1542,6 +1542,59 @@ def test_mcp_submit_work_proof_reports_unknown_bounty(sqlite_url: str) -> None:
     assert result["result"]["content"][0]["text"] == "bounty not found"
 
 
+def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=284,
+            issue_url="https://github.com/ramimbo/mergework/issues/284",
+            title="First bounty",
+            reward_mrwk="100",
+            acceptance="First acceptance.",
+        )
+        target = create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=284,
+            issue_url="https://github.com/example/mergework/issues/284",
+            title="Second bounty",
+            reward_mrwk="250",
+            acceptance="Second acceptance.",
+        )
+        target_id = target.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 28,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {
+                    "issue_number": 284,
+                    "repo": "Example/MergeWork",
+                    "format": "json",
+                },
+            },
+        },
+    )
+
+    result = response.json()["result"]
+    structured = result["structuredContent"]
+    assert json.loads(result["content"][0]["text"]) == structured
+    assert structured["bounty_id"] == target_id
+    assert structured["repository"] == "example/mergework"
+    assert structured["title"] == "Second bounty"
+    assert structured["reward_mrwk"] == "250"
+    assert structured["acceptance"] == "Second acceptance."
+
+
 @pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
@@ -1552,6 +1605,10 @@ def test_mcp_submit_work_proof_reports_unknown_bounty(sqlite_url: str) -> None:
         ({"bounty_id": 1, "issue_number": 1}, 25),
         ({"format": "xml"}, 26),
         ({"format": 1}, 27),
+        ({"repo": "ramimbo/mergework"}, 29),
+        ({"bounty_id": 1, "repo": "ramimbo/mergework"}, 30),
+        ({"issue_number": 1, "repo": 1}, 31),
+        ({"issue_number": 1, "repo": "a" * 201}, 32),
     ],
 )
 def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(

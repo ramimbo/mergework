@@ -1530,6 +1530,14 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             raise ValueError("format must be text or json")
         return normalized
 
+    def optional_repo_selector_arg() -> str | None:
+        repo = optional_clean_str_arg("repo")
+        if repo is None:
+            return None
+        if len(repo) > 200:
+            raise ValueError("repo is too long")
+        return repo.lower()
+
     def mcp_issue_number_search_value(query_text: str) -> int | None:
         if not query_text.isdigit():
             return None
@@ -1756,8 +1764,11 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             output_format = output_format_arg()
             has_bounty_id = "bounty_id" in args and args.get("bounty_id") is not None
             has_issue_number = "issue_number" in args and args.get("issue_number") is not None
+            repo_selector = optional_repo_selector_arg()
             if has_bounty_id and has_issue_number:
                 raise ValueError("use bounty_id or issue_number, not both")
+            if repo_selector is not None and not has_issue_number:
+                raise ValueError("repo can only be used with issue_number")
             if has_bounty_id:
                 bounty = session.get(Bounty, positive_int_arg("bounty_id"))
                 if bounty is None:
@@ -1768,12 +1779,12 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
                     else work_proof_guidance(bounty)
                 )
             if has_issue_number:
-                bounties = session.scalars(
-                    select(Bounty)
-                    .where(Bounty.issue_number == positive_int_arg("issue_number"))
-                    .order_by(Bounty.id.desc())
-                    .limit(2)
-                ).all()
+                issue_query = select(Bounty).where(
+                    Bounty.issue_number == positive_int_arg("issue_number")
+                )
+                if repo_selector is not None:
+                    issue_query = issue_query.where(func.lower(Bounty.repo) == repo_selector)
+                bounties = session.scalars(issue_query.order_by(Bounty.id.desc()).limit(2)).all()
                 if not bounties:
                     return "bounty not found"
                 if len(bounties) > 1:
