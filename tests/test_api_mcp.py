@@ -1545,6 +1545,8 @@ def test_docs_page_lists_live_ltclab_urls(sqlite_url: str) -> None:
     assert "OpenAPI docs" in docs
     assert 'href="/activity"' in docs
     assert 'href="/api/v1/activity"' in docs
+    assert "Future portability" in docs
+    assert "does not currently operate a public bridge, exchange, off-ramp" in docs
     assert "SwaggerUIBundle" in api_docs
 
 
