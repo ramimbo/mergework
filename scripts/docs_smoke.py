@@ -46,12 +46,19 @@ REQUIRED_PUBLIC_PHRASES = {
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
     ],
     "docs/bounty-rules.md": [
+        "## Bounty Post Template",
         "## Submission Evidence Templates",
         "PR or fix claim:",
         "Review claim:",
         "Smoke-check or bug-report claim:",
         "Discussion or decision-support claim:",
         "Do not describe work as accepted, merged, or paid until the public GitHub label",
+        "MRWK bounty: <amount> MRWK - <short scope>",
+        "Reward:",
+        "Max awards:",
+        "Work Needed",
+        "Acceptance Criteria",
+        "How To Submit",
     ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")

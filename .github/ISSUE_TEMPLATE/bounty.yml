@@ -1,19 +1,13 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: "
 labels: ["mrwk:bounty"]
 body:
-  - type: textarea
-    id: work
-    attributes:
-      label: Work needed
-      description: Describe the useful accepted work.
-    validations:
-      required: true
   - type: input
     id: reward
     attributes:
-      label: Proposed MRWK per award
+      label: Reward per award
+      description: MRWK amount per accepted award (e.g. 250). Also include this in the issue title.
       placeholder: "250"
     validations:
       required: true
@@ -21,13 +15,35 @@ body:
     id: max_awards
     attributes:
       label: Max awards
+      description: Number of separate payouts allowed. Use 1 for a single-award bounty.
       placeholder: "1"
+    validations:
+      required: true
+  - type: textarea
+    id: work
+    attributes:
+      label: Work Needed
+      description: Describe the useful accepted work. List specific items that qualify.
     validations:
       required: true
   - type: textarea
     id: acceptance
     attributes:
-      label: Acceptance criteria
-      description: Explain what must be true before mrwk:accepted is applied.
+      label: Acceptance Criteria
+      description: Explain what must be true before mrwk:accepted is applied. Mention evidence, tests, and checks.
     validations:
       required: true
+  - type: textarea
+    id: how_to_submit
+    attributes:
+      label: How To Submit
+      description: Explain whether to open a PR, comment with /claim, or use another path.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope (optional)
+      description: List work that will not be accepted even if technically related.
+    validations:
+      required: false

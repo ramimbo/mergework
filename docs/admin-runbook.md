@@ -2,14 +2,18 @@
 
 ## Post a Bounty
 
-1. Create or choose a GitHub issue.
-2. Decide the MRWK amount using the reference tiers.
-3. Add acceptance text that explains what counts as useful accepted work.
-4. Set `max_awards` to the number of separate payouts allowed. Use `1` for
+1. Create or choose a GitHub issue. Use the bounty issue template
+   (`.github/ISSUE_TEMPLATE/bounty.yml`) for a guided form, or follow the
+   canonical template in [Bounty Post Template](bounty-rules.md#bounty-post-template).
+2. Title the issue `MRWK bounty: <amount> MRWK - <short scope>` so the reward
+   is visible in lists and parseable by agents.
+3. Decide the MRWK amount using the reference tiers.
+4. Add acceptance text that explains what counts as useful accepted work.
+5. Set `max_awards` to the number of separate payouts allowed. Use `1` for
    a single-award bounty.
-5. Use `/admin` or `POST /api/v1/bounties` with an admin token.
+6. Use `/admin` or `POST /api/v1/bounties` with an admin token.
    Multi-award bounties reserve `reward_mrwk * max_awards`.
-6. Add `mrwk:bounty` to the GitHub issue.
+7. Add `mrwk:bounty` to the GitHub issue.
 
 ## Accept Work
 

@@ -56,6 +56,83 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+## Bounty Post Template
+
+Maintainers should use the following structure when posting a new bounty issue.
+The template is designed so both humans and agents can parse the scope, reward,
+award slots, acceptance criteria, evidence requirements, and out-of-scope rules
+without guessing.
+
+### Required Fields
+
+| Field | Where | Purpose |
+| --- | --- | --- |
+| Title | Issue title | Must follow `MRWK bounty: <amount> MRWK - <short scope>` so the reward is visible in lists |
+| Reward | Body, code block | `Reward: \`<amount> MRWK per accepted award\`` — repeated in body for API/MCP parsing |
+| Max awards | Body, code block | `Max awards: \`<number>\`` — controls reserve and payout cap |
+| Work Needed | Body heading | Describe the useful accepted work. Be specific about what qualifies. |
+| Acceptance Criteria | Body heading | List exact conditions for `mrwk:accepted`. Mention evidence, tests, and checks. |
+| How To Submit | Body heading | Explain whether to open a PR, comment with `/claim`, or use another path. |
+
+### Optional Fields
+
+| Field | Where | Purpose |
+| --- | --- | --- |
+| Out of Scope | Body heading | List work that will not be accepted even if technically related. |
+| Evidence or Tests | Body heading | Describe required test output, commands, or screenshots. |
+| Duplicate-Work Rules | Body heading | Explain how overlapping submissions are handled. |
+| Stale-Work Rules | Body heading | State how long claims remain valid without activity. |
+| Public Artifact Cautions | Body heading | Remind contributors not to post private keys, secrets, or price claims. |
+
+### Template
+
+Copy and fill in the sections that apply:
+
+```markdown
+## MRWK Bounty
+
+Reward: \`<amount> MRWK per accepted award\`
+Max awards: \`<number>\`
+
+## Work Needed
+
+<Describe the useful accepted work. Be specific about what qualifies.>
+
+Useful accepted work can include:
+
+- <item>
+- <item>
+
+## Acceptance Criteria
+
+- <criterion>
+- <criterion>
+- Existing checks pass.
+- One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
+
+## How To Submit
+
+<Open a focused PR / Comment with /claim / Other path>. A maintainer must apply \`mrwk:accepted\` or record an admin payout before payment.
+```
+
+### Agent-Readable Fields
+
+Agents consuming bounties through the GitHub API, REST API (`GET /api/v1/bounties`),
+or MCP (`list_bounties`, `get_bounty`) should read these fields:
+
+- **Reward and max awards**: parse from the body code blocks or from the API
+  response fields `reward_mrwk` and `max_awards`.
+- **Status**: use the `status` field from the API or the `mrwk:bounty` /
+  `mrwk:paid` labels on the GitHub issue.
+- **Available awards**: use `awards_remaining` or `available_mrwk` from the
+  API response.
+- **Work scope and acceptance criteria**: parse the `Work Needed` and
+  `Acceptance Criteria` headings from the issue body.
+
+The title format `MRWK bounty: <amount> MRWK - <short scope>` lets agents
+identify reward amounts without parsing the full body, which is useful when
+listing issues through GitHub search or the REST API summary endpoint.
+
 ## Submission Evidence Templates
 
 Use the smallest template that makes the claim reviewable. Delete fields that do
