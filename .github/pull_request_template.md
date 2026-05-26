@@ -8,6 +8,7 @@
 - Bounty capacity checked:
 - Active attempts/open PRs checked:
 - Intended scope and files:
+- Expected PR size:
 - Out of scope:
 
 ## Test Evidence

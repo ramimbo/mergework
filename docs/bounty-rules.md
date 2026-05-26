@@ -93,7 +93,7 @@ bounty state rather than relying on stale issue text:
 Good PR bodies make the claim window easy to review. Include the exact bounty
 reference, the intended files or surfaces, the test plan, and the evidence that
 shows the work satisfies the acceptance text. If another active attempt already
-covers the same exact scope, do not race it with a duplicate PR.
+covers the same scope, do not race it with a duplicate PR.
 
 Paid bounty links are tracked in
 [docs/paid-bounties.md](paid-bounties.md) and the public

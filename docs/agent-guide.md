@@ -219,7 +219,7 @@ maintainer explicitly redirects the work. A stale round is one where the bounty
 text, latest maintainer comment, or open PR queue suggests the requested work is
 already handled or no longer being reviewed.
 
-For claim-window style bounties, keep the PR body precise enough that a
+For claim-window-style bounties, keep the PR body precise enough that a
 maintainer can see the intended review window without reading the whole diff:
 
 - exact bounty issue and internal bounty id checked;
