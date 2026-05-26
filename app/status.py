@@ -13,6 +13,21 @@ from app.ledger.service import (
 )
 from app.models import Bounty, LedgerEntry
 
+CURRENT_TRANSFER_PATHS = (
+    "github:* balance claims",
+    "linked mrwk1 wallet payouts",
+    "signed wallet-to-wallet transfers",
+)
+UNSUPPORTED_PUBLIC_PATHS = (
+    "public BTC/USDC/fiat bridge",
+    "exchange",
+    "off-ramp",
+)
+FUTURE_PATH_NOTE = (
+    "native ledger claims and transfers today; future public snapshots, bridges, "
+    "and onchain claims require separate maintainer/contributor discussion"
+)
+
 
 def ledger_height(session: Session) -> int:
     height = session.scalar(select(func.max(LedgerEntry.sequence))) or 0
@@ -40,5 +55,7 @@ def system_status(session: Session) -> dict[str, Any]:
         "ledger_height": ledger_height(session),
         "active_bounties": int(active_bounties or 0),
         "treasury_balance_mrwk": format_mrwk(treasury_balance),
-        "future_path": "public snapshots, bridges, and onchain claims",
+        "current_transfer_paths": list(CURRENT_TRANSFER_PATHS),
+        "unsupported_public_paths": list(UNSUPPORTED_PUBLIC_PATHS),
+        "future_path": FUTURE_PATH_NOTE,
     }

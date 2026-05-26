@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
+from app.db import create_schema, session_scope
+from app.ledger.service import ensure_genesis
+from app.main import create_app
 from app.public_routes import public_bounties_context
 
 
@@ -32,3 +37,19 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
             "awards": "Most award slots",
         },
     }
+
+
+def test_hub_clarifies_current_and_future_transfer_paths(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Supported paths today are GitHub balance claims" in response.text
+    assert "linked <code>mrwk1</code> wallet payouts" in response.text
+    assert "does not currently operate a public BTC, USDC, fiat, bridge" in response.text
+    assert "separate maintainer/contributor discussion" in response.text

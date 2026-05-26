@@ -72,4 +72,15 @@ def test_system_status_counts_only_open_bounties(sqlite_url: str) -> None:
     assert status["ledger_height"] == expected_height
     assert status["active_bounties"] == 1
     assert status["treasury_balance_mrwk"] == expected_treasury_balance
-    assert status["future_path"] == "public snapshots, bridges, and onchain claims"
+    assert status["current_transfer_paths"] == [
+        "github:* balance claims",
+        "linked mrwk1 wallet payouts",
+        "signed wallet-to-wallet transfers",
+    ]
+    assert status["unsupported_public_paths"] == [
+        "public BTC/USDC/fiat bridge",
+        "exchange",
+        "off-ramp",
+    ]
+    assert "native ledger claims and transfers today" in status["future_path"]
+    assert "separate maintainer/contributor discussion" in status["future_path"]
