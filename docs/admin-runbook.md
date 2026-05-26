@@ -103,6 +103,7 @@ Use the queue-health script before accepting busy bounty rounds:
 
 ```bash
 python scripts/pr_queue_health.py --repo ramimbo/mergework --format text
+python scripts/pr_queue_health.py --repo ramimbo/mergework --format markdown
 ```
 
 Live mode requires an authenticated GitHub CLI with access to the repository.
@@ -115,6 +116,7 @@ For offline checks, save fixture data and run:
 
 ```bash
 python scripts/pr_queue_health.py --input queue.json --format json --fail-on-issues
+python scripts/pr_queue_health.py --input queue.json --format markdown
 ```
 
 `--fail-on-issues` exits nonzero when queue-health problems are found, which lets

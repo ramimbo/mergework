@@ -1,0 +1,15 @@
+{
+  "bounties": [
+    {"number": 1401, "state": "OPEN", "awards_remaining": 3}
+  ],
+  "pull_requests": [
+    {
+      "number": 151,
+      "title": "Update queue checks",
+      "url": "https://github.com/ramimbo/mergework/pull/151",
+      "body": "",
+      "merge_state": "clean",
+      "labels": []
+    }
+  ]
+}

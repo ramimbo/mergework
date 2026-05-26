@@ -1,0 +1,15 @@
+{
+  "bounties": [
+    {"number": 1101, "state": "OPEN", "awards_remaining": 2}
+  ],
+  "pull_requests": [
+    {
+      "number": 121,
+      "title": "Need extra evidence in submission",
+      "url": "https://github.com/ramimbo/mergework/pull/121",
+      "body": "Bounty #1101",
+      "merge_state": "clean",
+      "labels": ["mrwk:needs-info"]
+    }
+  ]
+}

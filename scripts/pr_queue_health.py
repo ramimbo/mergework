@@ -211,6 +211,82 @@ def format_text_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _sort_by_pull_request(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(items, key=lambda item: item.get("pull_request", 0))
+
+
+def _pr_ref(item: dict[str, Any]) -> str:
+    url = item.get("url")
+    if isinstance(url, str) and url:
+        return f"[#{item['pull_request']}]({url})"
+    return f"#{item['pull_request']}"
+
+
+def format_markdown_report(report: dict[str, Any]) -> str:
+    lines = ["# PR Queue Health"]
+    lines.append("")
+    lines.append("## Summary")
+    for key, value in report["summary"].items():
+        lines.append(f"- {key.replace('_', ' ')}: `{value}`")
+
+    if not has_queue_issues(report):
+        lines.append("")
+        lines.append("## No queue-health issues found.")
+        return "\n".join(lines)
+
+    sections = [
+        (
+            "## Closed or exhausted bounty references",
+            "closed_bounty_references",
+            lambda item: f"{_pr_ref(item)}: {item['title']} ({item['detail']})",
+        ),
+        (
+            "## Missing bounty references",
+            "missing_bounty_references",
+            lambda item: f"{_pr_ref(item)}: {item['title']} ({item['detail']})",
+        ),
+        (
+            "## Dirty or unstable merge state",
+            "dirty_or_unstable_merge_state",
+            lambda item: f"{_pr_ref(item)}: {item['title']} ({item['detail']})",
+        ),
+        (
+            "## Needs info",
+            "needs_info",
+            lambda item: f"{_pr_ref(item)}: {item['title']} ({item['detail']})",
+        ),
+    ]
+
+    for title, key, formatter in sections:
+        issues = _sort_by_pull_request(report[key])
+        if issues:
+            lines.append("")
+            lines.append(title)
+            for item in issues:
+                lines.append(f"- {formatter(item)}")
+
+    duplicates = sorted(
+        report["duplicate_scope_groups"],
+        key=lambda item: (
+            item.get("bounty", 0),
+            item.get("scope", ""),
+            tuple(item.get("pull_requests", ())),
+        ),
+    )
+    if duplicates:
+        lines.append("")
+        lines.append("## Likely duplicate bounty scope")
+        for item in duplicates:
+            prs = ", ".join(
+                _pr_ref({"pull_request": number, "url": None})
+                for number in item["pull_requests"]
+            )
+            scope = item["scope"] or "(no scope)"
+            lines.append(f"- Bounty #{item['bounty']}: {scope} ({prs})")
+
+    return "\n".join(lines)
+
+
 def _run_gh_json(args: list[str]) -> Any:
     command = " ".join(args)
     try:
@@ -305,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
         "--repo",
         help="Collect live queue data with gh, for example ramimbo/mergework.",
     )
-    parser.add_argument("--format", choices=["json", "text"], default="text")
+    parser.add_argument("--format", choices=["json", "text", "markdown"], default="text")
     parser.add_argument("--fail-on-issues", action="store_true")
     args = parser.parse_args(argv)
 
@@ -313,6 +389,8 @@ def main(argv: list[str] | None = None) -> int:
     report = analyze_queue(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif args.format == "markdown":
+        print(format_markdown_report(report))
     else:
         print(format_text_report(report))
     return 1 if args.fail_on_issues and has_queue_issues(report) else 0

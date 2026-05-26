@@ -1,0 +1,16 @@
+{
+  "bounties": [
+    {"number": 1001, "state": "OPEN", "awards_remaining": 1},
+    {"number": 1002, "state": "CLOSED", "awards_remaining": 0}
+  ],
+  "pull_requests": [
+    {
+      "number": 111,
+      "title": "Fix queue status rendering",
+      "url": "https://github.com/ramimbo/mergework/pull/111",
+      "body": "Refs #1002",
+      "merge_state": "clean",
+      "labels": []
+    }
+  ]
+}

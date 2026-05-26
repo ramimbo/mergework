@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from scripts import pr_queue_health
-from scripts.pr_queue_health import analyze_queue, format_text_report, main
+from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
+
+FIXTURES_DIR = Path(__file__).with_name("fixtures")
+
+
+def _load_fixture(name: str) -> dict:
+    path = FIXTURES_DIR / name
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
@@ -105,6 +114,62 @@ def test_pr_queue_health_text_report_is_pasteable() -> None:
     assert "PR queue health summary" in text
     assert "pull requests: 1" in text
     assert "No queue-health issues found." in text
+
+
+def test_pr_queue_health_markdown_report_includes_closed_exhausted_and_no_sections() -> None:
+    report = analyze_queue(_load_fixture("queue_markdown_closed_exhausted.json"))
+    output = format_markdown_report(report)
+
+    assert "## Summary" in output
+    assert "## Closed or exhausted bounty references" in output
+    assert "## No queue-health issues found." not in output
+
+
+def test_pr_queue_health_markdown_report_includes_needs_info_and_dirty_states() -> None:
+    needs_info = format_markdown_report(
+        analyze_queue(_load_fixture("queue_markdown_needs_info.json"))
+    )
+    dirty = format_markdown_report(analyze_queue(_load_fixture("queue_markdown_dirty_merge.json")))
+
+    assert "## Needs info" in needs_info
+    assert "## Dirty or unstable merge state" in dirty
+
+
+def test_pr_queue_health_markdown_report_includes_missing_sections() -> None:
+    output = format_markdown_report(
+        analyze_queue(_load_fixture("queue_markdown_missing_reference.json"))
+    )
+
+    assert "## Missing bounty references" in output
+    assert "No queue-health issues found" not in output
+
+
+def test_pr_queue_health_markdown_report_includes_duplicate_scope_section() -> None:
+    output = format_markdown_report(
+        analyze_queue(_load_fixture("queue_markdown_duplicate_scope.json"))
+    )
+
+    assert "## Likely duplicate bounty scope" in output
+
+
+def test_pr_queue_health_markdown_report_from_input_handles_no_issues(capsys) -> None:
+    no_issues = FIXTURES_DIR / "queue_markdown_no_issues.json"
+    exit_code = main(["--input", str(no_issues), "--format", "markdown"])
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "## No queue-health issues found." in output
+    assert "## Closed or exhausted bounty references" not in output
+    assert "## Needs info" not in output
+    assert "## Dirty or unstable merge state" not in output
+
+
+def test_pr_queue_health_markdown_format_is_parseable_from_cli(capsys) -> None:
+    fixture = FIXTURES_DIR / "queue_markdown_no_issues.json"
+    exit_code = main(["--input", str(fixture), "--format", "markdown", "--fail-on-issues"])
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.startswith("# PR Queue Health\n")
 
 
 def test_pr_queue_health_wraps_gh_failures(monkeypatch) -> None:

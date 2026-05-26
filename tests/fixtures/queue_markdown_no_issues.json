@@ -1,0 +1,15 @@
+{
+  "bounties": [
+    {"number": 1301, "state": "OPEN", "awards_remaining": 7}
+  ],
+  "pull_requests": [
+    {
+      "number": 141,
+      "title": "Update queue health docs",
+      "url": "https://github.com/ramimbo/mergework/pull/141",
+      "body": "Refs #1301",
+      "merge_state": "clean",
+      "labels": []
+    }
+  ]
+}
