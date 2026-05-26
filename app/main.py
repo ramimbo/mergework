@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -47,6 +47,14 @@ from app.ledger.service import (
     submit_github_claim,
     submit_wallet_transfer,
     validate_public_url,
+)
+from app.ledger_api import (
+    ledger_entries,
+    ledger_entry,
+    proof_hash_from_path,
+    proof_hashes_by_sequence,
+    proof_payload,
+    register_ledger_api_routes,
 )
 from app.mcp import handle_mcp_request
 from app.models import (
@@ -97,7 +105,6 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
 }
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
-HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 API_DOCS_CSP = (
     "default-src 'self'; "
     "base-uri 'self'; "
@@ -260,15 +267,6 @@ def _is_ltc_lab_host(request: Request) -> bool:
     return _host_without_port(request) in {"ltclab.site", "www.ltclab.site"}
 
 
-def _proof_hashes_by_sequence(session: Session, sequences: list[int]) -> dict[int, str]:
-    if not sequences:
-        return {}
-    rows = session.execute(
-        select(Proof.ledger_sequence, Proof.hash).where(Proof.ledger_sequence.in_(sequences))
-    ).all()
-    return {int(sequence): str(proof_hash) for sequence, proof_hash in rows}
-
-
 def _oauth_configured(settings: Settings) -> bool:
     return bool(
         settings.github_oauth_client_id
@@ -278,13 +276,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -344,28 +346,11 @@ def _positive_bounty_id(bounty_id: int) -> int:
     return bounty_id
 
 
-def _positive_ledger_sequence(sequence: int) -> int:
-    if sequence <= 0:
-        raise HTTPException(status_code=400, detail="ledger sequence must be positive")
-    if sequence > SQLITE_INTEGER_MAX:
-        raise HTTPException(status_code=400, detail="ledger sequence is too large")
-    return sequence
-
-
 def _normalized_wallet_address(address: str) -> str:
     try:
         return normalize_wallet_address(address)
     except WalletError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-def _proof_hash_from_path(proof_hash: str) -> str:
-    if proof_hash != proof_hash.strip():
-        raise HTTPException(status_code=400, detail="proof hash must be 64 hex characters")
-    clean = proof_hash.lower()
-    if not HEX_HASH_RE.fullmatch(clean):
-        raise HTTPException(status_code=400, detail="proof hash must be 64 hex characters")
-    return clean
 
 
 def _signed_value(value: str, secret: str) -> str:
@@ -1058,36 +1043,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return wallet_transfer_to_dict(transfer)
 
-    @app.get("/api/v1/ledger")
-    def api_ledger(limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[dict[str, Any]]:
-        with session_scope(db_url) as session:
-            entries = session.scalars(
-                select(LedgerEntry).order_by(LedgerEntry.sequence.desc()).limit(limit)
-            ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
-            return [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
-
-    @app.get("/api/v1/ledger/{sequence}")
-    def api_ledger_entry(sequence: int) -> dict[str, Any]:
-        sequence = _positive_ledger_sequence(sequence)
-        with session_scope(db_url) as session:
-            entry = session.get(LedgerEntry, sequence)
-            if entry is None:
-                raise HTTPException(status_code=404, detail="ledger entry not found")
-            proof = session.scalar(select(Proof).where(Proof.ledger_sequence == sequence).limit(1))
-            return ledger_to_dict(entry, proof.hash if proof else None)
-
-    @app.get("/api/v1/proofs/{proof_hash}")
-    def api_proof(proof_hash: str) -> dict[str, Any]:
-        proof_hash = _proof_hash_from_path(proof_hash)
-        with session_scope(db_url) as session:
-            proof = session.get(Proof, proof_hash)
-            if proof is None:
-                raise HTTPException(status_code=404, detail="proof not found")
-            data = json.loads(proof.public_json)
-            if not isinstance(data, dict):
-                raise HTTPException(status_code=500, detail="invalid proof payload")
-            return data
+    register_ledger_api_routes(app, database_url=db_url)
 
     @app.get("/api/v1/activity")
     def api_activity(q: str | None = Query(None)) -> dict[str, Any]:
@@ -1179,12 +1135,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/ledger", response_class=HTMLResponse)
     def ledger_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "ledger.html", {"entries": api_ledger()})
+        return templates.TemplateResponse(
+            request, "ledger.html", {"entries": ledger_entries(db_url)}
+        )
 
     @app.get("/ledger/{sequence}", response_class=HTMLResponse)
     def ledger_entry_page(request: Request, sequence: int) -> HTMLResponse:
         return templates.TemplateResponse(
-            request, "ledger_entry.html", {"entry": api_ledger_entry(sequence)}
+            request, "ledger_entry.html", {"entry": ledger_entry(db_url, sequence)}
         )
 
     @app.get("/activity", response_class=HTMLResponse)
@@ -1203,7 +1161,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 .order_by(LedgerEntry.sequence.desc())
                 .limit(100)
             ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
+            proofs = proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
             transactions = [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
             accepted_work = safe_accepted_work_for_account(session, account)
         return templates.TemplateResponse(
@@ -1245,7 +1203,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 .order_by(LedgerEntry.sequence.desc())
                 .limit(100)
             ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
+            proofs = proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
             transactions = [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
         return templates.TemplateResponse(
             request,
@@ -1260,7 +1218,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
         return templates.TemplateResponse(
-            request, "proof.html", {"proof": api_proof(proof_hash), "proof_hash": proof_hash}
+            request,
+            "proof.html",
+            {"proof": proof_payload(db_url, proof_hash), "proof_hash": proof_hash},
         )
 
     @app.get("/docs", response_class=HTMLResponse)
@@ -1735,7 +1695,7 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             )
             return json.dumps(ledger_to_dict(entry, proof.hash if proof else None))
         if name == "get_proof":
-            proof = session.get(Proof, _proof_hash_from_path(str_arg("hash")))
+            proof = session.get(Proof, proof_hash_from_path(str_arg("hash")))
             if proof is None:
                 return "proof not found"
             public_payload = json.loads(proof.public_json)
