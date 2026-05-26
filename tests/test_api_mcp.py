@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
-from app.models import Proof
+from app.models import BountyAttempt, Proof
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -1255,8 +1256,86 @@ def test_mcp_submit_work_proof_returns_structured_bounty_guidance(sqlite_url: st
     assert structured["issue_url"] == "https://github.com/ramimbo/mergework/issues/315"
     assert structured["title"] == "Structured MCP work-proof guidance"
     assert structured["acceptance"] == "Return machine-readable work-proof guidance."
+    assert structured["active_attempts"] == []
+    assert structured["attempt_warnings"] == []
+    assert structured["attempt_registration"] == {
+        "method": "POST",
+        "path": f"/api/v1/bounties/{bounty_id}/attempts",
+        "ttl_seconds_default": 86400,
+        "ttl_seconds_min": 60,
+        "ttl_seconds_max": 604800,
+        "advisory_only": True,
+    }
+    assert "register an advisory attempt" in structured["submission_format"]
     assert "/claim" in structured["submission_format"]
     assert "private keys" in structured["safety_rules"][0]
+
+
+def test_mcp_submit_work_proof_structured_guidance_includes_attempt_state(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=321,
+            issue_url="https://github.com/ramimbo/mergework/issues/321",
+            title="Attempt reservations",
+            reward_mrwk="250",
+            max_awards=2,
+            acceptance="Register active attempts before opening overlapping PRs.",
+        )
+        bounty_id = bounty.id
+        session.add_all(
+            [
+                BountyAttempt(
+                    bounty_id=bounty_id,
+                    submitter_account="github:alice",
+                    source_url="https://github.com/ramimbo/mergework/pull/500",
+                    status="active",
+                    expires_at=now + timedelta(hours=1),
+                    created_at=now - timedelta(minutes=10),
+                    updated_at=now - timedelta(minutes=10),
+                ),
+                BountyAttempt(
+                    bounty_id=bounty_id,
+                    submitter_account="github:bob",
+                    source_url="https://github.com/ramimbo/mergework/pull/501",
+                    status="active",
+                    expires_at=now + timedelta(hours=1),
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                ),
+            ]
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"bounty_id": bounty_id, "format": "json"},
+            },
+        },
+    ).json()["result"]["structuredContent"]
+
+    assert result["attempt_warnings"] == ["bounty has 2 active attempts"]
+    assert [attempt["submitter_account"] for attempt in result["active_attempts"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+    assert result["active_attempts"][0]["source_url"] == (
+        "https://github.com/ramimbo/mergework/pull/501"
+    )
+    assert result["attempt_registration"]["path"] == f"/api/v1/bounties/{bounty_id}/attempts"
+    assert result["attempt_registration"]["advisory_only"] is True
 
 
 def test_mcp_submit_work_proof_returns_structured_generic_guidance(sqlite_url: str) -> None:
@@ -1287,9 +1366,14 @@ def test_mcp_submit_work_proof_returns_structured_generic_guidance(sqlite_url: s
         "repository": None,
         "issue_url": None,
         "acceptance": None,
+        "active_attempts": [],
+        "attempt_warnings": ["select a bounty before inspecting or registering attempts"],
+        "attempt_registration": None,
         "submission_format": (
-            "Open a focused PR or issue, reference the MRWK bounty, include test "
-            "evidence, and wait for a maintainer to apply mrwk:accepted."
+            "Select a concrete MRWK bounty first. For open bounties with award "
+            "slots, register an advisory attempt before opening a focused PR or "
+            "issue, reference the bounty, include test evidence, and wait for a "
+            "maintainer to apply mrwk:accepted."
         ),
         "safety_rules": [
             "Do not include private keys, seed material, secrets, deployment "

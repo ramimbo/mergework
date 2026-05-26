@@ -162,6 +162,19 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_proof","arguments":{"hash":"<proof_hash>"}}}'
 ```
 
+Get machine-readable submission guidance for a concrete bounty before opening work:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"submit_work_proof","arguments":{"bounty_id":<bounty_id>,"format":"json"}}}'
+```
+
+The structured response includes current `active_attempts`, `attempt_warnings`,
+and the advisory attempt-registration path so agents can see overlap before
+opening a PR. Generic guidance without a selected bounty does not include live
+attempt state; select a bounty first.
+
 Tools:
 
 - `list_bounties`

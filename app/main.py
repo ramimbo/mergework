@@ -1601,6 +1601,13 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
 
     def work_proof_guidance_json(bounty: Bounty) -> dict[str, Any]:
         bounty_data = bounty_to_dict(bounty)
+        now = _utc_now()
+        attempts = session.scalars(
+            select(BountyAttempt)
+            .where(*_active_attempt_conditions(bounty.id, now))
+            .order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
+            .limit(10)
+        ).all()
         return {
             "bounty_id": bounty_data["id"],
             "issue_number": bounty_data["issue_number"],
@@ -1614,10 +1621,21 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             "issue_url": bounty_data["issue_url"],
             "title": bounty_data["title"],
             "acceptance": bounty_data["acceptance"],
+            "active_attempts": [bounty_attempt_to_dict(attempt, now) for attempt in attempts],
+            "attempt_warnings": bounty_attempt_warnings(session, bounty, now),
+            "attempt_registration": {
+                "method": "POST",
+                "path": f"/api/v1/bounties/{bounty.id}/attempts",
+                "ttl_seconds_default": DEFAULT_ATTEMPT_TTL_SECONDS,
+                "ttl_seconds_min": MIN_ATTEMPT_TTL_SECONDS,
+                "ttl_seconds_max": MAX_ATTEMPT_TTL_SECONDS,
+                "advisory_only": True,
+            },
             "submission_format": (
-                "Open a focused PR or issue that links this bounty, include specific "
-                "test or behavior evidence, then comment /claim with the PR or "
-                "evidence URL and verification summary."
+                "Before opening a PR, register an advisory attempt if the bounty is "
+                "open and has award slots. Then open a focused PR or issue that links "
+                "this bounty, include specific test or behavior evidence, and comment "
+                "/claim with the PR or evidence URL and verification summary."
             ),
             "safety_rules": [
                 "Do not include private keys, seed material, secrets, deployment "
@@ -1635,9 +1653,14 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             "repository": None,
             "issue_url": None,
             "acceptance": None,
+            "active_attempts": [],
+            "attempt_warnings": ["select a bounty before inspecting or registering attempts"],
+            "attempt_registration": None,
             "submission_format": (
-                "Open a focused PR or issue, reference the MRWK bounty, include test "
-                "evidence, and wait for a maintainer to apply mrwk:accepted."
+                "Select a concrete MRWK bounty first. For open bounties with award "
+                "slots, register an advisory attempt before opening a focused PR or "
+                "issue, reference the bounty, include test evidence, and wait for a "
+                "maintainer to apply mrwk:accepted."
             ),
             "safety_rules": [
                 "Do not include private keys, seed material, secrets, deployment "
