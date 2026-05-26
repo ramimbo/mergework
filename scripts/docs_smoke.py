@@ -46,6 +46,13 @@ REQUIRED_PUBLIC_PHRASES = {
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
     ],
     "docs/bounty-rules.md": [
+        "## Agent-Friendly Bounty Post Template",
+        "MRWK bounty: <amount> MRWK - <short scope>",
+        "## Evidence Required",
+        "## Duplicate and Stale Work",
+        "## Public Artifact Cautions",
+        "Agents need the GitHub issue number",
+        "MCP `submit_work_proof`",
         "## Submission Evidence Templates",
         "PR or fix claim:",
         "Review claim:",
@@ -53,9 +60,18 @@ REQUIRED_PUBLIC_PHRASES = {
         "Discussion or decision-support claim:",
         "Do not describe work as accepted, merged, or paid until the public GitHub label",
     ],
+    "docs/admin-runbook.md": [
+        "agent-friendly post template",
+        "MRWK bounty: <amount> MRWK - <short scope>",
+        "GitHub bounty issue form",
+        "public API fields",
+        "MCP bounty tools",
+        "`Public Artifact Cautions`",
+    ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
+BOUNTY_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/bounty.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
 
 
@@ -112,6 +128,29 @@ def main() -> int:
     elif "expected pr size:" not in pr_template.read_text(encoding="utf-8").lower():
         print("pull request template must ask for expected PR size")
         ok = False
+    bounty_issue_template = ROOT / BOUNTY_ISSUE_TEMPLATE
+    if not bounty_issue_template.exists():
+        print(f"missing bounty issue template: {BOUNTY_ISSUE_TEMPLATE}")
+        ok = False
+    else:
+        bounty_template = bounty_issue_template.read_text(encoding="utf-8").lower()
+        required_bounty_template_phrases = [
+            "mrwk bounty: <amount> mrwk - <short scope>",
+            "id: reward",
+            "id: max_awards",
+            "id: acceptance",
+            "id: evidence",
+            "id: submit",
+            "id: out_of_scope",
+            "id: artifact_cautions",
+            "bounty #<issue>",
+            "refs #<issue>",
+            "public artifact cautions",
+        ]
+        for phrase in required_bounty_template_phrases:
+            if phrase not in bounty_template:
+                print(f"bounty issue template missing required guidance: {phrase}")
+                ok = False
     if ok:
         print("docs smoke ok")
         return 0

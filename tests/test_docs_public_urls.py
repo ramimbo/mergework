@@ -263,6 +263,60 @@ def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:
     assert "docs, templates, examples, or onboarding" in contributing
 
 
+def test_bounty_rules_document_agent_friendly_post_template() -> None:
+    rules = Path("docs/bounty-rules.md").read_text(encoding="utf-8")
+
+    assert "## Agent-Friendly Bounty Post Template" in rules
+    assert "MRWK bounty: <amount> MRWK - <short scope>" in rules
+    for heading in (
+        "## MRWK Bounty",
+        "## Work Needed",
+        "## Acceptance Criteria",
+        "## Evidence Required",
+        "## How To Submit",
+        "## Out Of Scope",
+        "## Duplicate and Stale Work",
+        "## Public Artifact Cautions",
+    ):
+        assert heading in rules
+    assert "GitHub issue number" in rules
+    assert "/api/v1/bounties" in rules
+    assert "MCP `list_bounties`" in rules
+    assert "`submit_work_proof`" in rules
+
+
+def test_bounty_issue_template_matches_agent_friendly_guidance() -> None:
+    template = Path(".github/ISSUE_TEMPLATE/bounty.yml").read_text(encoding="utf-8")
+
+    assert "MRWK bounty: <amount> MRWK - <short scope>" in template
+    for field in (
+        "id: work",
+        "id: reward",
+        "id: max_awards",
+        "id: acceptance",
+        "id: evidence",
+        "id: submit",
+        "id: out_of_scope",
+        "id: artifact_cautions",
+    ):
+        assert field in template
+    assert "Bounty #<issue>" in template
+    assert "Refs #<issue>" in template
+    assert "Public artifact cautions" in template
+
+
+def test_admin_runbook_points_maintainers_to_bounty_template() -> None:
+    runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
+
+    assert "bounty-rules.md#agent-friendly-bounty-post-template" in runbook
+    assert "MRWK bounty: <amount> MRWK - <short scope>" in runbook
+    assert "GitHub bounty issue form" in runbook
+    assert "public API fields" in runbook
+    assert "MCP bounty tools" in runbook
+    assert "`Evidence Required`" in runbook
+    assert "`Public Artifact Cautions`" in runbook
+
+
 def test_agent_guide_documents_activity_endpoint() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 

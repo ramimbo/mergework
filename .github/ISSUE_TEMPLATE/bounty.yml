@@ -1,20 +1,28 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the template in `docs/bounty-rules.md#agent-friendly-bounty-post-template`.
+        Keep reward, max awards, acceptance criteria, evidence, duplicate/stale
+        work rules, and public artifact cautions explicit enough for humans,
+        GitHub search, the public API, and MCP tools.
   - type: textarea
     id: work
     attributes:
       label: Work needed
-      description: Describe the useful accepted work.
+      description: Describe the useful accepted work and the concrete workflow it improves.
     validations:
       required: true
   - type: input
     id: reward
     attributes:
       label: Proposed MRWK per award
-      placeholder: "250"
+      description: Repeat the per-award amount in the body, for example `150 MRWK per accepted award`.
+      placeholder: "150 MRWK per accepted award"
     validations:
       required: true
   - type: input
@@ -28,6 +36,35 @@ body:
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: Explain what must be true before mrwk:accepted is applied.
+      description: Explain what must be true before `mrwk:accepted` is applied or an admin payout is recorded.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence required
+      description: Name required files, URLs, commands, tests, screenshots, API responses, MCP responses, or actionable findings.
+    validations:
+      required: true
+  - type: textarea
+    id: submit
+    attributes:
+      label: How to submit
+      description: State whether contributors should open a PR, post a report/comment, or use a discussion, and require `Bounty #<issue>` or `Refs #<issue>` where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: List duplicate, broad, stale, style-only, speculative, private-security-detail, or unrelated work that does not qualify.
+    validations:
+      required: true
+  - type: textarea
+    id: artifact_cautions
+    attributes:
+      label: Public artifact cautions
+      description: Call out private data and MRWK wording boundaries.
+      placeholder: "No private keys, wallet seed material, private vulnerability details, signatures, credentials, price claims, liquidity claims, exchange claims, bridge promises, or fabricated payout claims."
     validations:
       required: true

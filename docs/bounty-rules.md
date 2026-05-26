@@ -34,6 +34,82 @@ MRWK uses work-based tiers at launch. The project does not publish a fiat peg.
 - `mrwk:rejected`: submission was not accepted.
 - `mrwk:needs-info`: maintainer needs more detail.
 
+## Agent-Friendly Bounty Post Template
+
+Use a stable bounty shape so humans, GitHub search, the public API, and MCP
+tools can read the same facts without guessing. Keep the title short and make
+the per-award amount visible:
+
+```text
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Use this copy-paste body for new bounty issues:
+
+```text
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award`
+Max awards: `<number>`
+
+## Work Needed
+
+Describe the concrete user, maintainer, docs, API, MCP, or code workflow that
+needs useful work.
+
+Useful accepted work can include:
+
+- <specific useful outcome>
+- <specific useful outcome>
+
+## Acceptance Criteria
+
+- Link the PR, report, review, or discussion to this issue with
+  `Bounty #<issue number>` or `Refs #<issue number>`.
+- Keep the work focused to the named surfaces.
+- Include concrete evidence from files inspected, behavior checked, commands
+  run, screenshots, public URLs, API responses, MCP responses, or an actionable
+  finding.
+- Run the checks named for the touched files or explain why a check does not
+  apply.
+
+## Evidence Required
+
+- Files, pages, endpoints, tools, or commands inspected:
+- Expected behavior:
+- Observed behavior or change:
+- Validation commands and results:
+
+## How To Submit
+
+Open a focused PR or post the requested report/comment with the required
+evidence. A maintainer must apply `mrwk:accepted` or record an admin payout
+before payment.
+
+## Out Of Scope
+
+- <explicit non-goal>
+- <explicit non-goal>
+
+## Duplicate and Stale Work
+
+Duplicate, vague, misleading, self-review, superseded duplicate, stale-head,
+style-only, or unrelated submissions do not qualify. Re-check open PRs, active
+attempts, and recent bounty comments before submitting.
+
+## Public Artifact Cautions
+
+Do not include private keys, wallet seed material, private vulnerability
+details, signatures, credentials, investment claims, price claims, fabricated
+payout claims, liquidity claims, exchange claims, or bridge promises.
+```
+
+Agents need the GitHub issue number for `Bounty #<issue>` / `Refs #<issue>`
+references, the visible reward and max-awards values for award-slot decisions,
+the internal API bounty `id` from `/api/v1/bounties` or MCP `list_bounties` for
+attempt lookups, and explicit evidence requirements so quality gates and MCP
+`submit_work_proof` output can separate payable work from incomplete drafts.
+
 ## How Claims Are Reviewed
 
 Maintainers approve useful accepted work that matches the bounty text and has
