@@ -200,6 +200,9 @@ the most recent payment rows:
       "accepted_awards": 2,
       "accepted_mrwk": "115",
       "latest_submission_url": "https://github.com/ramimbo/mergework/pull/226#pullrequestreview-4354910919",
+      "latest_bounty_repo": "ramimbo/mergework",
+      "latest_bounty_issue_number": 219,
+      "latest_bounty_issue_url": "https://github.com/ramimbo/mergework/issues/219",
       "latest_proof_hash": "99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f",
       "latest_proof_url": "/proofs/99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f"
     }
@@ -210,10 +213,13 @@ the most recent payment rows:
       "account": "github:p3xill",
       "amount_mrwk": "40",
       "submission_url": "https://github.com/ramimbo/mergework/pull/226#pullrequestreview-4354910919",
+      "bounty_repo": "ramimbo/mergework",
+      "bounty_issue_number": 219,
+      "bounty_issue_url": "https://github.com/ramimbo/mergework/issues/219",
       "proof_hash": "99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f",
       "proof_url": "/proofs/99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f",
       "bounty_id": 37,
-      "bounty_issue_number": 219,
+      "bounty_url": "/bounties/37",
       "created_at": "2026-05-25T08:25:28.316705"
     }
   ]
@@ -223,7 +229,9 @@ the most recent payment rows:
 `contributors` is sorted by accepted MRWK amount, while `recent` is sorted by
 newest ledger sequence and capped to the latest 100 matching rows. Use
 `proof_hash` with `/api/v1/proofs/<proof_hash>` to inspect the public proof
-payload for a payment.
+payload for a payment. The bounty fields distinguish the source GitHub issue
+(`bounty_repo`, `bounty_issue_number`, `bounty_issue_url`) from the internal
+MergeWork bounty record (`bounty_id`, `bounty_url`).
 
 Inspect a proof, account, or registered wallet:
 
@@ -597,9 +605,9 @@ Filter by PR body references (`Bounty #N` or `Refs #N`) to find scope-alike PRs 
 
 Before opening work on a bounty round:
 
-1. **Check the live bounty API** — if `status` is not `"open"` or `awards_remaining` is zero, the round is exhausted or closed and no new work will be accepted.
-2. **Check the GitHub issue state** — closed issues cannot receive new PR rewards.
-3. **Check for recent maintainer comments** — if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
-4. **Verify stale rounds** — a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.
+1. **Check the live bounty API** - if `status` is not `"open"` or `awards_remaining` is zero, the round is exhausted or closed and no new work will be accepted.
+2. **Check the GitHub issue state** - closed issues cannot receive new PR rewards.
+3. **Check for recent maintainer comments** - if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
+4. **Verify stale rounds** - a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.
 
 Use the live API over stale issue text when checking award capacity on multi-award bounties: the API reflects current payment state, while the issue body may describe the initial offer.
