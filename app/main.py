@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -39,6 +38,10 @@ from app.public_routes import register_public_routes
 from app.status import health_status, system_status
 from app.wallet_api import register_wallet_api_routes
 from app.webhooks.github import handle_github_webhook
+from app.http_helpers import (
+    _preserve_forwarded_https_redirect,
+    _request_was_forwarded_https,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -89,28 +92,6 @@ API_DOCS_CSP = (
 )
 API_DOCS_PATHS = {"/api/docs", "/api/redoc"}
 
-
-def _request_was_forwarded_https(request: Request) -> bool:
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
-    if forwarded_proto:
-        return forwarded_proto.split(",", 1)[0].strip().lower() == "https"
-    return request.url.scheme == "https"
-
-
-def _preserve_forwarded_https_redirect(request: Request, response: Response) -> None:
-    if response.status_code not in {307, 308} or not _request_was_forwarded_https(request):
-        return
-    location = response.headers.get("location")
-    if not location:
-        return
-    parsed = urlsplit(location)
-    if parsed.scheme != "http" or parsed.netloc != request.url.netloc:
-        return
-    response.headers["location"] = urlunsplit(
-        ("https", parsed.netloc, parsed.path, parsed.query, parsed.fragment)
-    )
-
-
 async def _json_object(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
@@ -120,7 +101,6 @@ async def _json_object(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="json body must be an object")
     return data
 
-
 def _required_str(data: dict[str, Any], field: str) -> str:
     if field not in data or data[field] is None:
         raise HTTPException(status_code=400, detail=f"{field} is required")
@@ -129,7 +109,6 @@ def _required_str(data: dict[str, Any], field: str) -> str:
         raise HTTPException(status_code=400, detail=f"{field} must be a string")
     return value
 
-
 def _optional_str(data: dict[str, Any], field: str, default: str = "") -> str:
     value = data.get(field, default)
     if value is None:
@@ -137,7 +116,6 @@ def _optional_str(data: dict[str, Any], field: str, default: str = "") -> str:
     if not isinstance(value, str):
         raise HTTPException(status_code=400, detail=f"{field} must be a string")
     return value
-
 
 def _parse_int(value: Any, field: str) -> int:
     if isinstance(value, bool):
@@ -153,13 +131,11 @@ def _parse_int(value: Any, field: str) -> int:
                 raise HTTPException(status_code=400, detail=f"{field} must be an integer") from exc
     raise HTTPException(status_code=400, detail=f"{field} must be an integer")
 
-
 def _required_int(data: dict[str, Any], field: str) -> int:
     value = data.get(field)
     if value is None:
         raise HTTPException(status_code=400, detail=f"{field} must be an integer")
     return _parse_int(value, field)
-
 
 def _optional_int(data: dict[str, Any], field: str, default: int) -> int:
     value = data.get(field, default)
@@ -167,17 +143,14 @@ def _optional_int(data: dict[str, Any], field: str, default: int) -> int:
         raise HTTPException(status_code=400, detail=f"{field} must be an integer")
     return _parse_int(value, field)
 
-
 def _csrf_token(action: str, login: str, secret: str) -> str:
     return _signed_value(f"{action}:{login}", secret)
-
 
 def _verify_csrf_token(
     token: str | None, *, action: str, login: str, secret: str, max_age_seconds: int = 3_600
 ) -> bool:
     expected = f"{action}:{login}"
     return _verified_value(token, secret, max_age_seconds) == expected
-
 
 def create_app(database_url: str | None = None, webhook_secret: str | None = None) -> FastAPI:
     settings = get_settings()
@@ -386,6 +359,5 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     )
 
     return app
-
 
 app = create_app()
