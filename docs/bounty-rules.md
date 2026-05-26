@@ -62,8 +62,9 @@ operational details out of public metadata.
 Multi-award bounties reserve exact caps (`max_awards`) and stay open until filled or closed. Before opening a PR, check how many awards remain and how many claims are already pending:
 
 - Check the bounty issue body for `Max awards: N` and `Reward: X MRWK per accepted award`.
-- Count `\/claim` comments on the issue to estimate how many contributors are already in the review queue.
-- If `pending claims >= max_awards`, the bounty is oversubscribed and new PRs may not get a slot.
+- Read the issue comments to count how many awards have **already been accepted or paid** (maintainer update comments typically track this). Compute `remaining_slots = max_awards - accepted_or_paid_awards`.
+- Count `\/claim` comments on the issue to estimate how many contributors are already in the review queue (`pending_claims`).
+- If `pending_claims >= remaining_slots`, the bounty is oversubscribed and new PRs may not get a slot — the review queue already covers the available capacity.
 - Single-award bounties close after one accepted submission. Do not open a second PR for a single-slot bounty unless the first was rejected and the issue is still open.
 
 Maintainers may accept overflow across related bounty rounds (e.g., round 2 overflow paid from round 3's reserve). This is at the maintainer's discretion and is not guaranteed for every round.
