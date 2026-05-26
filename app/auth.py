@@ -128,28 +128,44 @@ async def _github_oauth_login_from_callback(
         raise HTTPException(status_code=401, detail="invalid OAuth state") from exc
     next_path = safe_next_path(next_path)
     async with httpx.AsyncClient(timeout=10) as client:
-        token_response = await client.post(
-            "https://github.com/login/oauth/access_token",
-            headers={"Accept": "application/json"},
-            data={
-                "client_id": settings.github_oauth_client_id,
-                "client_secret": settings.github_oauth_client_secret,
-                "code": code,
-                "redirect_uri": f"{settings.public_base_url}/auth/github/callback",
-            },
-        )
-        token_response.raise_for_status()
+        try:
+            token_response = await client.post(
+                "https://github.com/login/oauth/access_token",
+                headers={"Accept": "application/json"},
+                data={
+                    "client_id": settings.github_oauth_client_id,
+                    "client_secret": settings.github_oauth_client_secret,
+                    "code": code,
+                    "redirect_uri": f"{settings.public_base_url}/auth/github/callback",
+                },
+            )
+            token_response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=401, detail="GitHub OAuth token exchange failed"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502, detail="GitHub OAuth token exchange unavailable"
+            ) from exc
         access_token = token_response.json().get("access_token")
         if not access_token:
             raise HTTPException(status_code=401, detail="GitHub OAuth token exchange failed")
-        user_response = await client.get(
-            "https://api.github.com/user",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {access_token}",
-            },
-        )
-        user_response.raise_for_status()
+        try:
+            user_response = await client.get(
+                "https://api.github.com/user",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {access_token}",
+                },
+            )
+            user_response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=401, detail="GitHub OAuth user lookup failed") from exc
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502, detail="GitHub OAuth user lookup unavailable"
+            ) from exc
         login = str(user_response.json().get("login", "")).lower()
         if not login:
             raise HTTPException(status_code=401, detail="GitHub OAuth user lookup failed")

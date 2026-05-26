@@ -16,6 +16,16 @@ def test_signed_value_round_trips_and_rejects_wrong_secret() -> None:
     assert verified_value(token, "wrong-secret", 60) is None
 
 
+def test_signed_value_rejects_expired_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.auth.time.time", lambda: 1_000_000)
+    token = signed_value("github:alice", "test-cookie-secret")
+
+    assert verified_value(token, "test-cookie-secret", 60) == "github:alice"
+
+    monkeypatch.setattr("app.auth.time.time", lambda: 1_000_061)
+    assert verified_value(token, "test-cookie-secret", 60) is None
+
+
 @pytest.mark.parametrize(
     ("next_path", "expected"),
     [
