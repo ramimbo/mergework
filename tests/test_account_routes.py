@@ -89,6 +89,34 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
 
+def test_unknown_account_transfer_status_does_not_report_wallet_ready(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/accounts/not-a-wallet")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is False
+    assert response.json()["transfer_status"] == (
+        "This account is not eligible for MRWK wallet transfers. Use a github:<login> "
+        "account or registered mrwk1 wallet."
+    )
+
+
+def test_unregistered_wallet_transfer_status_requires_registration(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    account = "mrwk1" + ("0" * 40)
+
+    response = client.get(f"/api/v1/accounts/{account}")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is False
+    assert response.json()["transfer_status"] == (
+        "Wallet address is not registered yet. Register this mrwk1 wallet before transfers."
+    )
+
+
 def test_normalized_account_keeps_existing_account_validation_boundaries() -> None:
     assert normalized_account(" Reserve:Bounty:001 ") == "reserve:bounty:1"
     assert normalized_account("MRWK1" + ("A" * 40)) == "mrwk1" + ("a" * 40)

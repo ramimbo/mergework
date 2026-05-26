@@ -77,7 +77,7 @@ def github_login_from_account(account: str) -> str | None:
     return login
 
 
-def account_transfer_status(account: str) -> str:
+def account_transfer_status(account: str, *, exists: bool) -> str:
     if account.startswith("github:"):
         return "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
     if account.startswith(("treasury:", "reserve:")):
@@ -85,7 +85,14 @@ def account_transfer_status(account: str) -> str:
             "Internal ledger account. MRWK wallet transfers are only available "
             "for registered mrwk1 addresses."
         )
-    return "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+    if account.startswith("mrwk1"):
+        if exists:
+            return "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+        return "Wallet address is not registered yet. Register this mrwk1 wallet before transfers."
+    return (
+        "This account is not eligible for MRWK wallet transfers. Use a github:<login> "
+        "account or registered mrwk1 wallet."
+    )
 
 
 def account_api_context(session: Session, account: str) -> dict[str, Any]:
@@ -97,7 +104,7 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
         "github_login": github_login_from_account(account),
         "exists": account_row is not None,
         "balance_mrwk": format_mrwk(get_balance(session, account)),
-        "transfer_status": account_transfer_status(account),
+        "transfer_status": account_transfer_status(account, exists=account_row is not None),
         "accepted_work": safe_account_accepted_summary(session, account),
     }
 
