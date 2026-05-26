@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import re
-import secrets
-import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
-import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -20,13 +15,14 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import auth as auth_helpers
 from app.admin import (
     list_webhook_events,
     normalize_webhook_status_filter,
     webhook_events_to_dict,
     webhook_status_summary,
 )
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.db import create_schema, session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
@@ -116,6 +112,12 @@ SQLITE_INTEGER_MAX = 2**63 - 1
 DEFAULT_ATTEMPT_TTL_SECONDS = 24 * 60 * 60
 MIN_ATTEMPT_TTL_SECONDS = 60
 MAX_ATTEMPT_TTL_SECONDS = 7 * 24 * 60 * 60
+_oauth_configured = auth_helpers.oauth_configured
+_safe_next_path = auth_helpers.safe_next_path
+_signed_value = auth_helpers.signed_value
+_verified_value = auth_helpers.verified_value
+_csrf_token = auth_helpers.csrf_token
+_verify_csrf_token = auth_helpers.verify_csrf_token
 
 
 def _request_was_forwarded_https(request: Request) -> bool:
@@ -269,27 +271,6 @@ def _proof_hashes_by_sequence(session: Session, sequences: list[int]) -> dict[in
     return {int(sequence): str(proof_hash) for sequence, proof_hash in rows}
 
 
-def _oauth_configured(settings: Settings) -> bool:
-    return bool(
-        settings.github_oauth_client_id
-        and settings.github_oauth_client_secret
-        and settings.cookie_secret
-    )
-
-
-def _safe_next_path(next_path: str | None) -> str:
-    if (
-        not next_path
-        or not next_path.startswith("/")
-        or next_path.startswith("//")
-        or len(next_path) > 2048
-        or "\\" in next_path
-        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
-    ):
-        return "/me"
-    return next_path
-
-
 def _normalized_account(account: str) -> str:
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
@@ -368,31 +349,6 @@ def _proof_hash_from_path(proof_hash: str) -> str:
     return clean
 
 
-def _signed_value(value: str, secret: str) -> str:
-    timestamp = str(int(time.time()))
-    body = f"{value}|{timestamp}"
-    signature = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
-    return f"{body}|{signature}"
-
-
-def _verified_value(token: str | None, secret: str, max_age_seconds: int) -> str | None:
-    if not token or not secret:
-        return None
-    try:
-        value, timestamp, signature = token.rsplit("|", 2)
-        age = int(time.time()) - int(timestamp)
-    except ValueError:
-        return None
-    if age < 0 or age > max_age_seconds:
-        return None
-    expected = hmac.new(
-        secret.encode(), f"{value}|{timestamp}".encode(), hashlib.sha256
-    ).hexdigest()
-    if not hmac.compare_digest(signature, expected):
-        return None
-    return value
-
-
 async def _json_object(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
@@ -450,17 +406,6 @@ def _optional_int(data: dict[str, Any], field: str, default: int) -> int:
     return _parse_int(value, field)
 
 
-def _csrf_token(action: str, login: str, secret: str) -> str:
-    return _signed_value(f"{action}:{login}", secret)
-
-
-def _verify_csrf_token(
-    token: str | None, *, action: str, login: str, secret: str, max_age_seconds: int = 3_600
-) -> bool:
-    expected = f"{action}:{login}"
-    return _verified_value(token, secret, max_age_seconds) == expected
-
-
 def create_app(database_url: str | None = None, webhook_secret: str | None = None) -> FastAPI:
     settings = get_settings()
     db_url = database_url or settings.database_url
@@ -513,19 +458,13 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     static_dir = BASE_DIR / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    auth_helpers.register_auth_routes(app, settings)
 
     def admin_login_from_request(request: Request) -> str | None:
-        token = request.headers.get("x-mergework-admin-token", "")
-        if settings.admin_token and hmac.compare_digest(token, settings.admin_token):
-            return "api-token"
-        login = _verified_value(request.cookies.get("mrwk_admin"), settings.cookie_secret, 86_400)
-        if login and login.lower() in settings.admin_logins:
-            return login.lower()
-        return None
+        return auth_helpers.admin_login_from_request(request, settings)
 
     def github_login_from_request(request: Request) -> str | None:
-        login = _verified_value(request.cookies.get("mrwk_user"), settings.cookie_secret, 604_800)
-        return login.lower() if login else None
+        return auth_helpers.github_login_from_request(request, settings)
 
     def require_github_login(request: Request) -> str:
         login = github_login_from_request(request)
@@ -540,10 +479,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         return login
 
     def require_admin_token(request: Request) -> str:
-        token = request.headers.get("x-mergework-admin-token", "")
-        if settings.admin_token and hmac.compare_digest(token, settings.admin_token):
-            return "api-token"
-        raise HTTPException(status_code=401, detail="admin token required")
+        return auth_helpers.require_admin_token_from_request(request, settings)
 
     def attempt_submitter_account(data: dict[str, Any], github_login: str) -> str:
         submitter_account = f"github:{github_login}"
@@ -1266,107 +1202,6 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.get("/docs", response_class=HTMLResponse)
     def docs_page(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(request, "docs.html")
-
-    @app.get("/auth/github/login")
-    def auth_github_login(next_path: str | None = Query(None, alias="next")) -> RedirectResponse:
-        if not _oauth_configured(settings):
-            raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
-        safe_next = _safe_next_path(next_path)
-        state_value = f"{secrets.token_urlsafe(24)},{safe_next}"
-        state = _signed_value(state_value, settings.cookie_secret)
-        query = urlencode(
-            {
-                "client_id": settings.github_oauth_client_id,
-                "redirect_uri": f"{settings.public_base_url}/auth/github/callback",
-                "scope": "read:user",
-                "state": state,
-            }
-        )
-        response = RedirectResponse(
-            f"https://github.com/login/oauth/authorize?{query}", status_code=302
-        )
-        response.set_cookie(
-            "mrwk_oauth_state", state, httponly=True, secure=True, samesite="lax", max_age=600
-        )
-        return response
-
-    @app.get("/auth/github/callback")
-    async def auth_github_callback(request: Request, code: str, state: str) -> RedirectResponse:
-        if not _oauth_configured(settings):
-            raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
-        cookie_state = request.cookies.get("mrwk_oauth_state")
-        if not cookie_state or not hmac.compare_digest(cookie_state, state):
-            raise HTTPException(status_code=401, detail="invalid OAuth state")
-        state_value = _verified_value(state, settings.cookie_secret, 600)
-        if state_value is None:
-            raise HTTPException(status_code=401, detail="expired OAuth state")
-        try:
-            _, next_path = state_value.split(",", 1)
-        except ValueError as exc:
-            raise HTTPException(status_code=401, detail="invalid OAuth state") from exc
-        next_path = _safe_next_path(next_path)
-        async with httpx.AsyncClient(timeout=10) as client:
-            token_response = await client.post(
-                "https://github.com/login/oauth/access_token",
-                headers={"Accept": "application/json"},
-                data={
-                    "client_id": settings.github_oauth_client_id,
-                    "client_secret": settings.github_oauth_client_secret,
-                    "code": code,
-                    "redirect_uri": f"{settings.public_base_url}/auth/github/callback",
-                },
-            )
-            token_response.raise_for_status()
-            access_token = token_response.json().get("access_token")
-            if not access_token:
-                raise HTTPException(status_code=401, detail="GitHub OAuth token exchange failed")
-            user_response = await client.get(
-                "https://api.github.com/user",
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "Authorization": f"Bearer {access_token}",
-                },
-            )
-            user_response.raise_for_status()
-            login = str(user_response.json().get("login", "")).lower()
-            if not login:
-                raise HTTPException(status_code=401, detail="GitHub OAuth user lookup failed")
-        response = RedirectResponse(next_path, status_code=302)
-        response.set_cookie(
-            "mrwk_user",
-            _signed_value(login, settings.cookie_secret),
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            max_age=604_800,
-        )
-        if login in settings.admin_logins:
-            response.set_cookie(
-                "mrwk_admin",
-                _signed_value(login, settings.cookie_secret),
-                httponly=True,
-                secure=True,
-                samesite="lax",
-                max_age=86_400,
-            )
-        response.delete_cookie("mrwk_oauth_state")
-        return response
-
-    @app.get("/admin/login")
-    def admin_login() -> RedirectResponse:
-        return RedirectResponse("/auth/github/login?next=/admin", status_code=302)
-
-    @app.get("/admin/callback")
-    async def admin_callback(request: Request) -> RedirectResponse:
-        suffix = f"?{request.url.query}" if request.url.query else ""
-        return RedirectResponse(f"/auth/github/callback{suffix}", status_code=302)
-
-    @app.post("/auth/logout")
-    def auth_logout() -> RedirectResponse:
-        response = RedirectResponse("/", status_code=303)
-        response.delete_cookie("mrwk_user")
-        response.delete_cookie("mrwk_admin")
-        return response
 
     @app.get("/me", response_class=HTMLResponse)
     def me_page(request: Request) -> HTMLResponse:
