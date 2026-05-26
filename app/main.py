@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -72,7 +72,7 @@ from app.serializers import (
     wallet_to_dict,
     wallet_transfer_to_dict,
 )
-from app.wallets import WalletError, normalize_wallet_address
+from app.wallet_views import wallet_address_from_path, wallet_detail_context, wallet_list_context
 from app.webhooks.github import handle_github_webhook
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -278,13 +278,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -318,7 +322,7 @@ def _normalized_account(account: str) -> str:
             raise HTTPException(status_code=400, detail="reserve bounty id is too large")
         return f"{reserve_prefix}{normalized_bounty_id}"
     if lower.startswith("mrwk1"):
-        return _normalized_wallet_address(clean)
+        return wallet_address_from_path(clean)
     if lower.startswith("github:"):
         login = clean.split(":", 1)[1].lower()
         if not GITHUB_LOGIN_RE.fullmatch(login):
@@ -350,13 +354,6 @@ def _positive_ledger_sequence(sequence: int) -> int:
     if sequence > SQLITE_INTEGER_MAX:
         raise HTTPException(status_code=400, detail="ledger sequence is too large")
     return sequence
-
-
-def _normalized_wallet_address(address: str) -> str:
-    try:
-        return normalize_wallet_address(address)
-    except WalletError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _proof_hash_from_path(proof_hash: str) -> str:
@@ -997,7 +994,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/api/v1/wallets/{address}")
     def api_wallet(address: str) -> dict[str, Any]:
-        address = _normalized_wallet_address(address)
+        address = wallet_address_from_path(address)
         with session_scope(db_url) as session:
             wallet = session.get(Wallet, address)
             if wallet is None:
@@ -1219,38 +1216,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/wallets", response_class=HTMLResponse)
     def wallets_page(request: Request) -> HTMLResponse:
-        with session_scope(db_url) as session:
-            wallets = session.scalars(
-                select(Wallet).order_by(Wallet.created_at.desc()).limit(100)
-            ).all()
-            wallet_rows = [wallet_to_dict(session, wallet) for wallet in wallets]
-        return templates.TemplateResponse(request, "wallets.html", {"wallets": wallet_rows})
+        return templates.TemplateResponse(request, "wallets.html", wallet_list_context(db_url))
 
     @app.get("/wallets/{address}", response_class=HTMLResponse)
     def wallet_page(request: Request, address: str) -> HTMLResponse:
-        address = _normalized_wallet_address(address)
-        with session_scope(db_url) as session:
-            wallet = session.get(Wallet, address)
-            if wallet is None:
-                raise HTTPException(status_code=404, detail="wallet not found")
-            wallet_data = wallet_to_dict(session, wallet)
-            entries = session.scalars(
-                select(LedgerEntry)
-                .where(
-                    or_(
-                        LedgerEntry.from_account == wallet.address,
-                        LedgerEntry.to_account == wallet.address,
-                    )
-                )
-                .order_by(LedgerEntry.sequence.desc())
-                .limit(100)
-            ).all()
-            proofs = _proof_hashes_by_sequence(session, [entry.sequence for entry in entries])
-            transactions = [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
         return templates.TemplateResponse(
             request,
             "wallet_detail.html",
-            {"wallet": wallet_data, "transactions": transactions},
+            wallet_detail_context(db_url, address),
         )
 
     @app.get("/transfer", response_class=HTMLResponse)
@@ -1711,7 +1684,7 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             )
             return json.dumps(wallet_to_dict(session, wallet))
         if name == "get_wallet":
-            wallet_row = session.get(Wallet, _normalized_wallet_address(str_arg("address")))
+            wallet_row = session.get(Wallet, wallet_address_from_path(str_arg("address")))
             if wallet_row is None:
                 return "wallet not found"
             return json.dumps(wallet_to_dict(session, wallet_row))
