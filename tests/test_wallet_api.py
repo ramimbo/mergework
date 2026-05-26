@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
+from app.auth import safe_next_path, signed_value, verified_value
 from app.db import create_schema, session_scope
 from app.ledger.service import (
     TREASURY_ACCOUNT,
@@ -19,7 +20,7 @@ from app.ledger.service import (
     wallet_claim_payload,
     wallet_link_payload,
 )
-from app.main import _safe_next_path, _signed_value, _verified_value, create_app
+from app.main import create_app
 from app.wallets import address_from_public_key_hex, canonical_wallet_json
 
 
@@ -332,7 +333,7 @@ def test_wallet_api_malformed_link_and_claim_requests_return_4xx(
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
     client.post("/api/v1/wallets/register", json={"public_key_hex": public_hex})
 
     missing_signature = client.post(
@@ -391,7 +392,7 @@ def test_github_session_can_link_and_claim_wallet(sqlite_url: str, monkeypatch) 
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
     _register_wallet(client, public_hex)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
@@ -449,7 +450,7 @@ def test_github_login_redirects_when_oauth_is_configured(sqlite_url: str, monkey
     ("//evil.example/path", "/\\evil.example/path", "/me\nLocation:https://evil.example"),
 )
 def test_oauth_next_path_rejects_redirect_ambiguity(next_path: str) -> None:
-    assert _safe_next_path(next_path) == "/me"
+    assert safe_next_path(next_path) == "/me"
 
 
 def test_github_login_stores_safe_default_for_backslash_next(sqlite_url: str, monkeypatch) -> None:
@@ -463,7 +464,7 @@ def test_github_login_stores_safe_default_for_backslash_next(sqlite_url: str, mo
 
     assert response.status_code == 302
     query = parse_qs(urlparse(response.headers["location"]).query)
-    state_value = _verified_value(query["state"][0], "test-cookie-secret", 600)
+    state_value = verified_value(query["state"][0], "test-cookie-secret", 600)
     assert state_value is not None
     _nonce, next_path = state_value.split(",", 1)
     assert next_path == "/me"
@@ -521,7 +522,7 @@ def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypat
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
 
     me = client.get("/me").text
 
@@ -536,7 +537,7 @@ def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) 
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
 
     transfer = client.get("/transfer").text
     me = client.get("/me").text
@@ -615,7 +616,7 @@ def test_me_page_prefills_claim_address_for_linked_wallet(sqlite_url: str, monke
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
 
     me = client.get("/me").text
 

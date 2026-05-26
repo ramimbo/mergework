@@ -5,16 +5,17 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.auth import signed_value
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
-from app.main import _signed_value, create_app
+from app.main import create_app
 from app.models import BountyAttempt, LedgerEntry
 
 COOKIE_SECRET = "test-cookie-secret"
 
 
 def _set_login(client: TestClient, login: str) -> None:
-    client.cookies.set("mrwk_user", _signed_value(login, COOKIE_SECRET))
+    client.cookies.set("mrwk_user", signed_value(login, COOKIE_SECRET))
 
 
 def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, monkeypatch) -> None:

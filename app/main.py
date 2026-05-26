@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import re
 import secrets
-import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
@@ -20,7 +17,8 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.config import Settings, get_settings
+from app.auth import AuthContext, safe_next_path
+from app.config import get_settings
 from app.db import create_schema, session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
@@ -264,27 +262,6 @@ def _proof_hashes_by_sequence(session: Session, sequences: list[int]) -> dict[in
     return {int(sequence): str(proof_hash) for sequence, proof_hash in rows}
 
 
-def _oauth_configured(settings: Settings) -> bool:
-    return bool(
-        settings.github_oauth_client_id
-        and settings.github_oauth_client_secret
-        and settings.cookie_secret
-    )
-
-
-def _safe_next_path(next_path: str | None) -> str:
-    if (
-        not next_path
-        or not next_path.startswith("/")
-        or next_path.startswith("//")
-        or len(next_path) > 2048
-        or "\\" in next_path
-        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
-    ):
-        return "/me"
-    return next_path
-
-
 def _normalized_account(account: str) -> str:
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
@@ -363,31 +340,6 @@ def _proof_hash_from_path(proof_hash: str) -> str:
     return clean
 
 
-def _signed_value(value: str, secret: str) -> str:
-    timestamp = str(int(time.time()))
-    body = f"{value}|{timestamp}"
-    signature = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
-    return f"{body}|{signature}"
-
-
-def _verified_value(token: str | None, secret: str, max_age_seconds: int) -> str | None:
-    if not token or not secret:
-        return None
-    try:
-        value, timestamp, signature = token.rsplit("|", 2)
-        age = int(time.time()) - int(timestamp)
-    except ValueError:
-        return None
-    if age < 0 or age > max_age_seconds:
-        return None
-    expected = hmac.new(
-        secret.encode(), f"{value}|{timestamp}".encode(), hashlib.sha256
-    ).hexdigest()
-    if not hmac.compare_digest(signature, expected):
-        return None
-    return value
-
-
 async def _json_object(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
@@ -445,19 +397,9 @@ def _optional_int(data: dict[str, Any], field: str, default: int) -> int:
     return _parse_int(value, field)
 
 
-def _csrf_token(action: str, login: str, secret: str) -> str:
-    return _signed_value(f"{action}:{login}", secret)
-
-
-def _verify_csrf_token(
-    token: str | None, *, action: str, login: str, secret: str, max_age_seconds: int = 3_600
-) -> bool:
-    expected = f"{action}:{login}"
-    return _verified_value(token, secret, max_age_seconds) == expected
-
-
 def create_app(database_url: str | None = None, webhook_secret: str | None = None) -> FastAPI:
     settings = get_settings()
+    auth = AuthContext(settings)
     db_url = database_url or settings.database_url
     secret = webhook_secret if webhook_secret is not None else settings.github_webhook_secret
     create_schema(db_url)
@@ -508,37 +450,6 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     static_dir = BASE_DIR / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-    def admin_login_from_request(request: Request) -> str | None:
-        token = request.headers.get("x-mergework-admin-token", "")
-        if settings.admin_token and hmac.compare_digest(token, settings.admin_token):
-            return "api-token"
-        login = _verified_value(request.cookies.get("mrwk_admin"), settings.cookie_secret, 86_400)
-        if login and login.lower() in settings.admin_logins:
-            return login.lower()
-        return None
-
-    def github_login_from_request(request: Request) -> str | None:
-        login = _verified_value(request.cookies.get("mrwk_user"), settings.cookie_secret, 604_800)
-        return login.lower() if login else None
-
-    def require_github_login(request: Request) -> str:
-        login = github_login_from_request(request)
-        if login is None:
-            raise HTTPException(status_code=401, detail="github login required")
-        return login
-
-    def require_admin(request: Request) -> str:
-        login = admin_login_from_request(request)
-        if login is None:
-            raise HTTPException(status_code=401, detail="admin authentication required")
-        return login
-
-    def require_admin_token(request: Request) -> str:
-        token = request.headers.get("x-mergework-admin-token", "")
-        if settings.admin_token and hmac.compare_digest(token, settings.admin_token):
-            return "api-token"
-        raise HTTPException(status_code=401, detail="admin token required")
 
     def attempt_submitter_account(data: dict[str, Any], github_login: str) -> str:
         submitter_account = f"github:{github_login}"
@@ -623,7 +534,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     def api_admin_webhook_events(
         status: str | None = Query(None),
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
-        admin_login: str = Depends(require_admin_token),
+        admin_login: str = Depends(auth.require_admin_token),
     ) -> list[dict[str, Any]]:
         del admin_login
         normalized_status = status.strip().lower() if status is not None else None
@@ -651,7 +562,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/bounties")
     async def api_create_bounty(
-        request: Request, admin_login: str = Depends(require_admin_token)
+        request: Request, admin_login: str = Depends(auth.require_admin_token)
     ) -> dict[str, Any]:
         data = await _json_object(request)
         with session_scope(db_url) as session:
@@ -709,7 +620,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_create_bounty_attempt(
         bounty_id: int,
         request: Request,
-        github_login: str = Depends(require_github_login),
+        github_login: str = Depends(auth.require_github_login),
     ) -> JSONResponse:
         bounty_id = _positive_bounty_id(bounty_id)
         data = await _json_object(request)
@@ -807,7 +718,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_release_bounty_attempt(
         attempt_id: int,
         request: Request,
-        github_login: str = Depends(require_github_login),
+        github_login: str = Depends(auth.require_github_login),
     ) -> dict[str, Any]:
         if attempt_id <= 0:
             raise HTTPException(status_code=400, detail="attempt id must be positive")
@@ -838,7 +749,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/api/v1/reconciliation/payouts")
     def api_payout_reconciliation(
-        admin_login: str = Depends(require_admin_token),
+        admin_login: str = Depends(auth.require_admin_token),
     ) -> dict[str, Any]:
         with session_scope(db_url) as session:
             checks = reconcile_accepted_payouts(session)
@@ -852,7 +763,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_pay_bounty(
         bounty_id: int,
         request: Request,
-        admin_login: str = Depends(require_admin_token),
+        admin_login: str = Depends(auth.require_admin_token),
     ) -> Any:
         bounty_id = _positive_bounty_id(bounty_id)
         data = await _json_object(request)
@@ -922,7 +833,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     async def api_close_bounty(
         bounty_id: int,
         request: Request,
-        admin_login: str = Depends(require_admin_token),
+        admin_login: str = Depends(auth.require_admin_token),
     ) -> dict[str, Any]:
         bounty_id = _positive_bounty_id(bounty_id)
         data = await _json_object(request)
@@ -985,7 +896,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/api/v1/auth/me")
     def api_auth_me(request: Request) -> dict[str, Any]:
-        login = github_login_from_request(request)
+        login = auth.github_login_from_request(request)
         return {"authenticated": login is not None, "github_login": login}
 
     @app.post("/api/v1/wallets/register")
@@ -1021,7 +932,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/wallets/link-github")
     async def api_link_wallet_github(
-        request: Request, github_login: str = Depends(require_github_login)
+        request: Request, github_login: str = Depends(auth.require_github_login)
     ) -> dict[str, Any]:
         data = await _json_object(request)
         with session_scope(db_url) as session:
@@ -1039,7 +950,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/api/v1/github/claim")
     async def api_github_claim(
-        request: Request, github_login: str = Depends(require_github_login)
+        request: Request, github_login: str = Depends(auth.require_github_login)
     ) -> dict[str, Any]:
         data = await _json_object(request)
         with session_scope(db_url) as session:
@@ -1284,11 +1195,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/auth/github/login")
     def auth_github_login(next_path: str | None = Query(None, alias="next")) -> RedirectResponse:
-        if not _oauth_configured(settings):
+        if not auth.oauth_configured():
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
-        safe_next = _safe_next_path(next_path)
+        safe_next = safe_next_path(next_path)
         state_value = f"{secrets.token_urlsafe(24)},{safe_next}"
-        state = _signed_value(state_value, settings.cookie_secret)
+        state = auth.signed_value(state_value)
         query = urlencode(
             {
                 "client_id": settings.github_oauth_client_id,
@@ -1300,26 +1211,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         response = RedirectResponse(
             f"https://github.com/login/oauth/authorize?{query}", status_code=302
         )
-        response.set_cookie(
-            "mrwk_oauth_state", state, httponly=True, secure=True, samesite="lax", max_age=600
-        )
+        auth.set_oauth_state_cookie(response, state)
         return response
 
     @app.get("/auth/github/callback")
     async def auth_github_callback(request: Request, code: str, state: str) -> RedirectResponse:
-        if not _oauth_configured(settings):
+        if not auth.oauth_configured():
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
         cookie_state = request.cookies.get("mrwk_oauth_state")
-        if not cookie_state or not hmac.compare_digest(cookie_state, state):
-            raise HTTPException(status_code=401, detail="invalid OAuth state")
-        state_value = _verified_value(state, settings.cookie_secret, 600)
-        if state_value is None:
-            raise HTTPException(status_code=401, detail="expired OAuth state")
-        try:
-            _, next_path = state_value.split(",", 1)
-        except ValueError as exc:
-            raise HTTPException(status_code=401, detail="invalid OAuth state") from exc
-        next_path = _safe_next_path(next_path)
+        next_path = auth.verify_oauth_state(cookie_state, state)
         async with httpx.AsyncClient(timeout=10) as client:
             token_response = await client.post(
                 "https://github.com/login/oauth/access_token",
@@ -1347,23 +1247,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             if not login:
                 raise HTTPException(status_code=401, detail="GitHub OAuth user lookup failed")
         response = RedirectResponse(next_path, status_code=302)
-        response.set_cookie(
-            "mrwk_user",
-            _signed_value(login, settings.cookie_secret),
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            max_age=604_800,
-        )
-        if login in settings.admin_logins:
-            response.set_cookie(
-                "mrwk_admin",
-                _signed_value(login, settings.cookie_secret),
-                httponly=True,
-                secure=True,
-                samesite="lax",
-                max_age=86_400,
-            )
+        auth.set_login_cookies(response, login)
         response.delete_cookie("mrwk_oauth_state")
         return response
 
@@ -1379,13 +1263,12 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.post("/auth/logout")
     def auth_logout() -> RedirectResponse:
         response = RedirectResponse("/", status_code=303)
-        response.delete_cookie("mrwk_user")
-        response.delete_cookie("mrwk_admin")
+        auth.clear_session_cookies(response)
         return response
 
     @app.get("/me", response_class=HTMLResponse)
     def me_page(request: Request) -> HTMLResponse:
-        login = github_login_from_request(request)
+        login = auth.github_login_from_request(request)
         github_balance_mrwk = "0"
         linked_wallet_address = ""
         if login:
@@ -1407,8 +1290,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.post("/admin/logout")
     def admin_logout() -> RedirectResponse:
         response = RedirectResponse("/", status_code=303)
-        response.delete_cookie("mrwk_admin")
-        response.delete_cookie("mrwk_user")
+        auth.clear_session_cookies(response)
         return response
 
     @app.get("/admin", response_class=HTMLResponse)
@@ -1417,9 +1299,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         webhook_status: str | None = Query(None),
         webhook_limit: Annotated[int, Query(ge=1, le=100)] = 25,
     ) -> Any:
-        login = admin_login_from_request(request)
+        login = auth.admin_login_from_request(request)
         if login is None:
-            if _oauth_configured(settings):
+            if auth.oauth_configured():
                 return RedirectResponse("/auth/github/login?next=/admin", status_code=302)
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
         normalized_status = webhook_status.strip().lower() if webhook_status is not None else ""
@@ -1437,7 +1319,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             "admin.html",
             {
                 "login": login,
-                "csrf_token": _csrf_token("admin-bounty", login, settings.cookie_secret),
+                "csrf_token": auth.csrf_token("admin-bounty", login),
                 "webhook_events": webhook_events,
                 "webhook_limit": webhook_limit,
                 "webhook_limit_options": [10, 25, 50, 100],
@@ -1456,14 +1338,13 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         max_awards: int = Form(1),
         acceptance: str = Form(...),
         csrf_token: str | None = Form(None),
-        admin_login: str = Depends(require_admin),
+        admin_login: str = Depends(auth.require_admin),
     ) -> RedirectResponse:
         del request
-        if admin_login != "api-token" and not _verify_csrf_token(
+        if admin_login != "api-token" and not auth.verify_csrf_token(
             csrf_token,
             action="admin-bounty",
             login=admin_login,
-            secret=settings.cookie_secret,
         ):
             raise HTTPException(status_code=403, detail="invalid CSRF token")
         with session_scope(db_url) as session:

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 import app.ledger.service as ledger_service
+from app.auth import safe_next_path, signed_value
 from app.db import create_schema, session_scope
 from app.ledger.service import (
     TREASURY_ACCOUNT,
@@ -26,7 +27,7 @@ from app.ledger.service import (
     register_wallet,
     validate_public_url,
 )
-from app.main import _safe_next_path, _signed_value, create_app
+from app.main import create_app
 from app.models import Bounty, LedgerEntry, Proof, Submission, WebhookEvent
 from app.webhooks.github import handle_github_webhook
 
@@ -111,7 +112,7 @@ def test_admin_bounty_form_requires_csrf_for_cookie_auth(
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_admin", signed_value("alice", "test-cookie-secret"))
 
     page = client.get("/admin")
     token_match = re.search(r'name="csrf_token" value="([^"]+)"', page.text)
@@ -170,7 +171,7 @@ def test_admin_page_renders_safe_webhook_events_for_cookie_admin(
         )
 
     unauthenticated = client.get("/admin", follow_redirects=False)
-    client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_admin", signed_value("alice", "test-cookie-secret"))
     all_events = client.get("/admin?webhook_limit=10")
     filtered = client.get("/admin?webhook_status= missing_submitter &webhook_limit=10")
     limited = client.get("/admin?webhook_limit=1")
@@ -203,7 +204,7 @@ def test_admin_bounty_api_requires_admin_token_not_cookie_auth(
         create_app(database_url=sqlite_url, webhook_secret="secret"),
         base_url="https://testserver",
     )
-    client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_admin", signed_value("alice", "test-cookie-secret"))
 
     cookie_only = client.post("/api/v1/bounties", json=_admin_bounty_form_data())
     token_auth = client.post(
@@ -424,7 +425,7 @@ def test_admin_payout_api_requires_admin_token_not_cookie_auth(
         bounty_id = bounty.id
         wallet = register_wallet(session, public_key_hex="11" * 32, label="Contributor")
         wallet_address = wallet.address
-    client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
+    client.cookies.set("mrwk_admin", signed_value("alice", "test-cookie-secret"))
 
     payload = {
         "to_account": wallet_address,
@@ -833,7 +834,7 @@ def test_admin_bounty_api_accepts_multi_award_count(
 def test_oauth_next_path_rejects_external_or_headerlike_paths(
     next_path: str | None, expected: str
 ) -> None:
-    assert _safe_next_path(next_path) == expected
+    assert safe_next_path(next_path) == expected
 
 
 def test_amount_parser_rejects_non_finite_values() -> None:
