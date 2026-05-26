@@ -34,6 +34,14 @@ MRWK wallets use Ed25519 public keys. The address is `mrwk1` plus the first
 Create or inspect wallets at `/wallets`, send MRWK at `/transfer`, and link a
 GitHub account at `/me`.
 
+Current MRWK movement is ledger-native: accepted work can pay a linked `mrwk1`
+wallet or a temporary `github:*` account, linked wallets can claim positive
+GitHub balances, and registered `mrwk1` wallets can send signed transfers to
+other registered `mrwk1` wallets. MergeWork does not currently operate a public
+BTC, USDC, fiat, bridge, exchange, or off-ramp; see
+[docs/ledger.md](docs/ledger.md#current-transfer-paths) for the current transfer
+paths and future bridge status.
+
 ## Reference Bounty Tiers
 
 | Tier | Work |

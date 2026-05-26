@@ -77,6 +77,12 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
 
+Before reporting payout or transfer status, check the ledger docs. Current MRWK
+movement is native to MergeWork: GitHub balance claims, linked `mrwk1` wallets,
+and signed wallet-to-wallet transfers between registered wallets. Do not imply a
+live BTC, USDC, fiat, bridge, exchange, or off-ramp unless maintainers publish
+one.
+
 Register a wallet public key. Keep the private key local; only the public key is
 sent to MergeWork:
 

@@ -1,7 +1,8 @@
 # MRWK Ledger
 
-MRWK starts as a native project coin on the MergeWork ledger. The ledger is
-designed for future public snapshots, bridges, and onchain claims.
+MRWK starts as a native project coin on the MergeWork ledger. The ledger keeps
+public balances and proofs that may support future snapshots, bridges, or
+onchain-claim experiments, but those paths are not live public off-ramps today.
 
 ## Units
 
@@ -41,6 +42,9 @@ the stored `entry_hash` must recompute from the entry payload.
 
 Public ledger state can be snapshotted for bridge or onchain-claim experiments.
 The public ledger and proof hashes are designed to make that process auditable.
+Any public bridge, chain claim, exchange, or redemption path requires separate
+maintainer and contributor discussion before implementation. The current public
+app does not operate a BTC, USDC, fiat, bridge, exchange, or off-ramp.
 
 ## Wallets and Sending
 
@@ -64,3 +68,21 @@ a wallet. A linked wallet can sign a claim payload to move the full positive
 
 Balances and proofs are inspectable in the explorer. The ledger remains the
 source of truth for spendable MRWK balances.
+
+## Current Transfer Paths
+
+MRWK transfer support is currently limited to native MergeWork ledger paths:
+
+1. Maintainer-approved work pays either a linked `mrwk1` wallet or a temporary
+   native `github:{login}` account.
+2. A contributor can link a registered `mrwk1` wallet with GitHub OAuth and a
+   wallet signature, then claim the full positive `github:{login}` balance into
+   that wallet.
+3. Registered `mrwk1` wallets can send signed wallet-to-wallet transfers to
+   other registered `mrwk1` wallets. The ledger verifies the Ed25519 signature,
+   source address, amount, and next nonce before recording the transfer.
+
+These are ledger-native transfers only. MergeWork does not currently provide a
+public BTC, USDC, fiat, bridge, exchange, or off-ramp. Treat future public
+snapshots, bridges, and onchain claims as separate design work until maintainers
+publish and accept an implementation plan.
