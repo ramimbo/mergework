@@ -212,10 +212,12 @@ def format_text_report(report: dict[str, Any]) -> str:
 
 
 def _sort_by_pull_request(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return report items in stable pull-request order."""
     return sorted(items, key=lambda item: item.get("pull_request", 0))
 
 
 def _pr_ref(item: dict[str, Any]) -> str:
+    """Render a pull request reference as a Markdown link when possible."""
     url = item.get("url")
     if isinstance(url, str) and url:
         return f"[#{item['pull_request']}]({url})"
@@ -223,6 +225,7 @@ def _pr_ref(item: dict[str, Any]) -> str:
 
 
 def format_markdown_report(report: dict[str, Any]) -> str:
+    """Format a queue-health report as GitHub-pasteable Markdown."""
     lines = ["# PR Queue Health"]
     lines.append("")
     lines.append("## Summary")
