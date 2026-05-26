@@ -55,9 +55,7 @@ def _active_attempt_conditions(bounty_id: int, now: datetime) -> tuple[Any, ...]
     )
 
 
-def _bounty_attempt_to_dict(
-    attempt: BountyAttempt, now: datetime | None = None
-) -> dict[str, Any]:
+def _bounty_attempt_to_dict(attempt: BountyAttempt, now: datetime | None = None) -> dict[str, Any]:
     now = now or _utc_now()
     return {
         "id": attempt.id,
