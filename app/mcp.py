@@ -8,6 +8,8 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.ledger.service import LedgerError
+from app.models import Bounty
+from app.serializers import bounty_to_dict
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 
@@ -41,6 +43,99 @@ MCP_TOOLS: list[dict[str, str]] = [
         "description": "Return submission instructions, optionally for a bounty_id or issue_number",
     },
 ]
+
+
+def work_proof_guidance(bounty: Bounty) -> str:
+    bounty_data = bounty_to_dict(bounty)
+    availability = (
+        "open for submissions"
+        if bounty_data["status"] == "open" and bounty_data["awards_remaining"] > 0
+        else "not currently open for new submissions"
+    )
+    return "\n".join(
+        [
+            f"Bounty #{bounty_data['issue_number']}: {bounty_data['title']}",
+            f"Internal bounty id: {bounty_data['id']}",
+            f"Repository: {bounty_data['repo']}",
+            f"Issue: {bounty_data['issue_url']}",
+            (
+                f"Status: {bounty_data['status']} ({availability}); "
+                f"awards remaining: {bounty_data['awards_remaining']} "
+                f"of {bounty_data['max_awards']}"
+            ),
+            f"Reward: {bounty_data['reward_mrwk']} MRWK per accepted award",
+            f"Acceptance: {bounty_data['acceptance']}",
+            (
+                "Submit: open a focused PR or issue that links this bounty, include "
+                "specific test or behavior evidence, then comment /claim with the PR "
+                "or evidence URL and verification summary."
+            ),
+            (
+                "Do not include private keys, seed material, secrets, deployment "
+                "credentials, private vulnerability details, or price claims."
+            ),
+        ]
+    )
+
+
+def work_proof_guidance_json(bounty: Bounty) -> dict[str, Any]:
+    bounty_data = bounty_to_dict(bounty)
+    can_submit = bounty_data["status"] == "open" and bounty_data["awards_remaining"] > 0
+    availability_warnings: list[str] = []
+    if bounty_data["status"] != "open":
+        availability_warnings.append(f"bounty is {bounty_data['status']}")
+    if bounty_data["awards_remaining"] <= 0:
+        availability_warnings.append("bounty has no award slots remaining")
+    return {
+        "bounty_id": bounty_data["id"],
+        "issue_number": bounty_data["issue_number"],
+        "status": bounty_data["status"],
+        "availability": "open_for_submissions" if can_submit else "not_currently_open",
+        "can_submit": can_submit,
+        "availability_warnings": availability_warnings,
+        "awards_remaining": bounty_data["awards_remaining"],
+        "max_awards": bounty_data["max_awards"],
+        "awards_paid": bounty_data["awards_paid"],
+        "reward_mrwk": bounty_data["reward_mrwk"],
+        "available_mrwk": bounty_data["available_mrwk"],
+        "repository": bounty_data["repo"],
+        "issue_url": bounty_data["issue_url"],
+        "title": bounty_data["title"],
+        "acceptance": bounty_data["acceptance"],
+        "submission_format": (
+            "Open a focused PR or issue that links this bounty, include specific "
+            "test or behavior evidence, then comment /claim with the PR or "
+            "evidence URL and verification summary."
+        ),
+        "safety_rules": [
+            "Do not include private keys, seed material, secrets, deployment "
+            "credentials, private vulnerability details, or price claims."
+        ],
+    }
+
+
+def generic_work_proof_guidance_json() -> dict[str, Any]:
+    return {
+        "bounty_id": None,
+        "issue_number": None,
+        "status": "generic_guidance",
+        "availability": "unknown_without_bounty",
+        "can_submit": None,
+        "availability_warnings": [],
+        "awards_remaining": None,
+        "reward_mrwk": None,
+        "repository": None,
+        "issue_url": None,
+        "acceptance": None,
+        "submission_format": (
+            "Open a focused PR or issue, reference the MRWK bounty, include test "
+            "evidence, and wait for a maintainer to apply mrwk:accepted."
+        ),
+        "safety_rules": [
+            "Do not include private keys, seed material, secrets, deployment "
+            "credentials, private vulnerability details, or price claims."
+        ],
+    }
 
 
 def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
