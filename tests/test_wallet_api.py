@@ -524,8 +524,9 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     me = client.get("/me").text
 
     assert "Generate wallet" in wallets
-    assert "Private key stays in this browser" in wallets
-    assert "If you lose the private key" in wallets
+    assert "Registering saves only the public key" in wallets
+    assert "password manager or encrypted note" in wallets
+    assert "The server cannot recover private keys" in wallets
     assert (
         'id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off"'
         in wallets
@@ -589,7 +590,7 @@ def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) 
     assert 'name="private_key_hex" rows="5" autocomplete="off"' in transfer
     assert me.count('name="private_key_hex" rows="5" autocomplete="off"') == 2
     assert "Clear this field after use. Never share your private key." in transfer
-    assert "Clear this field after use. Never share your private key." in me
+    assert "The server never stores this key. Clear this field after use." in me
 
 
 def test_github_wallet_actions_clear_private_key_after_submit_attempt() -> None:
