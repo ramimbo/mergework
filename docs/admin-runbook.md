@@ -103,18 +103,21 @@ Use the queue-health script before accepting busy bounty rounds:
 
 ```bash
 python scripts/pr_queue_health.py --repo ramimbo/mergework --format text
+python scripts/pr_queue_health.py --repo ramimbo/mergework --format markdown
 ```
 
 Live mode requires an authenticated GitHub CLI with access to the repository.
 The command only reads PRs and issues; it does not close PRs, label issues, or
 post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
-PR scope within the same bounty issue.
+PR scope within the same bounty issue. Use `--format markdown` for a pasteable
+GitHub issue, pull request, or discussion summary with tables.
 
 For offline checks, save fixture data and run:
 
 ```bash
 python scripts/pr_queue_health.py --input queue.json --format json --fail-on-issues
+python scripts/pr_queue_health.py --input queue.json --format markdown
 ```
 
 `--fail-on-issues` exits nonzero when queue-health problems are found, which lets

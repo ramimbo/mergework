@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from scripts import pr_queue_health
-from scripts.pr_queue_health import analyze_queue, format_text_report, main
+from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
 
 
 def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
@@ -105,6 +105,71 @@ def test_pr_queue_health_text_report_is_pasteable() -> None:
     assert "PR queue health summary" in text
     assert "pull requests: 1" in text
     assert "No queue-health issues found." in text
+
+
+def test_pr_queue_health_markdown_report_has_tables() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {"number": 292, "state": "OPEN", "awards_remaining": 1},
+                {"number": 293, "state": "CLOSED", "awards_remaining": 0},
+            ],
+            "pull_requests": [
+                {
+                    "number": 12,
+                    "title": "Update stale docs",
+                    "url": "https://github.com/ramimbo/mergework/pull/12",
+                    "body": "Refs #293",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 13,
+                    "title": "Add queue report",
+                    "body": "",
+                    "merge_state": "dirty",
+                    "labels": ["mrwk:needs-info"],
+                },
+            ],
+        }
+    )
+
+    markdown = format_markdown_report(report)
+
+    assert markdown.startswith("# PR Queue Health")
+    assert "| Metric | Count |" in markdown
+    assert "| closed bounty references | 1 |" in markdown
+    assert "### Closed or exhausted bounty references" in markdown
+    assert "| #12 | [Update stale docs](https://github.com/ramimbo/mergework/pull/12)" in markdown
+    assert "### Missing bounty references" in markdown
+    assert "### Dirty or unstable merge state" in markdown
+    assert "### Needs info" in markdown
+
+
+def test_pr_queue_health_markdown_cli_output(tmp_path, capsys) -> None:
+    input_path = tmp_path / "queue.json"
+    input_path.write_text(
+        json.dumps(
+            {
+                "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 5}],
+                "pull_requests": [
+                    {
+                        "number": 8,
+                        "title": "Review open PRs",
+                        "body": "Refs #310",
+                        "merge_state": "clean",
+                        "labels": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--input", str(input_path), "--format", "markdown"])
+
+    assert exit_code == 0
+    assert "No queue-health issues found." in capsys.readouterr().out
 
 
 def test_pr_queue_health_wraps_gh_failures(monkeypatch) -> None:
