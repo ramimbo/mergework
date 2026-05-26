@@ -17,6 +17,20 @@ EVIDENCE_RE = re.compile(
     re.IGNORECASE,
 )
 SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
+RESTRICTED_PUBLIC_CONTENT_RE = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"|\b(?:seed phrase|mnemonic)\b\s*[:=]"
+    r"|\b(?:[A-Z0-9_]*[_ -])?(?:api[_ -]?key|auth[_ -]?token|access[_ -]?token|secret|password|"
+    r"private[_ -]?key|deployment[_ -]?credential)\b\s*[:=]\s*\S+"
+    r"|\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,})\b",
+    re.IGNORECASE,
+)
+MRWK_PRICE_OR_PAYOUT_CLAIM_RE = re.compile(
+    r"\bmrwk\b.{0,80}\b(?:worth|price|value|profit|return|moon|pump|usd|\$)"
+    r"|\b(?:worth|price|value|profit|return|moon|pump|usd|\$).{0,80}\bmrwk\b"
+    r"|\b(?:guaranteed|confirmed|already)\s+(?:payout|payment|paid|accepted)\b",
+    re.IGNORECASE,
+)
 GH_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
@@ -130,6 +144,22 @@ def _has_evidence(text: str) -> bool:
     return False
 
 
+def _public_safety_check(text: str) -> dict[str, str]:
+    if RESTRICTED_PUBLIC_CONTENT_RE.search(text):
+        return _check(
+            "public_safety",
+            "fail",
+            "submission text appears to include restricted secrets or credentials",
+        )
+    if MRWK_PRICE_OR_PAYOUT_CLAIM_RE.search(text):
+        return _check(
+            "public_safety",
+            "warn",
+            "avoid MRWK price, payout, or investment claims in public artifacts",
+        )
+    return _check("public_safety", "pass", "no restricted public artifact content found")
+
+
 def _matching_pr_bounty_refs(pr: dict[str, Any]) -> list[int]:
     text = "\n".join(str(pr.get(key) or "") for key in ("title", "body"))
     return _bounty_refs(text)
@@ -230,6 +260,8 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
                 "include concrete test or validation evidence before submission",
             )
         )
+
+    checks.append(_public_safety_check(text))
 
     similar = _similar_open_prs(pull_requests, bounty_ref, _title_from_submission(text))
     if similar:

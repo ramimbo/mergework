@@ -31,6 +31,7 @@ def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_pa
         "bounty_payable": "pass",
         "summary_present": "pass",
         "evidence_present": "pass",
+        "public_safety": "pass",
         "similar_open_pr": "pass",
     }
 
@@ -122,6 +123,52 @@ def test_submission_quality_gate_warns_for_similar_open_pr() -> None:
             "url": "https://github.com/ramimbo/mergework/pull/12",
         }
     ]
+
+
+def test_submission_quality_gate_fails_private_key_in_submission_text() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary: add validation.
+            Refs #319
+            Validation: pytest passed.
+
+            DEPLOYMENT_PRIVATE_KEY=abc123
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert {
+        "name": "public_safety",
+        "status": "fail",
+        "message": "submission text appears to include restricted secrets or credentials",
+    } in result["checks"]
+
+
+def test_submission_quality_gate_warns_for_mrwk_price_claims() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary: add validation.
+            Refs #319
+            Validation: pytest passed.
+
+            This proves MRWK will be worth $5 soon.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert {
+        "name": "public_safety",
+        "status": "warn",
+        "message": "avoid MRWK price, payout, or investment claims in public artifacts",
+    } in result["checks"]
 
 
 def test_submission_quality_gate_passes_recent_maintainer_activity() -> None:
