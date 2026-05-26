@@ -9,7 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -73,7 +73,7 @@ from app.serializers import (
     wallet_transfer_to_dict,
 )
 from app.wallets import WalletError, normalize_wallet_address
-from app.webhooks.github import handle_github_webhook
+from app.webhooks.routes import register_github_webhook_route
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -278,13 +278,17 @@ def _oauth_configured(settings: Settings) -> bool:
 
 
 def _safe_next_path(next_path: str | None) -> str:
+    decoded_next_path = unquote(next_path) if next_path else ""
     if (
         not next_path
         or not next_path.startswith("/")
         or next_path.startswith("//")
         or len(next_path) > 2048
         or "\\" in next_path
+        or decoded_next_path.startswith("//")
+        or "\\" in decoded_next_path
         or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
+        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
     ):
         return "/me"
     return next_path
@@ -1094,20 +1098,12 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             return activity_to_dict(session, q)
 
-    @app.post("/webhooks/github")
-    async def github_webhook(request: Request) -> JSONResponse:
-        body = await request.body()
-        headers = {key: value for key, value in request.headers.items()}
-        normalized = {
-            "X-GitHub-Delivery": headers.get("x-github-delivery", ""),
-            "X-GitHub-Event": headers.get("x-github-event", ""),
-            "X-Hub-Signature-256": headers.get("x-hub-signature-256", ""),
-        }
-        result = handle_github_webhook(
-            db_url, normalized, body, secret, settings.github_accepted_labelers
-        )
-        code = 401 if result["status"] == "unauthorized" else 200
-        return JSONResponse(result, status_code=code)
+    register_github_webhook_route(
+        app,
+        database_url=db_url,
+        webhook_secret=secret,
+        accepted_labelers=settings.github_accepted_labelers,
+    )
 
     @app.post("/mcp")
     async def mcp(request: Request) -> Any:
