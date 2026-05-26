@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 
@@ -61,3 +64,26 @@ def test_proof_helpers_shape_api_and_mcp_payloads(sqlite_url: str) -> None:
     assert api_payload["submission_url"] == "https://github.com/ramimbo/mergework/pull/320"
     assert mcp_payload["hash"] == proof.hash
     assert mcp_payload["proof"] == api_payload
+
+
+def test_proof_payload_helpers_reject_malformed_or_non_object_payloads() -> None:
+    for raw_payload in ("{", "[]"):
+        proof = SimpleNamespace(
+            hash="a" * 64,
+            kind="bounty_payment",
+            ledger_sequence=1,
+            bounty_id=1,
+            submission_id=None,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            public_json=raw_payload,
+        )
+
+        with pytest.raises(HTTPException) as public_exc_info:
+            public_proof_payload(proof)  # type: ignore[arg-type]
+        assert public_exc_info.value.status_code == 500
+        assert public_exc_info.value.detail == "invalid proof payload"
+
+        with pytest.raises(HTTPException) as mcp_exc_info:
+            mcp_proof_to_dict(proof)  # type: ignore[arg-type]
+        assert mcp_exc_info.value.status_code == 500
+        assert mcp_exc_info.value.detail == "invalid proof payload"

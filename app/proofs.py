@@ -36,7 +36,10 @@ def proof_hash_for_sequence(session: Session, sequence: int) -> str | None:
 
 
 def public_proof_payload(proof: Proof) -> dict[str, Any]:
-    payload = json.loads(proof.public_json)
+    try:
+        payload = json.loads(proof.public_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail="invalid proof payload") from exc
     if not isinstance(payload, dict):
         raise HTTPException(status_code=500, detail="invalid proof payload")
     return payload
