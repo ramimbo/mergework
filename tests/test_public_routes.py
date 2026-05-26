@@ -52,4 +52,6 @@ def test_hub_clarifies_current_and_future_transfer_paths(sqlite_url: str) -> Non
     assert "Supported paths today are GitHub balance claims" in response.text
     assert "linked <code>mrwk1</code> wallet payouts" in response.text
     assert "does not currently operate a public BTC, USDC, fiat, bridge" in response.text
+    assert "exchange, or off-ramp" in response.text
+    assert "Future public snapshots, bridges, and onchain claims" in response.text
     assert "separate maintainer/contributor discussion" in response.text
