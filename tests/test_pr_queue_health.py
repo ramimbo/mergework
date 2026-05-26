@@ -350,6 +350,8 @@ def test_pr_queue_health_live_mode_uses_api_award_capacity(monkeypatch) -> None:
 
     report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
 
+    assert report["data_sources"] == {"bounties": "github_issues+mergework_api"}
+    assert "api_bounty_warning" not in report
     assert report["summary"]["closed_bounty_references"] == 1
     assert report["closed_bounty_references"][0]["pull_request"] == 71
     assert report["closed_bounty_references"][0]["detail"] == (
@@ -397,5 +399,15 @@ def test_pr_queue_health_live_mode_falls_back_on_bad_api_utf8(monkeypatch) -> No
 
     report = analyze_queue(pr_queue_health.load_live_queue("ramimbo/mergework"))
 
+    assert report["data_sources"] == {"bounties": "github_issues"}
+    assert "invalid start byte" in report["api_bounty_warning"]
     assert report["summary"]["closed_bounty_references"] == 0
     assert report["summary"]["open_bounties"] == 1
+
+    text_report = format_text_report(report)
+    assert "bounty data source: github_issues" in text_report
+    assert "Warning: MergeWork API bounty metadata unavailable" in text_report
+
+    markdown_report = format_markdown_report(report)
+    assert "**bounty data source**: `github_issues`" in markdown_report
+    assert "> **Warning:** MergeWork API bounty metadata unavailable" in markdown_report

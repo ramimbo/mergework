@@ -85,6 +85,8 @@ def _issue(pr: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
 
 
 def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
+    raw_metadata = data.get("metadata")
+    metadata: dict[str, Any] = raw_metadata if isinstance(raw_metadata, dict) else {}
     bounties = {
         int(item["number"]): item
         for item in data.get("bounties", [])
@@ -172,7 +174,13 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
         "needs_info": needs_info,
         "duplicate_scope_groups": duplicate_scope_groups,
+        "data_sources": {
+            "bounties": str(metadata.get("bounty_source") or "input"),
+        },
     }
+    api_bounty_warning = metadata.get("api_bounty_warning")
+    if api_bounty_warning:
+        report["api_bounty_warning"] = str(api_bounty_warning)
     return report
 
 
@@ -193,6 +201,12 @@ def format_text_report(report: dict[str, Any]) -> str:
     lines = ["PR queue health summary"]
     for key, value in report["summary"].items():
         lines.append(f"- {key.replace('_', ' ')}: {value}")
+    bounty_source = report.get("data_sources", {}).get("bounties")
+    if bounty_source:
+        lines.append(f"- bounty data source: {bounty_source}")
+    if report.get("api_bounty_warning"):
+        lines.append("")
+        lines.append(f"Warning: {report['api_bounty_warning']}")
     if not has_queue_issues(report):
         lines.append("")
         lines.append("No queue-health issues found.")
@@ -234,6 +248,12 @@ def format_markdown_report(report: dict[str, Any]) -> str:
     lines = ["## PR Queue Health Summary", ""]
     for key, value in report["summary"].items():
         lines.append(f"- **{key.replace('_', ' ')}**: {value}")
+    bounty_source = report.get("data_sources", {}).get("bounties")
+    if bounty_source:
+        lines.append(f"- **bounty data source**: `{bounty_source}`")
+    if report.get("api_bounty_warning"):
+        lines.append("")
+        lines.append(f"> **Warning:** {report['api_bounty_warning']}")
     if not has_queue_issues(report):
         lines.append("")
         lines.append("No queue-health issues found.")
@@ -351,10 +371,17 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
             "use an API-paginated collector before trusting this live report"
         )
+    metadata = {"bounty_source": "github_issues+mergework_api"}
     try:
         api_bounties = _load_api_bounties(repo)
-    except RuntimeError:
+    except RuntimeError as exc:
         api_bounties = {}
+        metadata = {
+            "bounty_source": "github_issues",
+            "api_bounty_warning": (
+                f"MergeWork API bounty metadata unavailable; using GitHub issue state only: {exc}"
+            ),
+        }
 
     bounty_issues = []
     for issue in issues:
@@ -372,7 +399,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
                 ),
             }
         )
-    return {"pull_requests": prs, "bounties": bounty_issues}
+    return {"pull_requests": prs, "bounties": bounty_issues, "metadata": metadata}
 
 
 def _load_input(path: str) -> dict[str, Any]:
