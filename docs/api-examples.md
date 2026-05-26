@@ -482,7 +482,7 @@ ledger sequence, addresses, amount, nonce, memo, and timestamp:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 6,
+  "id": 7,
   "result": {
     "content": [
       {
@@ -500,7 +500,7 @@ block is a JSON string with proof metadata plus the stored public proof payload:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 5,
+  "id": 6,
   "result": {
     "content": [
       {
