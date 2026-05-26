@@ -1,13 +1,13 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
   - type: textarea
     id: work
     attributes:
       label: Work needed
-      description: Describe the useful accepted work.
+      description: "Use stable headings from docs/bounty-rules.md: reward, max awards, scope, acceptance criteria, evidence/tests, out of scope, duplicate/stale rules."
     validations:
       required: true
   - type: input
@@ -29,5 +29,20 @@ body:
     attributes:
       label: Acceptance criteria
       description: Explain what must be true before mrwk:accepted is applied.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / tests
+      description: List commands, screenshots, proof links, or docs-review evidence expected from submissions.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope and duplicate rules
+      description: Name non-qualifying work and how duplicate or stale attempts are handled.
     validations:
       required: true

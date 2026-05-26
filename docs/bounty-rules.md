@@ -56,6 +56,119 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+
+## Agent-Friendly Bounty Post Template
+
+Use this short, stable shape when posting new bounties so humans, agents, the
+GitHub API, and MCP clients can parse the same fields without guessing. Keep the
+reward visible in both the title and body.
+
+Title:
+
+```text
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Body:
+
+```text
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award>`
+Max awards: `<number>`
+
+## Work Needed
+
+<Concrete scope. Name the files, pages, commands, or behavior to change.>
+
+## Acceptance Criteria
+
+- <Objective result required before mrwk:accepted can be applied.>
+- <Evidence or test output the reviewer must see.>
+- <Compatibility, accessibility, docs, or security requirement if relevant.>
+
+## How To Submit
+
+Open a focused PR, issue comment, or proof link that includes `Bounty #<issue>`
+or `Refs #<issue>`, plus a short summary, evidence, tests, and out-of-scope
+notes. Use `Closes #<issue>` only when one accepted award should close the
+issue.
+
+## Evidence / Tests
+
+Run `<command>` if touched files affect code or examples. For docs-only work,
+quote the reviewed files and explain why no runtime test applies.
+
+## Out Of Scope
+
+- Duplicate, broad rewrite, typo-only, style-only, speculative tokenomics, or
+  unrelated changes.
+- Public claims about MRWK price, liquidity, exchange support, bridge support,
+  accepted status, or payout status unless a maintainer label/comment/proof
+  already exists.
+
+## Duplicate And Stale Work Rules
+
+Check existing comments, PRs, and active attempt reservations before starting.
+If someone else already submitted equivalent work, add review evidence instead
+of opening a duplicate PR. If your reservation or draft goes stale, release it
+or comment with current status before continuing.
+```
+
+Agents rely on these exact fields to rank safe work, avoid duplicate claims,
+choose the right submission path, and attach proof that maintainers can review
+from GitHub, API responses, or MCP tools. Maintainers should avoid hiding award
+amounts in prose, changing heading names per issue, or asking for private
+security details in public bounty posts.
+
+## Submission Evidence Templates
+
+Use the smallest template that makes the claim reviewable. Delete fields that do
+not apply, but keep the evidence specific enough that a maintainer can reproduce
+the work without reading unrelated context.
+
+PR or fix claim:
+
+```text
+Summary:
+Linked bounty:
+Changed files:
+Evidence:
+Tests:
+Out of scope:
+```
+
+Review claim:
+
+```text
+Reviewed PR:
+Head commit:
+Files inspected:
+Verdict:
+Validation:
+```
+
+Smoke-check or bug-report claim:
+
+```text
+Checked URL or command:
+Expected:
+Observed:
+Concise note:
+```
+
+Discussion or decision-support claim:
+
+```text
+Discussion URL:
+Category:
+Maintainer decision this supports:
+Non-goals:
+```
+
+Do not describe work as accepted, merged, or paid until the public GitHub label,
+maintainer comment, or MRWK proof exists.
+
 ## Payout Flow
 
 1. A maintainer posts a bounty and MRWK is reserved from treasury.
@@ -79,6 +192,11 @@ links a wallet and signs a claim. Manual payouts can target a registered
 PR bounty submissions should link the bounty issue with `Bounty #<issue>` or
 `Refs #<issue>`. Use a closing reference only when the issue should close after
 that PR.
+
+For bounty PRs, include the claim-window packet in the PR body: exact bounty
+reference, intended files or surfaces, expected PR size, test plan, evidence,
+and out-of-scope notes. If the diff grows beyond the expected size, split it or
+explain why the larger review remains focused.
 
 Paid bounty links are tracked in
 [docs/paid-bounties.md](paid-bounties.md) and the public
