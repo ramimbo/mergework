@@ -211,6 +211,48 @@ def format_text_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _markdown_pr_link(item: dict[str, Any]) -> str:
+    label = f"PR #{item['pull_request']}"
+    if item.get("url"):
+        return f"[{label}]({item['url']})"
+    return label
+
+
+def format_markdown_report(report: dict[str, Any]) -> str:
+    lines = [
+        "## PR Queue Health Summary",
+        "",
+        "| Metric | Count |",
+        "| --- | ---: |",
+    ]
+    for key, value in report["summary"].items():
+        lines.append(f"| {key.replace('_', ' ').title()} | {value} |")
+    if not has_queue_issues(report):
+        lines.append("")
+        lines.append("No queue-health issues found.")
+        return "\n".join(lines)
+
+    sections = [
+        ("Closed or Exhausted Bounty References", "closed_bounty_references"),
+        ("Missing Bounty References", "missing_bounty_references"),
+        ("Dirty or Unstable Merge State", "dirty_or_unstable_merge_state"),
+        ("Needs Info", "needs_info"),
+    ]
+    for title, key in sections:
+        if report[key]:
+            lines.append("")
+            lines.append(f"### {title}")
+            for item in report[key]:
+                lines.append(f"- {_markdown_pr_link(item)}: {item['title']} ({item['detail']})")
+    if report["duplicate_scope_groups"]:
+        lines.append("")
+        lines.append("### Likely Duplicate Bounty Scope")
+        for item in report["duplicate_scope_groups"]:
+            prs = ", ".join(f"#{number}" for number in item["pull_requests"])
+            lines.append(f"- Bounty #{item['bounty']}: `{item['scope']}` ({prs})")
+    return "\n".join(lines)
+
+
 def _run_gh_json(args: list[str]) -> Any:
     command = " ".join(args)
     try:
@@ -305,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         "--repo",
         help="Collect live queue data with gh, for example ramimbo/mergework.",
     )
-    parser.add_argument("--format", choices=["json", "text"], default="text")
+    parser.add_argument("--format", choices=["json", "markdown", "text"], default="text")
     parser.add_argument("--fail-on-issues", action="store_true")
     args = parser.parse_args(argv)
 
@@ -313,6 +355,8 @@ def main(argv: list[str] | None = None) -> int:
     report = analyze_queue(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif args.format == "markdown":
+        print(format_markdown_report(report))
     else:
         print(format_text_report(report))
     return 1 if args.fail_on_issues and has_queue_issues(report) else 0

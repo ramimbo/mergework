@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from scripts import pr_queue_health
-from scripts.pr_queue_health import analyze_queue, format_text_report, main
+from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
 
 
 def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
@@ -105,6 +105,90 @@ def test_pr_queue_health_text_report_is_pasteable() -> None:
     assert "PR queue health summary" in text
     assert "pull requests: 1" in text
     assert "No queue-health issues found." in text
+
+
+def test_pr_queue_health_markdown_report_includes_actionable_sections() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {"number": 292, "state": "OPEN", "awards_remaining": 1},
+                {"number": 293, "state": "CLOSED", "awards_remaining": 0},
+            ],
+            "pull_requests": [
+                {
+                    "number": 1,
+                    "title": "Closed bounty target",
+                    "url": "https://github.com/ramimbo/mergework/pull/1",
+                    "body": "Refs #293",
+                    "merge_state": "dirty",
+                    "labels": ["mrwk:needs-info"],
+                },
+                {
+                    "number": 2,
+                    "title": "Missing bounty target",
+                    "url": "https://github.com/ramimbo/mergework/pull/2",
+                    "body": "",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 3,
+                    "title": "Duplicate cleanup scope",
+                    "url": "https://github.com/ramimbo/mergework/pull/3",
+                    "body": "Bounty #292",
+                    "merge_state": "unknown",
+                    "labels": [],
+                },
+                {
+                    "number": 4,
+                    "title": "Duplicate cleanup scope",
+                    "url": "https://github.com/ramimbo/mergework/pull/4",
+                    "body": "Refs #292",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    markdown = format_markdown_report(report)
+
+    assert markdown.startswith("## PR Queue Health Summary")
+    assert "| Closed Bounty References | 1 |" in markdown
+    assert "### Closed or Exhausted Bounty References" in markdown
+    assert "[PR #1](https://github.com/ramimbo/mergework/pull/1)" in markdown
+    assert "### Missing Bounty References" in markdown
+    assert "[PR #2](https://github.com/ramimbo/mergework/pull/2)" in markdown
+    assert "### Dirty or Unstable Merge State" in markdown
+    assert "Merge state is dirty" in markdown
+    assert "### Needs Info" in markdown
+    assert "PR has mrwk:needs-info label" in markdown
+    assert "### Likely Duplicate Bounty Scope" in markdown
+    assert "Bounty #292: `duplicate cleanup scope` (#3, #4)" in markdown
+
+
+def test_pr_queue_health_markdown_report_handles_no_issues() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 5}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Review open PRs",
+                    "body": "Refs #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    markdown = format_markdown_report(report)
+
+    assert "## PR Queue Health Summary" in markdown
+    assert "| Pull Requests | 1 |" in markdown
+    assert "No queue-health issues found." in markdown
+    assert "### Closed or Exhausted Bounty References" not in markdown
 
 
 def test_pr_queue_health_wraps_gh_failures(monkeypatch) -> None:
