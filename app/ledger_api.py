@@ -4,7 +4,7 @@ import json
 import re
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +16,7 @@ SQLITE_INTEGER_MAX = 2**63 - 1
 PROOF_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
-def register_ledger_api_routes(app: FastAPI, *, database_url: str) -> None:
+def register_ledger_api_routes(app: FastAPI | APIRouter, *, database_url: str) -> None:
     @app.get("/api/v1/ledger")
     def api_ledger(limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[dict[str, Any]]:
         return ledger_entries(database_url, limit)
@@ -55,7 +55,10 @@ def proof_payload(database_url: str, proof_hash: str) -> dict[str, Any]:
         proof = session.get(Proof, proof_hash)
         if proof is None:
             raise HTTPException(status_code=404, detail="proof not found")
-        data = json.loads(proof.public_json)
+        try:
+            data = json.loads(proof.public_json)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=500, detail="invalid proof payload") from exc
         if not isinstance(data, dict):
             raise HTTPException(status_code=500, detail="invalid proof payload")
         return data
