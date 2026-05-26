@@ -20,6 +20,21 @@ small, verifiable, and easy for maintainers to review.
 - Do not submit generated noise, duplicate reports, or unrelated rewrites.
 - Do not claim payout, acceptance, or ledger status that has not happened.
 
+## Preflight Checks
+
+Before opening a bounty PR, draft the PR body locally and run the advisory
+submission gate:
+
+```bash
+python scripts/submission_quality_gate.py --text-file pr-body.md --repo ramimbo/mergework
+```
+
+The gate checks for a bounty reference, summary, validation evidence, open award
+capacity, active attempts, similar open PRs, and recent maintainer activity when
+that public context is available. A warning is not an automatic rejection, but
+fix missing evidence, duplicate scope, or closed bounty references before
+submitting.
+
 ## Security Work
 
 Report private security findings through the security policy. Public issues and
