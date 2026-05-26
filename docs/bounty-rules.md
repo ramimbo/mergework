@@ -56,6 +56,36 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+
+## Claim Window and Award Capacity
+
+Multi-award bounties reserve exact caps (`max_awards`) and stay open until filled or closed. Before opening a PR, check how many awards remain and how many claims are already pending:
+
+- Check the bounty issue body for `Max awards: N` and `Reward: X MRWK per accepted award`.
+- Count `\/claim` comments on the issue to estimate how many contributors are already in the review queue.
+- If `pending claims >= max_awards`, the bounty is oversubscribed and new PRs may not get a slot.
+- Single-award bounties close after one accepted submission. Do not open a second PR for a single-slot bounty unless the first was rejected and the issue is still open.
+
+Maintainers may accept overflow across related bounty rounds (e.g., round 2 overflow paid from round 3's reserve). This is at the maintainer's discretion and is not guaranteed for every round.
+
+## Evidence Guidelines for Claims
+
+Claims must be accompanied by reviewable evidence. The following types of evidence are accepted for different work types:
+
+| Work Type | Evidence Requirements |
+|-----------|----------------------|
+| PR submission | `Bounty #<issue>` or `Refs #<issue>` in PR body, test output, lint/type-check pass, description of what changed and why |
+| PR review | GitHub review URL, files inspected, checks run, concrete findings or approval rationale |
+| Docs change | `python scripts/docs_smoke.py` output, before/after diff summary, link to rendered section |
+| Bug report / triage | Reproduction steps, expected vs actual behavior, environment info, log output |
+
+Key rules:
+- Duplicate claims that add no new evidence are not accepted.
+- Vague claims without specific output, links, or reproduction steps are not accepted.
+- Self-review of your own PR is not a valid review claim.
+- Claims on PRs labeled `mrwk:needs-info` are pending resolution — the review cannot be assessed until the author addresses the feedback.
+
+
 ## Payout Flow
 
 1. A maintainer posts a bounty and MRWK is reserved from treasury.

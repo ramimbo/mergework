@@ -213,6 +213,17 @@ Use this checklist before opening a PR for `mrwk:bounty` issues:
 Common rejection reasons: duplicate scope, style-only changes without user
 impact, missing evidence, or ignoring issue-specific acceptance criteria.
 
+
+### Claim Window Etiquette
+
+Before opening a PR for a multi-award bounty, confirm capacity:
+
+1. **Check the bounty issue** — `Max awards: N` tells you the total slot count. Subtract already-paid awards (maintainer comments often track this) and pending claims (\/claim comments) to estimate remaining capacity.
+2. **One PR per slot** — Opening multiple PRs for the same bounty round does not increase your chances. Each accepted PR fills one slot; extra PRs beyond available slots are likely to be rejected as oversubscribed.
+3. **Do not target fully claimed or closed bounties** — If all slots are filled or the issue is closed, wait for a new round. Submitting to exhausted rounds wastes reviewer time.
+4. **Evidence in the PR body** — Include which bounty you are targeting, what changed, and how you validated the change. This helps the maintainer connect your work to the right award slot.
+
+
 ### Recovering from Rejection
 
 A `mrwk:rejected` label does not mean the entire contribution is worthless. Use rejection as diagnostic feedback:
