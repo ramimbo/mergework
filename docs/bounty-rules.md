@@ -56,6 +56,73 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+
+## Agent-Friendly Bounty Post Template
+
+Use this short, stable shape when posting MRWK bounties so humans, GitHub API
+clients, MCP clients, and AI agents can identify scope, reward, award slots,
+required evidence, duplicate-work rules, and out-of-scope work without guessing.
+
+Title:
+
+```text
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Body:
+
+```text
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award>`
+Max awards: `<number>`
+
+## Work Needed
+
+<Concrete scope. Name the files, pages, commands, APIs, or behavior to change or
+verify.>
+
+## Acceptance Criteria
+
+- <Objective condition reviewers can verify.>
+- <Required docs, tests, screenshots, reproduction steps, or command output.>
+- <PR body or comment must include `Bounty #<issue number>` or
+  `Refs #<issue number>`.>
+
+## How To Submit
+
+Open a focused PR or comment with:
+
+- Summary
+- Linked bounty
+- Changed files or checked surface
+- Evidence and test output
+- Out-of-scope notes
+
+## Evidence Required
+
+<Exact commands, screenshots, links, fixtures, or review notes needed for
+maintainers to reproduce the result.>
+
+## Out of Scope
+
+<List speculative, unrelated, private, security-sensitive, tokenomics, price,
+liquidity, exchange, bridge, or broad rewrite work that will not qualify.>
+
+## Duplicate and Stale Work Rules
+
+Duplicate submissions do not qualify unless they add distinct accepted evidence
+or a maintainer asks for another award slot. Stale claims may be skipped when a
+newer submission provides clearer reviewable evidence.
+```
+
+These fields are intentionally redundant: the title exposes the amount in GitHub
+search results, the body repeats `Reward` and `Max awards` for API and MCP
+parsers, and stable headings let agents extract the work packet without reading
+unrelated discussion. Keep public artifact wording factual: do not claim accepted
+status, fiat value, liquidity, exchange support, bridge availability, or payment
+until the public label, maintainer comment, ledger row, or proof exists.
+
 ## Submission Evidence Templates
 
 Use the smallest template that makes the claim reviewable. Delete fields that do
