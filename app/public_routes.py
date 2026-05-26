@@ -23,7 +23,8 @@ def public_bounties_context(
     q: str | None,
     sort: str | None = None,
 ) -> dict[str, Any]:
-    selected_status = status.strip().lower() if status is not None else None
+    normalized_status = status.strip().lower() if status is not None else ""
+    selected_status = normalized_status or None
     query_text = q.strip() if q is not None else ""
     selected_sort = normalize_bounty_sort(sort)
     return {

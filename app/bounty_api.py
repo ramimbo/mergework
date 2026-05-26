@@ -96,11 +96,12 @@ def register_bounty_api_routes(
             query = select(Bounty)
             if status is not None:
                 normalized_status = status.strip().lower()
-                if normalized_status not in {"open", "paid", "closed"}:
+                if normalized_status and normalized_status not in {"open", "paid", "closed"}:
                     raise HTTPException(
                         status_code=400, detail="status must be one of: open, paid, closed"
                     )
-                query = query.where(Bounty.status == normalized_status)
+                if normalized_status:
+                    query = query.where(Bounty.status == normalized_status)
             if query_text is not None:
                 normalized_query = query_text.strip()
                 if normalized_query:

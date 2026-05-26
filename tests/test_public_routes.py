@@ -32,3 +32,8 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
             "awards": "Most award slots",
         },
     }
+
+    blank_context = public_bounties_context(bounties, status="   ", q=None)
+
+    assert blank_context["selected_status"] is None
+    assert blank_context["query_text"] == ""

@@ -72,6 +72,12 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert "Open public bounty" not in paid_rows_uppercase.text
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
 
+    blank_status_rows = client.get("/bounties?status=")
+    assert blank_status_rows.status_code == 200
+    assert "Open public bounty" in blank_status_rows.text
+    assert "Paid public bounty" in blank_status_rows.text
+    assert 'href="/bounties" aria-current="page"' in blank_status_rows.text
+
 
 def test_bounties_summary_api_matches_public_list_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
@@ -113,6 +119,9 @@ def test_bounties_summary_api_matches_public_list_filters(sqlite_url: str) -> No
         "open_awards": 2,
         "open_pool_mrwk": "50",
     }
+
+    blank_status_summary = client.get("/api/v1/bounties/summary?status=&q=discovery").json()
+    assert blank_status_summary == summary
 
     paid_summary = client.get("/api/v1/bounties/summary?status=paid&q=discovery").json()
     assert paid_summary == {
