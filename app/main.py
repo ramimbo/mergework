@@ -26,6 +26,7 @@ from app.admin import (
     webhook_events_to_dict,
     webhook_status_summary,
 )
+from app.bounties import search_bounties
 from app.config import Settings, get_settings
 from app.db import create_schema, session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
@@ -137,16 +138,6 @@ def _preserve_forwarded_https_redirect(request: Request, response: Response) -> 
     response.headers["location"] = urlunsplit(
         ("https", parsed.netloc, parsed.path, parsed.query, parsed.fragment)
     )
-
-
-def _issue_number_search_value(query: str) -> int | None:
-    if not query.isdigit():
-        return None
-    try:
-        issue_number = int(query)
-    except ValueError:
-        return None
-    return issue_number if issue_number <= SQLITE_INTEGER_MAX else None
 
 
 def _utc_now() -> datetime:
@@ -582,34 +573,10 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         status: str | None = None, query_text: str | None = None
     ) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
-            query = select(Bounty)
-            if status is not None:
-                normalized_status = status.strip().lower()
-                if normalized_status not in {"open", "paid", "closed"}:
-                    raise HTTPException(
-                        status_code=400, detail="status must be one of: open, paid, closed"
-                    )
-                query = query.where(Bounty.status == normalized_status)
-            if query_text is not None:
-                normalized_query = query_text.strip()
-                if normalized_query:
-                    escaped_query = (
-                        normalized_query.lower()
-                        .replace("\\", "\\\\")
-                        .replace("%", "\\%")
-                        .replace("_", "\\_")
-                    )
-                    like_query = f"%{escaped_query}%"
-                    issue_number = _issue_number_search_value(normalized_query)
-                    text_filter = or_(
-                        func.lower(Bounty.repo).like(like_query, escape="\\"),
-                        func.lower(Bounty.title).like(like_query, escape="\\"),
-                        func.lower(Bounty.acceptance).like(like_query, escape="\\"),
-                    )
-                    if issue_number is not None:
-                        text_filter = or_(text_filter, Bounty.issue_number == issue_number)
-                    query = query.where(text_filter)
-            bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
+            try:
+                bounties = search_bounties(session, status=status, query_text=query_text)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
             return [bounty_to_dict(bounty) for bounty in bounties]
 
     @app.get("/api/v1/bounties")
@@ -1530,15 +1497,6 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             raise ValueError("format must be text or json")
         return normalized
 
-    def mcp_issue_number_search_value(query_text: str) -> int | None:
-        if not query_text.isdigit():
-            return None
-        try:
-            issue_number = int(query_text)
-        except ValueError:
-            return None
-        return issue_number if issue_number <= SQLITE_INTEGER_MAX else None
-
     def list_limit_arg(default: int = 25) -> int:
         if "limit" not in args or args.get("limit") is None:
             return default
@@ -1648,28 +1606,10 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
     with session_scope(database_url) as session:
         if name == "list_bounties":
             status = optional_clean_str_arg("status") or "open"
-            normalized_status = status.lower()
-            if normalized_status not in {"open", "paid", "closed"}:
-                raise ValueError("status must be one of: open, paid, closed")
-            query = select(Bounty).where(Bounty.status == normalized_status)
             query_text = optional_clean_str_arg("q")
-            if query_text:
-                escaped_query = (
-                    query_text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-                )
-                like_query = f"%{escaped_query}%"
-                issue_number = mcp_issue_number_search_value(query_text)
-                text_filter = or_(
-                    func.lower(Bounty.repo).like(like_query, escape="\\"),
-                    func.lower(Bounty.title).like(like_query, escape="\\"),
-                    func.lower(Bounty.acceptance).like(like_query, escape="\\"),
-                )
-                if issue_number is not None:
-                    text_filter = or_(text_filter, Bounty.issue_number == issue_number)
-                query = query.where(text_filter)
-            bounties = session.scalars(
-                query.order_by(Bounty.id.desc()).limit(list_limit_arg())
-            ).all()
+            bounties = search_bounties(
+                session, status=status, query_text=query_text, limit=list_limit_arg()
+            )
             return json.dumps([bounty_to_dict(bounty) for bounty in bounties])
         if name == "get_bounty":
             bounty = session.get(Bounty, positive_int_arg("id"))
@@ -1768,20 +1708,20 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
                     else work_proof_guidance(bounty)
                 )
             if has_issue_number:
-                bounties = session.scalars(
+                matching_bounties = session.scalars(
                     select(Bounty)
                     .where(Bounty.issue_number == positive_int_arg("issue_number"))
                     .order_by(Bounty.id.desc())
                     .limit(2)
                 ).all()
-                if not bounties:
+                if not matching_bounties:
                     return "bounty not found"
-                if len(bounties) > 1:
+                if len(matching_bounties) > 1:
                     raise ValueError("issue_number matches multiple bounties")
                 return (
-                    work_proof_guidance_json(bounties[0])
+                    work_proof_guidance_json(matching_bounties[0])
                     if output_format == "json"
-                    else work_proof_guidance(bounties[0])
+                    else work_proof_guidance(matching_bounties[0])
                 )
             if output_format == "json":
                 return generic_work_proof_guidance_json()
