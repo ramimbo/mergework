@@ -34,6 +34,66 @@ MRWK uses work-based tiers at launch. The project does not publish a fiat peg.
 - `mrwk:rejected`: submission was not accepted.
 - `mrwk:needs-info`: maintainer needs more detail.
 
+## Maintainer Bounty Post Template
+
+Use stable headings so humans, agents, the public API, and MCP tools can parse a
+bounty without guessing. Put the reward in the issue title:
+
+```text
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Copy this body and replace the placeholders:
+
+```text
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award`
+Max awards: `<number>`
+
+## Work Needed
+
+Describe the focused work, affected page, workflow, docs area, code path, or
+review target.
+
+## Acceptance Criteria
+
+- List the exact conditions that must be true before work can be accepted.
+- Include required commands, screenshots, links, or reproduction evidence.
+- State any bounty-specific constraints such as one award per distinct scope.
+
+## How To Submit
+
+Open a focused PR, review, issue comment, or discussion post with `Bounty
+#<issue number>` or `Refs #<issue number>` unless this bounty asks for a
+different reference.
+
+## Evidence Or Tests
+
+Name the checks expected for this bounty, such as `python scripts/docs_smoke.py`,
+focused tests for touched code, live public URLs checked, or screenshots for UI
+changes.
+
+## Out Of Scope
+
+List work that does not qualify, including broad rewrites, typo-only edits,
+style-only changes, unrelated refactors, private security details, or claims
+outside the stated scope.
+
+## Duplicate And Stale Work
+
+Submissions must check current open PRs, issue comments, active attempts, and
+accepted work. Duplicate, superseded, or stale work does not qualify unless the
+bounty text explicitly allows a distinct follow-up.
+
+## Public Artifact Hygiene
+
+Do not include private keys, seed material, credentials, private vulnerability
+details, deployment secrets, price claims, investment claims, liquidity claims,
+exchange claims, bridge promises, off-ramp promises, or fabricated payout
+claims.
+```
+
 ## How Claims Are Reviewed
 
 Maintainers approve useful accepted work that matches the bounty text and has

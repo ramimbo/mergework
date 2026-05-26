@@ -52,10 +52,16 @@ REQUIRED_PUBLIC_PHRASES = {
         "Smoke-check or bug-report claim:",
         "Discussion or decision-support claim:",
         "Do not describe work as accepted, merged, or paid until the public GitHub label",
+        "## Maintainer Bounty Post Template",
+        "MRWK bounty: <amount> MRWK - <short scope>",
+        "## Evidence Or Tests",
+        "## Duplicate And Stale Work",
+        "## Public Artifact Hygiene",
     ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
+BOUNTY_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/bounty.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
 
 
@@ -105,6 +111,21 @@ def main() -> int:
         if "link the page, docs file, heading, command, or ui path" not in template:
             print("docs issue template location prompt must request actionable evidence")
             ok = False
+    bounty_issue_template = ROOT / BOUNTY_ISSUE_TEMPLATE
+    if not bounty_issue_template.exists():
+        print(f"missing bounty issue template: {BOUNTY_ISSUE_TEMPLATE}")
+        ok = False
+    else:
+        bounty_template = bounty_issue_template.read_text(encoding="utf-8").lower()
+        for phrase in [
+            "mrwk bounty: <amount> mrwk -",
+            "evidence or tests",
+            "duplicate and stale work",
+            "public artifact hygiene",
+        ]:
+            if phrase not in bounty_template:
+                print(f"bounty issue template missing required guidance: {phrase}")
+                ok = False
     pr_template = ROOT / PR_TEMPLATE
     if not pr_template.exists():
         print(f"missing pull request template: {PR_TEMPLATE}")

@@ -1,13 +1,13 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - "
 labels: ["mrwk:bounty"]
 body:
   - type: textarea
     id: work
     attributes:
       label: Work needed
-      description: Describe the useful accepted work.
+      description: Describe the focused work, affected surface, and why it is useful.
     validations:
       required: true
   - type: input
@@ -15,6 +15,7 @@ body:
     attributes:
       label: Proposed MRWK per award
       placeholder: "250"
+      description: Repeat the per-award amount from the issue title.
     validations:
       required: true
   - type: input
@@ -22,6 +23,7 @@ body:
     attributes:
       label: Max awards
       placeholder: "1"
+      description: Use 1 for a single accepted submission or a higher number for distinct awards.
     validations:
       required: true
   - type: textarea
@@ -31,3 +33,24 @@ body:
       description: Explain what must be true before mrwk:accepted is applied.
     validations:
       required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or tests
+      description: Name required commands, screenshots, live public URLs, or reproduction evidence.
+      placeholder: "Example: run python scripts/docs_smoke.py and relevant focused tests."
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: List broad rewrites, duplicate work, style-only changes, private security detail, or unrelated work that will not qualify.
+  - type: textarea
+    id: duplicate_stale
+    attributes:
+      label: Duplicate and stale work
+      description: Tell contributors to check open PRs, comments, active attempts, and accepted work before submitting.
+  - type: textarea
+    id: public_artifact_hygiene
+    attributes:
+      label: Public artifact hygiene
+      description: Remind contributors not to include secrets, private vulnerability details, price claims, liquidity claims, exchange claims, bridge promises, off-ramp promises, or fabricated payout claims.
