@@ -1542,6 +1542,54 @@ def test_mcp_submit_work_proof_reports_unknown_bounty(sqlite_url: str) -> None:
     assert result["result"]["content"][0]["text"] == "bounty not found"
 
 
+def test_mcp_submit_work_proof_structures_unknown_bounty_selector(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"issue_number": 999, "format": "json"},
+            },
+        },
+    ).json()["result"]
+
+    structured = response["structuredContent"]
+    assert json.loads(response["content"][0]["text"]) == structured
+    assert structured == {
+        "bounty_id": None,
+        "issue_number": 999,
+        "status": "bounty_not_found",
+        "availability": "unknown_without_bounty",
+        "can_submit": False,
+        "availability_warnings": ["bounty not found"],
+        "awards_remaining": None,
+        "reward_mrwk": None,
+        "repository": None,
+        "issue_url": None,
+        "acceptance": None,
+        "error": {"code": "bounty_not_found", "message": "bounty not found"},
+        "matching_bounties": [],
+        "submission_format": (
+            "Retry with an unambiguous bounty_id before preparing work-proof evidence."
+        ),
+        "safety_rules": [
+            "Do not include private keys, seed material, secrets, deployment "
+            "credentials, private vulnerability details, or price claims."
+        ],
+    }
+
+
 @pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
@@ -1622,6 +1670,77 @@ def test_mcp_submit_work_proof_rejects_ambiguous_issue_number(sqlite_url: str) -
         "id": 26,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
+
+
+def test_mcp_submit_work_proof_structures_ambiguous_issue_number(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        first = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=284,
+            issue_url="https://github.com/ramimbo/mergework/issues/284",
+            title="First bounty",
+            reward_mrwk="100",
+            acceptance="First acceptance.",
+        )
+        second = create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=284,
+            issue_url="https://github.com/example/mergework/issues/284",
+            title="Second bounty",
+            reward_mrwk="100",
+            acceptance="Second acceptance.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 26,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"issue_number": 284, "format": "json"},
+            },
+        },
+    ).json()["result"]
+
+    structured = response["structuredContent"]
+    assert json.loads(response["content"][0]["text"]) == structured
+    assert structured["status"] == "ambiguous_issue_number"
+    assert structured["issue_number"] == 284
+    assert structured["can_submit"] is False
+    assert structured["error"] == {
+        "code": "ambiguous_issue_number",
+        "message": "issue_number matches multiple bounties",
+    }
+    assert structured["matching_bounties"] == [
+        {
+            "bounty_id": second.id,
+            "issue_number": 284,
+            "repository": "example/mergework",
+            "issue_url": "https://github.com/example/mergework/issues/284",
+            "title": "Second bounty",
+            "status": "open",
+            "awards_remaining": 1,
+        },
+        {
+            "bounty_id": first.id,
+            "issue_number": 284,
+            "repository": "ramimbo/mergework",
+            "issue_url": "https://github.com/ramimbo/mergework/issues/284",
+            "title": "First bounty",
+            "status": "open",
+            "awards_remaining": 1,
+        },
+    ]
 
 
 def test_host_specific_homepages(sqlite_url: str) -> None:

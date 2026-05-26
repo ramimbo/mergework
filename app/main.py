@@ -1637,6 +1637,51 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             ],
         }
 
+    def work_proof_selection_error_json(
+        *,
+        code: str,
+        message: str,
+        bounty_id: int | None = None,
+        issue_number: int | None = None,
+        matches: list[Bounty] | None = None,
+    ) -> dict[str, Any]:
+        matching_bounties = []
+        for match in matches or []:
+            bounty_data = bounty_to_dict(match)
+            matching_bounties.append(
+                {
+                    "bounty_id": bounty_data["id"],
+                    "issue_number": bounty_data["issue_number"],
+                    "repository": bounty_data["repo"],
+                    "issue_url": bounty_data["issue_url"],
+                    "title": bounty_data["title"],
+                    "status": bounty_data["status"],
+                    "awards_remaining": bounty_data["awards_remaining"],
+                }
+            )
+        return {
+            "bounty_id": bounty_id,
+            "issue_number": issue_number,
+            "status": code,
+            "availability": "unknown_without_bounty",
+            "can_submit": False,
+            "availability_warnings": [message],
+            "awards_remaining": None,
+            "reward_mrwk": None,
+            "repository": None,
+            "issue_url": None,
+            "acceptance": None,
+            "error": {"code": code, "message": message},
+            "matching_bounties": matching_bounties,
+            "submission_format": (
+                "Retry with an unambiguous bounty_id before preparing work-proof evidence."
+            ),
+            "safety_rules": [
+                "Do not include private keys, seed material, secrets, deployment "
+                "credentials, private vulnerability details, or price claims."
+            ],
+        }
+
     def optional_bool_arg(field: str, default: bool = False) -> bool:
         value = args.get(field, default)
         if value is None:
@@ -1759,8 +1804,15 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
             if has_bounty_id and has_issue_number:
                 raise ValueError("use bounty_id or issue_number, not both")
             if has_bounty_id:
-                bounty = session.get(Bounty, positive_int_arg("bounty_id"))
+                bounty_id = positive_int_arg("bounty_id")
+                bounty = session.get(Bounty, bounty_id)
                 if bounty is None:
+                    if output_format == "json":
+                        return work_proof_selection_error_json(
+                            code="bounty_not_found",
+                            message="bounty not found",
+                            bounty_id=bounty_id,
+                        )
                     return "bounty not found"
                 return (
                     work_proof_guidance_json(bounty)
@@ -1768,15 +1820,29 @@ def _call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | 
                     else work_proof_guidance(bounty)
                 )
             if has_issue_number:
+                issue_number = positive_int_arg("issue_number")
                 bounties = session.scalars(
                     select(Bounty)
-                    .where(Bounty.issue_number == positive_int_arg("issue_number"))
+                    .where(Bounty.issue_number == issue_number)
                     .order_by(Bounty.id.desc())
                     .limit(2)
                 ).all()
                 if not bounties:
+                    if output_format == "json":
+                        return work_proof_selection_error_json(
+                            code="bounty_not_found",
+                            message="bounty not found",
+                            issue_number=issue_number,
+                        )
                     return "bounty not found"
                 if len(bounties) > 1:
+                    if output_format == "json":
+                        return work_proof_selection_error_json(
+                            code="ambiguous_issue_number",
+                            message="issue_number matches multiple bounties",
+                            issue_number=issue_number,
+                            matches=list(bounties),
+                        )
                     raise ValueError("issue_number matches multiple bounties")
                 return (
                     work_proof_guidance_json(bounties[0])

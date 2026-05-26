@@ -184,6 +184,10 @@ Tools:
 - `get_proof`
 - `submit_work_proof`
 
+`submit_work_proof` accepts optional `bounty_id`, `issue_number`, and `format`
+arguments. Use `format: "json"` when an agent needs `structuredContent`,
+including machine-readable guidance for unknown or ambiguous bounty selectors.
+
 ## Contribution Rules
 
 - Read `AGENTS.md` before starting.
