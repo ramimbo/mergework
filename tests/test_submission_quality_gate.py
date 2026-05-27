@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import subprocess
 
+import pytest
+
 from scripts import submission_quality_gate
 from scripts.submission_quality_gate import evaluate_submission, main
 
@@ -778,3 +780,133 @@ def test_submission_quality_gate_treats_incomplete_api_bounty_as_unverified(
         "status": "warn",
         "message": "referenced bounty #319 payability could not be verified",
     } in result["checks"]
+
+
+def test_submission_quality_gate_live_context_warns_on_bad_api_utf8(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps([{"number": 319, "title": "MRWK bounty: gate", "state": "OPEN"}]),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps({"createdAt": "2026-05-20T00:00:00Z", "comments": []}),
+                stderr="",
+            )
+        raise AssertionError(args)
+
+    class BadUtf8Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return b"\xff\xfe"
+
+    def fake_urlopen(url, timeout):
+        return BadUtf8Response()
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    data = submission_quality_gate._load_live_context(
+        "ramimbo/mergework",
+        "Summary: work\n\nRefs #319\n\nValidation: pytest passed",
+        "https://api.example.test",
+    )
+    result = evaluate_submission(data)
+
+    assert "invalid start byte" in data["load_warning"]
+    assert result["status"] == "warn"
+    assert {
+        "name": "bounty_payable",
+        "status": "warn",
+        "message": "referenced bounty #319 payability could not be verified",
+    } in result["checks"]
+
+
+@pytest.mark.parametrize(
+    ("api_item", "warning_text"),
+    [
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 319,
+                "id": 9,
+                "awards_remaining": 1,
+            },
+            "missing status",
+        ),
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 319,
+                "id": 9,
+                "status": "open",
+            },
+            "missing awards_remaining",
+        ),
+    ],
+)
+def test_submission_quality_gate_api_bounties_reject_malformed_fields(
+    monkeypatch, api_item, warning_text
+) -> None:
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return json.dumps([api_item]).encode()
+
+    def fake_urlopen(url, timeout):
+        assert url == "https://api.example.test/api/v1/bounties?status=open&limit=200"
+        assert timeout == submission_quality_gate.GH_TIMEOUT_SECONDS
+        return FakeResponse()
+
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match=warning_text):
+        submission_quality_gate._load_api_bounties("ramimbo/mergework", "https://api.example.test")
+
+
+def test_submission_quality_gate_api_bounties_reject_full_safety_cap(monkeypatch) -> None:
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                [
+                    {
+                        "repo": "ramimbo/mergework",
+                        "issue_number": number,
+                        "id": number,
+                        "status": "open",
+                        "awards_remaining": 1,
+                    }
+                    for number in range(1, submission_quality_gate.API_BOUNTY_SAFETY_CAP + 1)
+                ]
+            ).encode()
+
+    def fake_urlopen(url, timeout):
+        return FakeResponse()
+
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="bounty list reached the 200 item safety cap"):
+        submission_quality_gate._load_api_bounties("ramimbo/mergework", "https://api.example.test")
