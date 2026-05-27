@@ -29,6 +29,9 @@
   <div class="actions">
     <a href="/transfer">Send MRWK</a>
     <a href="/me">Link GitHub</a>
+    <a href="/activity?q={{ wallet.address | urlencode }}">Accepted work</a>
+    <a href="/api/v1/wallets/{{ wallet.address }}">Wallet JSON</a>
+    <a href="/api/v1/accounts/{{ wallet.address }}">Account JSON</a>
   </div>
   <p class="notice">To claim GitHub bounty balance, sign in and link this wallet from your contributor account.</p>
 </section>

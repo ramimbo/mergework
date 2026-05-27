@@ -536,6 +536,9 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Main smoke wallet" in detail
     assert "To claim GitHub bounty balance" in detail
     assert "No activity yet" in detail
+    assert f'href="/activity?q={address}"' in detail
+    assert f'href="/api/v1/wallets/{address}"' in detail
+    assert f'href="/api/v1/accounts/{address}"' in detail
     assert "No activity yet" not in funded_detail
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
