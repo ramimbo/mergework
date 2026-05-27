@@ -50,6 +50,28 @@ def test_api_account_rejects_empty_github_login(sqlite_url: str) -> None:
     assert "github login" in resp.json()["detail"].lower()
 
 
+def test_account_views_reject_consecutive_hyphen_github_login(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+
+    api_resp = client.get("/api/v1/accounts/github:bad--login")
+    page_resp = client.get("/accounts/github:bad--login")
+    mcp_resp = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 1,
+            "params": {"name": "get_balance", "arguments": {"account": "github:bad--login"}},
+        },
+    )
+
+    assert api_resp.status_code == 400
+    assert "github login" in api_resp.json()["detail"].lower()
+    assert page_resp.status_code == 400
+    assert mcp_resp.status_code == 200
+    assert mcp_resp.json()["error"]["code"] == -32602
+
+
 def test_mcp_get_balance_rejects_empty_account(sqlite_url: str) -> None:
     client = _setup_app(sqlite_url)
     resp = client.post(

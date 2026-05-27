@@ -21,7 +21,7 @@ from app.serializers import (
 )
 from app.wallets import WalletError, normalize_wallet_address
 
-GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+GITHUB_LOGIN_RE = re.compile(r"^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 
 
 def normalized_wallet_address(address: str) -> str:

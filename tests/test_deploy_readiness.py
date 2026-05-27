@@ -301,8 +301,20 @@ def test_deploy_readiness_rejects_duplicate_admin_or_labeler_logins() -> None:
 def test_deploy_readiness_rejects_invalid_admin_or_labeler_logins() -> None:
     errors = validate_deploy_settings(
         _settings(
-            admin_logins=("bad_login",),
-            github_accepted_labelers=("bad_login",),
+            admin_logins=("bad_login", "bad--login"),
+            github_accepted_labelers=("bad_login", "bad--login"),
+        )
+    )
+
+    assert "MERGEWORK_ADMIN_LOGINS must contain valid GitHub logins" in errors
+    assert "MERGEWORK_GITHUB_ACCEPTED_LABELERS must contain valid GitHub logins" in errors
+
+
+def test_deploy_readiness_rejects_consecutive_hyphen_admin_or_labeler_logins() -> None:
+    errors = validate_deploy_settings(
+        _settings(
+            admin_logins=("bad--login",),
+            github_accepted_labelers=("bad--login",),
         )
     )
 

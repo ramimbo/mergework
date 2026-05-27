@@ -83,6 +83,17 @@ def test_wallet_registration_rejects_non_string_label_and_github_login(
                 register_wallet(session, public_key_hex=public_hex, github_login=bad_login)
 
 
+def test_wallet_registration_rejects_consecutive_hyphen_github_login(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, _ = _keypair()
+
+    with (
+        session_scope(sqlite_url) as session,
+        pytest.raises(LedgerError, match="invalid github login"),
+    ):
+        register_wallet(session, public_key_hex=public_hex, github_login="bad--login")
+
+
 def test_signed_wallet_transfer_moves_balance_and_rejects_replay(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     sender_key, sender_public, sender_address = _keypair()
