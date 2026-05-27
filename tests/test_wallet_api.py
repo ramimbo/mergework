@@ -545,7 +545,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Wallet list summary" in wallets
     assert "Wallets shown" in wallets
     assert "Linked GitHub wallets" in wallets
-    assert "Total wallet balance" in wallets
+    assert "Displayed wallet balance" in wallets
     assert "3</strong>" in wallets
     assert "1</strong>" in wallets
     assert "12.5 MRWK</strong>" in wallets
