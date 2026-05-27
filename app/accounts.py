@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import unquote_to_bytes
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -22,6 +23,25 @@ from app.serializers import (
 from app.wallets import WalletError, normalize_wallet_address
 
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+API_ACCOUNT_RAW_PREFIX = b"/api/v1/accounts/"
+API_ACCEPTED_WORK_RAW_SUFFIX = b"/accepted-work"
+
+
+def raw_account_api_path_account(request: Request) -> str | None:
+    raw_path = request.scope.get("raw_path")
+    if not isinstance(raw_path, bytes):
+        return None
+    if not raw_path.startswith(API_ACCOUNT_RAW_PREFIX):
+        return None
+    if raw_path.endswith(API_ACCEPTED_WORK_RAW_SUFFIX):
+        return None
+    raw_account = raw_path.removeprefix(API_ACCOUNT_RAW_PREFIX)
+    if not raw_account:
+        return None
+    try:
+        return unquote_to_bytes(raw_account).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="account path must be valid UTF-8") from exc
 
 
 def normalized_wallet_address(address: str) -> str:
@@ -122,17 +142,28 @@ def account_page_context(session: Session, account: str) -> dict[str, Any]:
 
 
 def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/accounts/{account}")
+    @app.get("/api/v1/accounts/")
+    def api_account_empty() -> None:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    @app.get("/api/v1/accounts/{account:path}/accepted-work")
+    def api_account_accepted_work(request: Request, account: str) -> dict[str, Any]:
+        with session_scope(db_url) as session:
+            raw_account = raw_account_api_path_account(request)
+            if raw_account is not None:
+                return account_api_context(session, raw_account)
+            return account_accepted_work_context(session, account)
+
+    @app.get("/api/v1/accounts/{account:path}")
     def api_account(account: str) -> dict[str, Any]:
         with session_scope(db_url) as session:
             return account_api_context(session, account)
 
-    @app.get("/api/v1/accounts/{account}/accepted-work")
-    def api_account_accepted_work(account: str) -> dict[str, Any]:
-        with session_scope(db_url) as session:
-            return account_accepted_work_context(session, account)
+    @app.get("/accounts/", response_class=HTMLResponse)
+    def account_page_empty() -> None:
+        raise HTTPException(status_code=404, detail="Not Found")
 
-    @app.get("/accounts/{account}", response_class=HTMLResponse)
+    @app.get("/accounts/{account:path}", response_class=HTMLResponse)
     def account_page(request: Request, account: str) -> HTMLResponse:
         with session_scope(db_url) as session:
             context = account_page_context(session, account)

@@ -67,7 +67,7 @@
         <dl class="ledger-card-grid">
           <div class="ledger-field ledger-field--to">
             <dt>Paid to</dt>
-            <dd>{% if award.account %}<a href="/accounts/{{ award.account }}">{{ award.account }}</a>{% else %}-{% endif %}</dd>
+            <dd>{% if award.account %}<a href="{{ account_path(award.account) }}">{{ award.account }}</a>{% else %}-{% endif %}</dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Submission</dt>

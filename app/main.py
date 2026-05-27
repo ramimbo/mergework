@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -43,6 +43,13 @@ from app.webhooks.github import handle_github_webhook
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["safe_public_url"] = public_url_or_none
+
+
+def account_path(account: str) -> str:
+    return f"/accounts/{quote(account, safe=':')}"
+
+
+templates.env.globals["account_path"] = account_path
 
 _oauth_configured = auth_module.oauth_configured
 _safe_next_path = auth_module.safe_next_path

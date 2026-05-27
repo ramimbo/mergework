@@ -36,9 +36,9 @@
   </div>
   <dl>
     <dt>From</dt>
-    <dd>{% if entry.from %}<a href="/accounts/{{ entry.from }}">{{ entry.from }}</a>{% else %}-{% endif %}</dd>
+    <dd>{% if entry.from %}<a href="{{ account_path(entry.from) }}">{{ entry.from }}</a>{% else %}-{% endif %}</dd>
     <dt>To</dt>
-    <dd>{% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}-{% endif %}</dd>
+    <dd>{% if entry.to %}<a href="{{ account_path(entry.to) }}">{{ entry.to }}</a>{% else %}-{% endif %}</dd>
     <dt>Reference</dt>
     {% set reference_url = safe_public_url(entry.reference) %}
     <dd>{% if reference_url %}<a href="{{ reference_url }}">{{ entry.reference }}</a>{% else %}{{ entry.reference }}{% endif %}</dd>

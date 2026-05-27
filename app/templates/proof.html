@@ -4,7 +4,7 @@
 <section class="detail">
   <p class="eyebrow">{% if proof.kind == "bounty_payment" %}Bounty payment proof{% else %}Proof{% endif %}</p>
   <h1>{% if proof.kind == "bounty_payment" %}Accepted bounty payment{% else %}Accepted work proof{% endif %}</h1>
-  <p class="lead">{{ proof.amount_mrwk }} MRWK paid to <a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a>.</p>
+  <p class="lead">{{ proof.amount_mrwk }} MRWK paid to <a href="{{ account_path(proof.to_account) }}">{{ proof.to_account }}</a>.</p>
   <div class="meta-grid">
     {% if proof.kind == "bounty_payment" %}
     <article>
@@ -39,7 +39,7 @@
     <dt>Accepted by</dt>
     <dd>{{ proof.accepted_by }}</dd>
     <dt>Paid to</dt>
-    <dd><a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a></dd>
+    <dd><a href="{{ account_path(proof.to_account) }}">{{ proof.to_account }}</a></dd>
     <dt>Amount</dt>
     <dd>{{ proof.amount_mrwk }} MRWK</dd>
     <dt>Ledger entry</dt>
