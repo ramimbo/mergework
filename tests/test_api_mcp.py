@@ -396,6 +396,23 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
     default_payload = json.loads(default_result["result"]["content"][0]["text"])
     assert [item["id"] for item in default_payload] == [open_bounty.id]
 
+    issue_url_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {
+                    "q": "https://github.com/ramimbo/mergework/issues/284",
+                },
+            },
+        },
+    ).json()
+    issue_url_payload = json.loads(issue_url_result["result"]["content"][0]["text"])
+    assert [item["id"] for item in issue_url_payload] == [open_bounty.id]
+
     paid_result = client.post(
         "/mcp",
         json={

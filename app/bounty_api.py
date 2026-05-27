@@ -114,6 +114,7 @@ def register_bounty_api_routes(
                     issue_number = issue_number_search_value(normalized_query)
                     text_filter = or_(
                         func.lower(Bounty.repo).like(like_query, escape="\\"),
+                        func.lower(Bounty.issue_url).like(like_query, escape="\\"),
                         func.lower(Bounty.title).like(like_query, escape="\\"),
                         func.lower(Bounty.acceptance).like(like_query, escape="\\"),
                     )

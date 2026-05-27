@@ -129,6 +129,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 issue_number = issue_number_search_value(query_text)
                 text_filter = or_(
                     func.lower(Bounty.repo).like(like_query, escape="\\"),
+                    func.lower(Bounty.issue_url).like(like_query, escape="\\"),
                     func.lower(Bounty.title).like(like_query, escape="\\"),
                     func.lower(Bounty.acceptance).like(like_query, escape="\\"),
                 )

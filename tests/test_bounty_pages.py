@@ -172,6 +172,21 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert issue_search.status_code == 200
     assert [row["issue_number"] for row in issue_search.json()] == [65]
 
+    issue_url_search = client.get(
+        "/api/v1/bounties",
+        params={"q": "https://github.com/ramimbo/mergework/issues/65"},
+    )
+    assert issue_url_search.status_code == 200
+    assert [row["issue_number"] for row in issue_url_search.json()] == [65]
+
+    issue_url_page = client.get(
+        "/bounties",
+        params={"q": "https://github.com/ramimbo/mergework/issues/65"},
+    )
+    assert issue_url_page.status_code == 200
+    assert "Internal admin cleanup" in issue_url_page.text
+    assert "Improve public bounty discovery" not in issue_url_page.text
+
     oversized_issue_search = client.get("/api/v1/bounties", params={"q": "9" * 40})
     assert oversized_issue_search.status_code == 200
     assert oversized_issue_search.json() == []
