@@ -120,6 +120,8 @@ def test_agent_guide_documents_auth_session_flow() -> None:
     assert "GET /api/v1/auth/me" in guide
     assert '{"authenticated": false, "github_login": null}' in guide
     assert "POST /auth/logout" in guide
+    assert "redirects to `/`" in guide
+    assert "clears the MergeWork auth cookies" in guide
     assert "Do not use `GET /auth/logout` for logout side effects." in guide
 
 
