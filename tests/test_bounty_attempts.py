@@ -113,6 +113,13 @@ def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, mo
         "github:alice"
     ]
 
+    negative_offset = client.get(f"/api/v1/bounties/{bounty.id}/attempts?offset=-1")
+    assert negative_offset.status_code == 422
+
+    beyond_offset = client.get(f"/api/v1/bounties/{bounty.id}/attempts?offset=99")
+    assert beyond_offset.status_code == 200
+    assert beyond_offset.json()["attempts"] == []
+
     wrong_submitter = client.post(
         f"/api/v1/bounty-attempts/{first_attempt['id']}/release",
         json={"submitter_account": "github:bob"},
