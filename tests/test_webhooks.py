@@ -165,6 +165,10 @@ def test_accepted_pr_label_ignores_native_bounty_ids_before_issue_ref(
             "Evidence: live bounty #66 / issue #406 preflight returned status=open.",
         ),
         (
+            "delivery-pr-mrwk-bounty-id",
+            "Evidence: MRWK bounty #66 / issue #406 should resolve to the GitHub issue.",
+        ),
+        (
             "delivery-pr-native-bounty-id",
             "Evidence: native bounty #66 maps to issue #406.",
         ),
@@ -228,7 +232,7 @@ def test_accepted_pr_label_ignores_native_bounty_ids_before_issue_ref(
         assert result["status"] == "paid"
 
     with session_scope(sqlite_url) as session:
-        assert get_balance(session, "github:contributor") == 150_000_000
+        assert get_balance(session, "github:contributor") == len(cases) * 50_000_000
         for delivery_id, _pr_body in cases:
             event = session.get(WebhookEvent, delivery_id)
             assert event is not None
