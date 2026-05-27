@@ -56,6 +56,60 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+
+## Agent-Readable Bounty Post Template
+
+Maintainers should use stable headings so humans, GitHub automation, API
+clients, and MCP agents can parse bounty scope without guessing. Keep the
+GitHub issue title amount-visible, for example:
+
+```text
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Copy this body when posting a new bounty:
+
+```text
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award`
+Max awards: `<number>`
+
+## Work Needed
+
+Describe the smallest useful work that qualifies. Name the target docs, API, UI,
+script, issue, PR, or behavior.
+
+## Acceptance Criteria
+
+- Open a focused PR, review, issue comment, or report that links this bounty
+  with `Bounty #<issue>` or `Refs #<issue>`.
+- Include concrete evidence such as changed files, commands run, screenshots,
+  API responses, CI status, public behavior checked, or exact files inspected.
+- Run the relevant tests or explain why no test applies.
+- Existing checks pass or the submission clearly documents unrelated failures.
+- Public MRWK wording avoids investment claims, price claims, fabricated payout
+  claims, liquidity claims, exchange claims, bridge promises, private keys, seed
+  material, secrets, credentials, and private vulnerability details.
+
+## How To Submit
+
+Open the PR or comment with the evidence above. A maintainer must apply
+`mrwk:accepted` or record an admin payout before payment.
+
+## Out of Scope
+
+List duplicate, broad rewrite, typo-only, style-only, stale, speculative,
+private-security-detail, or unrelated work that does not qualify.
+```
+
+The required fields map to MergeWork surfaces as follows: GitHub issues expose
+the title, reward, max awards, labels, and submission links; the public API and
+MCP tools expose `reward_mrwk`, `max_awards`, `awards_remaining`, issue URL,
+reference formats, claim command, and attempt endpoint; maintainers use the same
+fields to reserve funds, review evidence, prevent duplicates, and reconcile
+proof-backed payouts.
+
 ## Submission Evidence Templates
 
 Use the smallest template that makes the claim reviewable. Delete fields that do

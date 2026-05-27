@@ -1,6 +1,6 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
   - type: textarea
@@ -28,6 +28,18 @@ body:
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: Explain what must be true before mrwk:accepted is applied.
+      description: Explain what must be true before mrwk:accepted is applied. Include required evidence and relevant tests.
     validations:
       required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or tests required
+      description: List commands, files, URLs, screenshots, API responses, CI checks, or review evidence submitters should include.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: List duplicate, broad, typo-only, stale, speculative, private-detail, or unrelated work that does not qualify.
