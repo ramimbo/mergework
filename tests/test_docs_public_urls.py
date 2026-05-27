@@ -293,6 +293,18 @@ def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:
     assert "docs, templates, examples, or onboarding" in contributing
 
 
+def test_admin_runbook_documents_payout_reconciliation() -> None:
+    runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/reconciliation/payouts" in runbook
+    assert "python scripts/reconcile_payouts.py" in runbook
+    assert "`missing_payment`" in runbook
+    assert "`duplicate_payment_evidence`" in runbook
+    assert "`mismatched_payment_evidence`" in runbook
+    assert "`duplicate_source_urls`" in runbook
+    assert "exits nonzero" in runbook
+
+
 def test_agent_guide_documents_activity_endpoint() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 
