@@ -359,6 +359,43 @@ def test_create_bounty_rejects_oversized_issue_number(sqlite_url: str) -> None:
             )
 
 
+def test_create_bounty_rejects_issue_url_identity_mismatch(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    base_bounty = {
+        "repo": "Ramimbo/MergeWork",
+        "issue_number": 7,
+        "title": "GitHub identity check",
+        "reward_mrwk": "25",
+        "acceptance": "Bounty metadata should point at the same GitHub issue.",
+    }
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            **base_bounty,
+            issue_url="https://github.com/Ramimbo/MergeWork/issues/7#discussion",
+        )
+        assert bounty.repo == "ramimbo/mergework"
+
+        for issue_url, issue_number in (
+            ("https://github.com/other/repo/issues/12", 12),
+            ("https://github.com/ramimbo/mergework/issues/13", 12),
+            ("https://example.com/ramimbo/mergework/issues/12", 12),
+            ("https://github.com/ramimbo/mergework/pull/12", 12),
+        ):
+            with pytest.raises(LedgerError, match="issue_url must match repo and issue_number"):
+                create_bounty(
+                    session,
+                    **{
+                        **base_bounty,
+                        "issue_number": issue_number,
+                        "issue_url": issue_url,
+                    },
+                )
+
+
 def test_create_bounty_rejects_duplicate_repo_issue(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 

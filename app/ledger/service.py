@@ -195,6 +195,24 @@ def _normalize_repo_name(repo: str) -> str:
     return _clean_required_text(repo, "repo", 200).lower()
 
 
+def _validate_issue_url_identity(issue_url: str, repo: str, issue_number: int) -> None:
+    parsed = urlparse(issue_url)
+    path_parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if parsed.hostname is None or parsed.hostname.lower() != "github.com":
+        raise LedgerError("issue_url must match repo and issue_number")
+    if len(path_parts) != 4 or path_parts[2].lower() != "issues":
+        raise LedgerError("issue_url must match repo and issue_number")
+    url_repo = f"{path_parts[0]}/{path_parts[1]}".lower()
+    if url_repo != repo:
+        raise LedgerError("issue_url must match repo and issue_number")
+    try:
+        url_issue_number = int(path_parts[3])
+    except ValueError as exc:
+        raise LedgerError("issue_url must match repo and issue_number") from exc
+    if url_issue_number != issue_number:
+        raise LedgerError("issue_url must match repo and issue_number")
+
+
 def _clean_optional_account_id(value: str | None, field: str) -> str | None:
     if value is None:
         return None
@@ -462,6 +480,7 @@ def create_bounty(
     if existing_bounty is not None:
         raise LedgerError("bounty already exists for issue")
     clean_issue_url = validate_public_url(issue_url)
+    _validate_issue_url_identity(clean_issue_url, clean_repo, issue_number)
     clean_title = _clean_required_text(title, "title", 300)
     clean_acceptance = _clean_required_text(acceptance, "acceptance", 5_000)
     if get_balance(session, TREASURY_ACCOUNT) < reserved:

@@ -307,6 +307,27 @@ def test_admin_bounty_api_rejects_duplicate_repo_issue(
     assert duplicate.json()["detail"] == "bounty already exists for issue"
 
 
+def test_admin_bounty_api_rejects_issue_url_identity_mismatch(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    payload = _admin_bounty_form_data()
+    payload["issue_url"] = "https://github.com/other/repo/issues/77"
+
+    response = client.post(
+        "/api/v1/bounties",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "issue_url must match repo and issue_number"
+
+
 def test_admin_bounty_api_rejects_fractional_integer_fields(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
