@@ -54,11 +54,11 @@ REQUIRED_PUBLIC_PHRASES = {
         "Discussion or decision-support claim:",
         "Do not describe work as accepted, merged, or paid until the public GitHub label",
         "MRWK bounty: <amount> MRWK - <short scope>",
-        "Reward:",
-        "Max awards:",
-        "Work Needed",
-        "Acceptance Criteria",
-        "How To Submit",
+        "Reward: `<amount> MRWK per accepted award`",
+        "Max awards: `<number>`",
+        "## Work Needed",
+        "## Acceptance Criteria",
+        "## How To Submit",
     ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")

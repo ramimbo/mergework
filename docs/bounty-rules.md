@@ -68,8 +68,8 @@ without guessing.
 | Field | Where | Purpose |
 | --- | --- | --- |
 | Title | Issue title | Must follow `MRWK bounty: <amount> MRWK - <short scope>` so the reward is visible in lists |
-| Reward | Body, code block | `Reward: \`<amount> MRWK per accepted award\`` — repeated in body for API/MCP parsing |
-| Max awards | Body, code block | `Max awards: \`<number>\`` — controls reserve and payout cap |
+| Reward | Body, inline code | `Reward: <amount> MRWK per accepted award` — repeated in body for API/MCP parsing |
+| Max awards | Body, inline code | `Max awards: <number>` — controls reserve and payout cap |
 | Work Needed | Body heading | Describe the useful accepted work. Be specific about what qualifies. |
 | Acceptance Criteria | Body heading | List exact conditions for `mrwk:accepted`. Mention evidence, tests, and checks. |
 | How To Submit | Body heading | Explain whether to open a PR, comment with `/claim`, or use another path. |
@@ -88,32 +88,35 @@ without guessing.
 
 Copy and fill in the sections that apply:
 
-```markdown
-## MRWK Bounty
+    ## MRWK Bounty
 
-Reward: \`<amount> MRWK per accepted award\`
-Max awards: \`<number>\`
+    Reward: `<amount> MRWK per accepted award`
+    Max awards: `<number>`
 
-## Work Needed
+    ## Work Needed
 
-<Describe the useful accepted work. Be specific about what qualifies.>
+    <Describe the useful accepted work. Be specific about what qualifies.>
 
-Useful accepted work can include:
+    Useful accepted work can include:
 
-- <item>
-- <item>
+    - <item>
+    - <item>
 
-## Acceptance Criteria
+    ## Acceptance Criteria
 
-- <criterion>
-- <criterion>
-- Existing checks pass.
-- One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
+    - <criterion>
+    - <criterion>
+    - Existing checks pass.
+    - One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
 
-## How To Submit
+    ## How To Submit
 
-<Open a focused PR / Comment with /claim / Other path>. A maintainer must apply \`mrwk:accepted\` or record an admin payout before payment.
-```
+    <Open a focused PR / Comment with /claim / Other path>. A maintainer must apply `mrwk:accepted` or record an admin payout before payment.
+
+> **Note**: When pasting into a GitHub issue body, wrap the template in a fenced
+> code block (triple backticks) only for display. The actual issue body should
+> contain the plain headings and inline code (single backticks), not the fence
+> markers.
 
 ### Agent-Readable Fields
 

@@ -7,7 +7,9 @@ body:
     id: reward
     attributes:
       label: Reward per award
-      description: MRWK amount per accepted award (e.g. 250). Also include this in the issue title.
+      description: >-
+        MRWK amount per accepted award (e.g. 250).
+        Also include this value in the issue title.
       placeholder: "250"
     validations:
       required: true
@@ -15,29 +17,43 @@ body:
     id: max_awards
     attributes:
       label: Max awards
-      description: Number of separate payouts allowed. Use 1 for a single-award bounty.
+      description: >-
+        Number of separate payouts allowed. Use 1 for a single-award bounty.
       placeholder: "1"
     validations:
       required: true
   - type: textarea
-    id: work
+    id: body
     attributes:
-      label: Work Needed
-      description: Describe the useful accepted work. List specific items that qualify.
-    validations:
-      required: true
-  - type: textarea
-    id: acceptance
-    attributes:
-      label: Acceptance Criteria
-      description: Explain what must be true before mrwk:accepted is applied. Mention evidence, tests, and checks.
-    validations:
-      required: true
-  - type: textarea
-    id: how_to_submit
-    attributes:
-      label: How To Submit
-      description: Explain whether to open a PR, comment with /claim, or use another path.
+      label: Bounty body
+      description: >-
+        Start with the canonical header block so parsers can read reward and
+        max awards directly from the issue body. Then fill in the sections below.
+        Keep the Reward and Max awards lines consistent with the inputs above.
+      value: |
+        ## MRWK Bounty
+
+        Reward: `250 MRWK per accepted award`
+        Max awards: `1`
+
+        ## Work Needed
+
+
+
+        Useful accepted work can include:
+
+        -
+
+        ## Acceptance Criteria
+
+        - Open a focused PR that links this issue with `Bounty #<issue number>` or `Refs #<issue number>`.
+        - Existing checks pass.
+        - One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
+
+        ## How To Submit
+
+        Open a focused PR with the required evidence. A maintainer must apply `mrwk:accepted` or record an admin payout before payment.
+      render: markdown
     validations:
       required: true
   - type: textarea
