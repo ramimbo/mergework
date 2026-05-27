@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -102,21 +102,23 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
     }
 
 
-def account_accepted_work_context(session: Session, account: str) -> dict[str, Any]:
+def account_accepted_work_context(
+    session: Session, account: str, limit: int | None = 100
+) -> dict[str, Any]:
     account = normalized_account(account)
     return {
         "account": account,
         "summary": account_accepted_summary(session, account),
-        "accepted_work": accepted_work_for_account(session, account),
+        "accepted_work": accepted_work_for_account(session, account, limit),
     }
 
 
-def account_page_context(session: Session, account: str) -> dict[str, Any]:
+def account_page_context(session: Session, account: str, limit: int | None = 100) -> dict[str, Any]:
     account = normalized_account(account)
     return {
         "account": account_api_context(session, account),
         "accepted_summary": safe_account_accepted_summary(session, account),
-        "accepted_work": safe_accepted_work_for_account(session, account),
+        "accepted_work": safe_accepted_work_for_account(session, account, limit),
         "transactions": account_ledger_transactions(session, account),
     }
 
@@ -128,12 +130,16 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
             return account_api_context(session, account)
 
     @app.get("/api/v1/accounts/{account}/accepted-work")
-    def api_account_accepted_work(account: str) -> dict[str, Any]:
+    def api_account_accepted_work(
+        account: str, limit: Annotated[int, Query(ge=1, le=200)] = 100
+    ) -> dict[str, Any]:
         with session_scope(db_url) as session:
-            return account_accepted_work_context(session, account)
+            return account_accepted_work_context(session, account, limit)
 
     @app.get("/accounts/{account}", response_class=HTMLResponse)
-    def account_page(request: Request, account: str) -> HTMLResponse:
+    def account_page(
+        request: Request, account: str, limit: Annotated[int, Query(ge=1, le=200)] = 100
+    ) -> HTMLResponse:
         with session_scope(db_url) as session:
-            context = account_page_context(session, account)
+            context = account_page_context(session, account, limit)
         return templates.TemplateResponse(request, "account.html", context)
