@@ -306,6 +306,7 @@ def test_api_examples_document_activity_response_shape() -> None:
     assert "/api/v1/activity?q=p3xill" in examples
     assert "/api/v1/activity?limit=25" in examples
     assert "optional `limit` parameter defaults to `100`" in examples
+    assert "accepts values from `1` to `100`" in examples
     assert "limits only the returned `recent` payment" in examples
     assert '"totals": {' in examples
     assert '"accepted_awards": 2' in examples
