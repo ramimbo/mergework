@@ -119,6 +119,9 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     invalid_limit = client.get("/api/v1/activity?limit=0")
     assert invalid_limit.status_code == 422
 
+    invalid_high_limit = client.get("/api/v1/activity?limit=101")
+    assert invalid_high_limit.status_code == 422
+
 
 def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     create_schema(sqlite_url)
