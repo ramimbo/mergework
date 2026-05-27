@@ -174,6 +174,20 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
     assert tools["result"]["tools"][0]["name"] == "list_bounties"
     assert "status, q, sort, and limit filters" in tools["result"]["tools"][0]["description"]
+    tools_list = tools["result"]["tools"]
+    tool_by_name = {tool["name"]: tool for tool in tools_list}
+    assert len(tool_by_name) == len(tools_list)
+    assert all("inputSchema" in tool for tool in tool_by_name.values())
+    list_schema = tool_by_name["list_bounties"]["inputSchema"]
+    assert list_schema["type"] == "object"
+    assert list_schema["properties"]["status"]["enum"] == ["open", "paid", "closed"]
+    assert list_schema["properties"]["status"]["default"] == "open"
+    assert list_schema["properties"]["sort"]["enum"] == ["newest", "reward", "available", "awards"]
+    assert list_schema["properties"]["sort"]["default"] == "newest"
+    assert list_schema["properties"]["limit"]["minimum"] == 1
+    assert list_schema["properties"]["limit"]["maximum"] == 100
+    assert list_schema["properties"]["limit"]["default"] == 25
+    assert list_schema["additionalProperties"] is False
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
@@ -186,12 +200,55 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_schema["properties"]["issue_number"]["minimum"] == 1
     assert submit_schema["properties"]["repo"]["maxLength"] == 200
     assert submit_schema["not"] == {"required": ["bounty_id", "issue_number"]}
-    bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
+    bounty_tool = tool_by_name["get_bounty"]
     assert "accepted awards" in bounty_tool["description"]
-    attempt_tool = next(
-        tool for tool in tools["result"]["tools"] if tool["name"] == "list_bounty_attempts"
-    )
+    bounty_schema = bounty_tool["inputSchema"]
+    assert bounty_schema["required"] == ["id"]
+    assert bounty_schema["properties"]["id"]["minimum"] == 1
+    assert bounty_schema["properties"]["include_awards"]["type"] == "boolean"
+    assert bounty_schema["properties"]["include_awards"]["default"] is False
+    assert bounty_schema["additionalProperties"] is False
+    attempt_tool = tool_by_name["list_bounty_attempts"]
     assert "active-attempt reservations" in attempt_tool["description"]
+    attempt_schema = attempt_tool["inputSchema"]
+    assert attempt_schema["required"] == ["bounty_id"]
+    assert attempt_schema["properties"]["bounty_id"]["minimum"] == 1
+    assert attempt_schema["properties"]["include_expired"]["type"] == "boolean"
+    assert attempt_schema["properties"]["include_expired"]["default"] is False
+    assert attempt_schema["properties"]["limit"]["maximum"] == 100
+    assert attempt_schema["additionalProperties"] is False
+    balance_schema = tool_by_name["get_balance"]["inputSchema"]
+    assert balance_schema["required"] == ["account"]
+    assert balance_schema["properties"]["account"]["minLength"] == 1
+    assert balance_schema["additionalProperties"] is False
+    register_schema = tool_by_name["register_wallet"]["inputSchema"]
+    assert register_schema["required"] == ["public_key_hex"]
+    assert register_schema["properties"]["public_key_hex"]["minLength"] == 1
+    assert register_schema["additionalProperties"] is False
+    wallet_schema = tool_by_name["get_wallet"]["inputSchema"]
+    assert wallet_schema["required"] == ["address"]
+    assert wallet_schema["properties"]["address"]["minLength"] == 1
+    assert wallet_schema["additionalProperties"] is False
+    transfer_schema = tool_by_name["submit_wallet_transfer"]["inputSchema"]
+    assert transfer_schema["required"] == [
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "signature_hex",
+    ]
+    for field in ("from_address", "to_address", "amount_mrwk", "signature_hex"):
+        assert transfer_schema["properties"][field]["minLength"] == 1
+    assert transfer_schema["properties"]["nonce"]["type"] == "integer"
+    assert transfer_schema["additionalProperties"] is False
+    ledger_schema = tool_by_name["get_ledger_entry"]["inputSchema"]
+    assert ledger_schema["required"] == ["sequence"]
+    assert ledger_schema["properties"]["sequence"]["minimum"] == 1
+    assert ledger_schema["additionalProperties"] is False
+    proof_schema = tool_by_name["get_proof"]["inputSchema"]
+    assert proof_schema["required"] == ["hash"]
+    assert proof_schema["properties"]["hash"]["minLength"] == 1
+    assert proof_schema["additionalProperties"] is False
 
     balance = client.post(
         "/mcp",
