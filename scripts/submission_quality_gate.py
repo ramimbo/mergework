@@ -172,6 +172,8 @@ def _title_from_submission(text: str) -> str:
             continue
         if BOUNTY_REF_RE.search(clean) or EVIDENCE_RE.search(clean):
             continue
+        if GITHUB_ISSUE_URL_RE.search(clean):
+            continue
         return " ".join(clean.lower().split())
     return ""
 
@@ -511,6 +513,7 @@ def _load_live_context(
         )
     except (RuntimeError, FileNotFoundError, json.JSONDecodeError) as exc:
         return {
+            "repo": repo,
             "submission_text": submission_text,
             "bounties": [],
             "pull_requests": [],

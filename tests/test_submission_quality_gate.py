@@ -108,6 +108,41 @@ def test_submission_quality_gate_accepts_full_github_issue_url_reference() -> No
     } in result["checks"]
 
 
+def test_submission_quality_gate_uses_title_after_full_issue_url_reference() -> None:
+    result = evaluate_submission(
+        {
+            "repo": "ramimbo/mergework",
+            "submission_text": """
+            https://github.com/ramimbo/mergework/issues/319
+
+            Harden the bounty submission checks.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 12,
+                    "title": "Harden the bounty submission checks",
+                    "body": "Refs #319",
+                    "state": "OPEN",
+                    "url": "https://github.com/ramimbo/mergework/pull/12",
+                }
+            ],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert result["similar_open_prs"] == [
+        {
+            "number": 12,
+            "title": "Harden the bounty submission checks",
+            "url": "https://github.com/ramimbo/mergework/pull/12",
+        }
+    ]
+
+
 def test_submission_quality_gate_ignores_foreign_full_github_issue_url_reference() -> None:
     result = evaluate_submission(
         {
@@ -122,6 +157,28 @@ def test_submission_quality_gate_ignores_foreign_full_github_issue_url_reference
         }
     )
 
+    assert result["status"] == "fail"
+    assert result["bounty_reference"] is None
+
+
+def test_submission_quality_gate_preserves_repo_when_live_github_load_fails(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        raise RuntimeError("simulated gh outage")
+
+    monkeypatch.setattr(submission_quality_gate, "_run_gh_json", fake_run)
+
+    data = submission_quality_gate._load_live_context(
+        "ramimbo/mergework",
+        (
+            "https://github.com/other/project/issues/319\n\n"
+            "Summary: add validation\n\n"
+            "Validation: pytest passed"
+        ),
+        "https://api.example.test",
+    )
+    result = evaluate_submission(data)
+
+    assert data["repo"] == "ramimbo/mergework"
     assert result["status"] == "fail"
     assert result["bounty_reference"] is None
 
