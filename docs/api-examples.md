@@ -84,6 +84,10 @@ login. Attempts are advisory only: they do not create payments, claim
 acceptance, mutate ledger balances, or stop maintainers from accepting useful
 work.
 
+For authenticated examples, replace `<browser-session-cookie>` with the cookie
+from a GitHub-authenticated browser session for the same account. Unauthenticated
+attempt registration and release requests return `401`.
+
 List active attempts for a bounty:
 
 ```bash
@@ -121,6 +125,7 @@ Register an attempt with a submitter identity, optional source URL, and TTL:
 
 ```bash
 curl -s -X POST "$API_HOST/api/v1/bounties/<bounty_id>/attempts" \
+  -b "<browser-session-cookie>" \
   -H "Content-Type: application/json" \
   -d '{"submitter_account":"github:tatelyman","source_url":"https://github.com/ramimbo/mergework/tree/attempt-bounty-321","ttl_seconds":86400}'
 ```
@@ -154,6 +159,7 @@ Release an active attempt when you stop working:
 
 ```bash
 curl -s -X POST "$API_HOST/api/v1/bounty-attempts/<attempt_id>/release" \
+  -b "<browser-session-cookie>" \
   -H "Content-Type: application/json" \
   -d '{"submitter_account":"github:tatelyman"}'
 ```
