@@ -9,6 +9,27 @@ from sqlalchemy.orm import Session
 from app.models import LedgerEntry, Proof
 from app.serializers import ledger_to_dict
 
+LEDGER_TYPE_LABELS = {
+    "bounty_reserve": "Bounty Reserve",
+    "bounty_payment": "Bounty Payment",
+    "bounty_release": "Bounty Release",
+    "github_claim": "GitHub claim",
+    "wallet_transfer": "Wallet transfer",
+    "genesis": "Genesis",
+}
+LEDGER_TYPE_FILTER_ERROR = "type must be one of: all, " + ", ".join(LEDGER_TYPE_LABELS.keys())
+
+
+def normalize_ledger_type_filter(entry_type: str | None) -> str | None:
+    if entry_type is None:
+        return None
+    normalized = entry_type.strip().lower()
+    if not normalized or normalized == "all":
+        return None
+    if normalized not in LEDGER_TYPE_LABELS:
+        raise ValueError(LEDGER_TYPE_FILTER_ERROR)
+    return normalized
+
 
 def proof_hashes_by_sequence(session: Session, sequences: Sequence[int]) -> dict[int, str]:
     if not sequences:
@@ -26,10 +47,14 @@ def ledger_entries_to_dicts(
     return [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
 
 
-def recent_ledger_entries(session: Session, limit: int) -> list[dict[str, Any]]:
-    entries = session.scalars(
-        select(LedgerEntry).order_by(LedgerEntry.sequence.desc()).limit(limit)
-    ).all()
+def recent_ledger_entries(
+    session: Session, limit: int, entry_type: str | None = None
+) -> list[dict[str, Any]]:
+    normalized_type = normalize_ledger_type_filter(entry_type)
+    query = select(LedgerEntry)
+    if normalized_type is not None:
+        query = query.where(LedgerEntry.entry_type == normalized_type)
+    entries = session.scalars(query.order_by(LedgerEntry.sequence.desc()).limit(limit)).all()
     return ledger_entries_to_dicts(session, entries)
 
 

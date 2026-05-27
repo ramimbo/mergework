@@ -3,14 +3,16 @@
 {% block content %}
 <h1>Ledger</h1>
 <p class="lead">Every MRWK reserve and payout is recorded as a hash-linked ledger entry.</p>
-{% set type_labels = {
-  "bounty_reserve": "Bounty Reserve",
-  "bounty_payment": "Bounty Payment",
-  "bounty_release": "Bounty Release",
-  "github_claim": "GitHub claim",
-  "wallet_transfer": "Wallet transfer",
-  "genesis": "Genesis"
-} %}
+{% set type_labels = type_options %}
+<nav class="filter-nav" aria-label="Ledger type filters">
+  <a href="/ledger"{% if not selected_type or selected_type == "all" %} aria-current="page"{% endif %}>All</a>
+  {% for type_value, type_label in type_options.items() %}
+  <a href="/ledger?type={{ type_value }}"{% if selected_type == type_value %} aria-current="page"{% endif %}>{{ type_label }}</a>
+  {% endfor %}
+</nav>
+{% if selected_type and selected_type != "all" %}
+<p>Showing ledger entries for {{ type_options[selected_type] }}.</p>
+{% endif %}
 <div class="ledger-list">
   {% for entry in entries %}
   {% set type_class = entry.type | replace("_", "-") %}

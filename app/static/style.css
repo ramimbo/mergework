@@ -35,6 +35,21 @@ header {
 }
 a { color: var(--accent); text-decoration: none; }
 nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.filter-nav {
+  gap: 8px;
+  margin: 22px 0;
+}
+.filter-nav a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  padding: 7px 11px;
+}
+.filter-nav a[aria-current="page"] {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  color: var(--text);
+  font-weight: 700;
+}
 main { max-width: 980px; margin: 0 auto; padding: 48px 20px; }
 .brand { color: var(--text); font-weight: 800; }
 .brand span { color: var(--accent); }

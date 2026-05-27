@@ -443,3 +443,59 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert missing_proof.status_code == 404
     assert client.get("/api/v1/proofs/not-a-proof-hash").status_code == 400
     assert client.get("/proofs/not-a-proof-hash").status_code == 400
+
+
+def test_ledger_page_and_api_filter_by_entry_type(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=427,
+            issue_url="https://github.com/ramimbo/mergework/issues/427",
+            title="Filter ledger by entry type",
+            reward_mrwk="125",
+            max_awards=2,
+            acceptance="Ledger pages should let contributors scan one entry type.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:contributor",
+            submission_url="https://github.com/ramimbo/mergework/pull/511",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        close_bounty(
+            session,
+            bounty_id=bounty.id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/427",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    payment_rows = client.get("/api/v1/ledger?type=bounty_payment")
+    assert payment_rows.status_code == 200
+    assert [row["type"] for row in payment_rows.json()] == ["bounty_payment"]
+    assert payment_rows.json()[0]["proof_hash"] == proof.hash
+
+    invalid_type = client.get("/api/v1/ledger?type=bogus")
+    assert invalid_type.status_code == 400
+    assert invalid_type.json()["detail"] == (
+        "type must be one of: all, bounty_reserve, bounty_payment, bounty_release, "
+        "github_claim, wallet_transfer, genesis"
+    )
+
+    page = client.get("/ledger?type=bounty_payment")
+    assert page.status_code == 200
+    assert "Ledger type filters" in page.text
+    assert 'href="/ledger?type=bounty_payment" aria-current="page"' in page.text
+    assert "Showing ledger entries for Bounty Payment." in page.text
+    assert "Award paid" in page.text
+    assert "Unused reserve released" not in page.text
+
+    all_page = client.get("/ledger?type=all")
+    assert all_page.status_code == 200
+    assert 'href="/ledger" aria-current="page"' in all_page.text

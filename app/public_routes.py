@@ -60,9 +60,10 @@ def register_public_routes(
     templates: Jinja2Templates,
     list_bounties_by_status: Callable[[str | None, str | None, str | None], list[dict[str, Any]]],
     api_bounty: Callable[[int], dict[str, Any]],
-    api_ledger: Callable[[], list[dict[str, Any]]],
+    api_ledger: Callable[[int, str | None], list[dict[str, Any]]],
     api_ledger_entry: Callable[[int], dict[str, Any]],
     api_proof: Callable[[str], dict[str, Any]],
+    ledger_type_options: dict[str, str],
 ) -> None:
     @app.get("/bounties", response_class=HTMLResponse)
     def bounties_page(
@@ -85,8 +86,19 @@ def register_public_routes(
         )
 
     @app.get("/ledger", response_class=HTMLResponse)
-    def ledger_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "ledger.html", {"entries": api_ledger()})
+    def ledger_page(
+        request: Request,
+        entry_type: str | None = Query(None, alias="type"),
+    ) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "ledger.html",
+            {
+                "entries": api_ledger(50, entry_type),
+                "selected_type": entry_type.strip().lower() if entry_type else None,
+                "type_options": ledger_type_options,
+            },
+        )
 
     @app.get("/ledger/{sequence}", response_class=HTMLResponse)
     def ledger_entry_page(request: Request, sequence: int) -> HTMLResponse:

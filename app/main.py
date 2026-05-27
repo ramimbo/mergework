@@ -22,7 +22,12 @@ from app.config import get_settings
 from app.db import create_schema, session_scope
 from app.hub import is_ltc_lab_host, ltc_lab_context, mergework_hub_context
 from app.ledger.service import ensure_genesis, public_url_or_none
-from app.ledger_views import ledger_entry_to_dict, recent_ledger_entries
+from app.ledger_views import (
+    LEDGER_TYPE_FILTER_ERROR,
+    LEDGER_TYPE_LABELS,
+    ledger_entry_to_dict,
+    recent_ledger_entries,
+)
 from app.mcp import handle_mcp_request
 from app.mcp_tools import call_mcp_tool
 from app.me import me_page_context
@@ -290,9 +295,15 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     )
 
     @app.get("/api/v1/ledger")
-    def api_ledger(limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[dict[str, Any]]:
+    def api_ledger(
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        entry_type: Annotated[str | None, Query(alias="type")] = None,
+    ) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
-            return recent_ledger_entries(session, limit)
+            try:
+                return recent_ledger_entries(session, limit, entry_type)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=LEDGER_TYPE_FILTER_ERROR) from exc
 
     @app.get("/api/v1/ledger/{sequence}")
     def api_ledger_entry(sequence: int) -> dict[str, Any]:
@@ -360,6 +371,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         api_ledger=api_ledger,
         api_ledger_entry=api_ledger_entry,
         api_proof=api_proof,
+        ledger_type_options=LEDGER_TYPE_LABELS,
     )
 
     @app.get("/me", response_class=HTMLResponse)
