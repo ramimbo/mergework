@@ -59,6 +59,30 @@ def test_account_views_reject_overlong_account_id(sqlite_url: str) -> None:
     assert mcp_resp.json()["error"]["code"] == -32602
 
 
+def test_account_views_accept_max_length_account_id(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    account = "a" * 128
+
+    api_resp = client.get(f"/api/v1/accounts/{account}")
+    page_resp = client.get(f"/accounts/{account}")
+    mcp_resp = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 1,
+            "params": {"name": "get_balance", "arguments": {"account": account}},
+        },
+    )
+
+    assert api_resp.status_code == 200
+    assert api_resp.json()["account"] == account
+    assert api_resp.json()["exists"] is False
+    assert page_resp.status_code == 200
+    assert mcp_resp.status_code == 200
+    assert mcp_resp.json()["result"]["content"][0]["text"] == f"{account}: 0 MRWK"
+
+
 def test_api_account_accepts_valid(sqlite_url: str) -> None:
     client = _setup_app(sqlite_url)
     resp = client.get("/api/v1/accounts/github:alice")
