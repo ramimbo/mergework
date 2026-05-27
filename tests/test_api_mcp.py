@@ -173,7 +173,7 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
 
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
     assert tools["result"]["tools"][0]["name"] == "list_bounties"
-    assert "status, q, and limit filters" in tools["result"]["tools"][0]["description"]
+    assert "status, q, sort, and limit filters" in tools["result"]["tools"][0]["description"]
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
@@ -349,6 +349,16 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
             reward_mrwk="100",
             acceptance="Agents should find open MCP bounty workflow work.",
         )
+        high_pool_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=287,
+            issue_url="https://github.com/ramimbo/mergework/issues/287",
+            title="Available pool workflow filters",
+            reward_mrwk="25",
+            max_awards=8,
+            acceptance="Agents should find the largest available open bounty pool.",
+        )
         paid_bounty = create_bounty(
             session,
             repo="ramimbo/mergework",
@@ -394,7 +404,22 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
         },
     ).json()
     default_payload = json.loads(default_result["result"]["content"][0]["text"])
-    assert [item["id"] for item in default_payload] == [open_bounty.id]
+    assert [item["id"] for item in default_payload] == [high_pool_bounty.id, open_bounty.id]
+
+    available_sort_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {"status": "open", "sort": " Available ", "limit": 1},
+            },
+        },
+    ).json()
+    available_sort_payload = json.loads(available_sort_result["result"]["content"][0]["text"])
+    assert [item["id"] for item in available_sort_payload] == [high_pool_bounty.id]
 
     paid_result = client.post(
         "/mcp",
@@ -466,6 +491,7 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
         ({"q": 284}, 33),
         ({"limit": 0}, 34),
         ({"limit": 101}, 35),
+        ({"sort": "oldest"}, 36),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
