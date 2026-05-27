@@ -17,6 +17,8 @@ from app.models import Wallet
 from app.path_params import proof_hash_from_path
 from app.serializers import bounty_list_summary, wallet_to_dict
 
+WALLET_LIMIT_OPTIONS = [25, 50, 100, 200]
+
 
 def public_bounties_context(
     bounties: list[dict[str, Any]],
@@ -39,7 +41,7 @@ def public_bounties_context(
 
 def wallets_page_context(session: Session, limit: int = 100) -> dict[str, Any]:
     wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(limit)).all()
-    limit_options = [25, 50, 100, 200]
+    limit_options = WALLET_LIMIT_OPTIONS.copy()
     if limit not in limit_options:
         limit_options = sorted([*limit_options, limit])
     return {
