@@ -8,7 +8,10 @@ import sys
 from collections import defaultdict
 from typing import Any
 
-BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+BOUNTY_REF_RE = re.compile(
+    r"\b(?:bounty|refs?|fixes|closes|claims?)(?:\s+#|\s*:\s*#)(\d+)",
+    re.IGNORECASE,
+)
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30

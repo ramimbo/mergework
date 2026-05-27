@@ -127,6 +127,26 @@ def test_pr_queue_health_accepts_claim_command_reference() -> None:
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_accepts_colon_bounty_reference() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Harden bounty submission checks",
+                    "body": "Bounty: #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["missing_bounty_references"] == []
+
+
 def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     report = analyze_queue(
         {
