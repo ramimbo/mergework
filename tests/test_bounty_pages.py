@@ -481,6 +481,19 @@ def test_ledger_page_and_api_filter_by_entry_type(sqlite_url: str) -> None:
     assert [row["type"] for row in payment_rows.json()] == ["bounty_payment"]
     assert payment_rows.json()[0]["proof_hash"] == proof.hash
 
+    uppercase_payment_rows = client.get("/api/v1/ledger?type=BOUNTY_PAYMENT")
+    assert uppercase_payment_rows.status_code == 200
+    assert [row["type"] for row in uppercase_payment_rows.json()] == ["bounty_payment"]
+
+    blank_filter_rows = client.get("/api/v1/ledger?type=%20%20")
+    assert blank_filter_rows.status_code == 200
+    assert [row["type"] for row in blank_filter_rows.json()] == [
+        "bounty_release",
+        "bounty_payment",
+        "bounty_reserve",
+        "genesis",
+    ]
+
     invalid_type = client.get("/api/v1/ledger?type=bogus")
     assert invalid_type.status_code == 400
     assert invalid_type.json()["detail"] == (
@@ -495,6 +508,10 @@ def test_ledger_page_and_api_filter_by_entry_type(sqlite_url: str) -> None:
     assert "Showing ledger entries for Bounty Payment." in page.text
     assert "Award paid" in page.text
     assert "Unused reserve released" not in page.text
+
+    uppercase_page = client.get("/ledger?type=BOUNTY_PAYMENT")
+    assert uppercase_page.status_code == 200
+    assert 'href="/ledger?type=bounty_payment" aria-current="page"' in uppercase_page.text
 
     all_page = client.get("/ledger?type=all")
     assert all_page.status_code == 200
