@@ -567,6 +567,53 @@ def test_admin_payout_api_returns_existing_proof_for_duplicate_submission(
     assert final.json()["awards_remaining"] == 0
 
 
+def test_admin_payout_duplicate_reports_malformed_existing_proof(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_schema(sqlite_url)
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=284,
+            issue_url="https://github.com/ramimbo/mergework/issues/284",
+            title="Duplicate payout proof payload observability",
+            reward_mrwk="15",
+            max_awards=2,
+            acceptance="Maintainer needs bounded duplicate payout responses.",
+        )
+        bounty_id = bounty.id
+
+    headers = {"x-mergework-admin-token": "admin-token-for-tests"}
+    payout_payload = {
+        "to_account": "github:alice",
+        "submission_url": "https://github.com/ramimbo/mergework/pull/284",
+        "accepted_by": "maintainer",
+    }
+    first = client.post(f"/api/v1/bounties/{bounty_id}/pay", headers=headers, json=payout_payload)
+
+    assert first.status_code == 200
+    with session_scope(sqlite_url) as session:
+        proof = session.get(Proof, first.json()["proof_hash"])
+        assert proof is not None
+        proof.public_json = "{"
+
+    duplicate = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=headers,
+        json={**payout_payload, "to_account": "github:carol"},
+    )
+
+    assert duplicate.status_code == 500
+    assert duplicate.json()["detail"] == "invalid proof payload"
+
+
 def test_admin_payout_reconciliation_api_reports_missing_and_duplicate_evidence(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

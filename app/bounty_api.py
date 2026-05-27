@@ -35,7 +35,10 @@ from app.serializers import (
 
 
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
-    data = json.loads(proof.public_json)
+    try:
+        data = json.loads(proof.public_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="invalid proof payload") from exc
     if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
         raise HTTPException(status_code=500, detail="invalid proof payload")
     return {
