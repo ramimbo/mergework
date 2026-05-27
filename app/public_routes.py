@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -37,9 +38,25 @@ def public_bounties_context(
     }
 
 
+def _format_decimal_mrwk(value: Decimal) -> str:
+    formatted = format(value.normalize(), "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted or "0"
+
+
 def wallets_page_context(session: Session) -> dict[str, Any]:
     wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(100)).all()
-    return {"wallets": [wallet_to_dict(session, wallet) for wallet in wallets]}
+    wallet_rows = [wallet_to_dict(session, wallet) for wallet in wallets]
+    total_balance = sum((Decimal(row["balance_mrwk"]) for row in wallet_rows), Decimal("0"))
+    return {
+        "wallets": wallet_rows,
+        "summary": {
+            "wallets_shown": len(wallet_rows),
+            "linked_github_wallets": sum(1 for row in wallet_rows if row.get("github_login")),
+            "total_balance_mrwk": _format_decimal_mrwk(total_balance),
+        },
+    }
 
 
 def wallet_page_context(session: Session, address: str) -> dict[str, Any]:
