@@ -148,7 +148,11 @@ def register_bounty_attempt_routes(
         return submitter_account
 
     @app.get("/api/v1/bounties/{bounty_id}/attempts")
-    def api_bounty_attempts(bounty_id: int, include_expired: bool = Query(False)) -> dict[str, Any]:
+    def api_bounty_attempts(
+        bounty_id: int,
+        include_expired: bool = Query(False),
+        limit: int | None = Query(None, ge=1, le=200),
+    ) -> dict[str, Any]:
         bounty_id = positive_bounty_id(bounty_id)
         now = _utc_now()
         with session_scope(db_url) as session:
@@ -156,7 +160,7 @@ def register_bounty_attempt_routes(
             if bounty is None:
                 raise HTTPException(status_code=404, detail="bounty not found")
             listing = list_bounty_attempts(
-                session, bounty, include_expired=include_expired, now=now
+                session, bounty, include_expired=include_expired, limit=limit, now=now
             )
             return {
                 "bounty_id": bounty_id,
