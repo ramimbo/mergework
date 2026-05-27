@@ -940,6 +940,84 @@ def test_bounty_payment_proof_rejects_control_character_metadata(sqlite_url: str
         assert get_balance(session, "github:bob") == 0
 
 
+@pytest.mark.parametrize(
+    ("verifier_result", "message"),
+    (
+        (
+            {"label": "mrwk:accepted", "details": {"note": "line1\nline2"}},
+            "verifier_result.details.note must not contain control characters",
+        ),
+        (
+            {"label": "mrwk:accepted", "checks": ["ci:passed", "line1\rline2"]},
+            r"verifier_result.checks\[1\] must not contain control characters",
+        ),
+    ),
+)
+def test_bounty_payment_proof_rejects_nested_control_character_metadata(
+    sqlite_url: str, verifier_result: dict[str, object], message: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=17,
+            issue_url="https://github.com/ramimbo/mergework/issues/17",
+            title="Nested proof metadata",
+            reward_mrwk="1",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+
+        with pytest.raises(LedgerError, match=message):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/17",
+                accepted_by="maintainer",
+                verifier_result=verifier_result,
+            )
+
+        assert bounty.awards_paid == 0
+        assert get_balance(session, "github:alice") == 0
+        assert session.scalars(select(Submission)).all() == []
+        assert session.scalars(select(Proof)).all() == []
+
+
+def test_bounty_payment_proof_preserves_safe_nested_metadata(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=17,
+            issue_url="https://github.com/ramimbo/mergework/issues/17",
+            title="Safe nested proof metadata",
+            reward_mrwk="1",
+            acceptance="Maintainer applies mrwk:accepted",
+        )
+        verifier_result = {
+            "label": "mrwk:accepted",
+            "details": {"note": "manual review", "checks": ["ci:passed", "tests:passed"]},
+        }
+
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/17",
+            accepted_by="maintainer",
+            verifier_result=verifier_result,
+        )
+
+        proof_payload = json.loads(proof.public_json)
+        submission = session.scalars(select(Submission)).one()
+        assert proof_payload["verifier_result"] == verifier_result
+        assert json.loads(submission.verifier_result) == verifier_result
+
+
 def test_admin_payout_api_rejects_control_character_note(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
