@@ -48,13 +48,13 @@ def _format_decimal_mrwk(value: Decimal) -> str:
 def wallets_page_context(session: Session) -> dict[str, Any]:
     wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(100)).all()
     wallet_rows = [wallet_to_dict(session, wallet) for wallet in wallets]
-    total_balance = sum((Decimal(row["balance_mrwk"]) for row in wallet_rows), Decimal("0"))
+    displayed_balance = sum((Decimal(row["balance_mrwk"]) for row in wallet_rows), Decimal("0"))
     return {
         "wallets": wallet_rows,
         "summary": {
             "wallets_shown": len(wallet_rows),
             "linked_github_wallets": sum(1 for row in wallet_rows if row.get("github_login")),
-            "total_balance_mrwk": _format_decimal_mrwk(total_balance),
+            "displayed_balance_mrwk": _format_decimal_mrwk(displayed_balance),
         },
     }
 
