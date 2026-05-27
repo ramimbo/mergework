@@ -237,6 +237,44 @@ def test_multi_award_bounty_still_warns_for_multiple_active_attempts(sqlite_url:
         assert bounty_attempt_warnings(session, bounty, now) == ["bounty has 2 active attempts"]
 
 
+def test_bounty_attempts_list_honors_limit(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=328,
+            issue_url="https://github.com/ramimbo/mergework/issues/328",
+            title="Attempt list limit",
+            reward_mrwk="50",
+            max_awards=3,
+            acceptance="Attempt list clients can request a bounded page.",
+        )
+        for offset, submitter in enumerate(("github:alice", "github:bob", "github:carol")):
+            created = now + timedelta(minutes=offset)
+            session.add(
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account=submitter,
+                    status="active",
+                    expires_at=created + timedelta(hours=1),
+                    created_at=created,
+                    updated_at=created,
+                )
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/api/v1/bounties/{bounty.id}/attempts?limit=1")
+
+    assert response.status_code == 200
+    assert [attempt["submitter_account"] for attempt in response.json()["attempts"]] == [
+        "github:carol"
+    ]
+
+
 def test_expired_bounty_attempt_is_visible_but_no_longer_blocks_submitter(
     sqlite_url: str,
     monkeypatch,
