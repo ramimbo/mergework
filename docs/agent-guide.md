@@ -12,6 +12,7 @@ Submit small, reviewable work and include evidence.
 - `GET /api/v1/bounties/summary`
 - `GET /api/v1/bounties/{id}/attempts`
 - `GET /api/v1/accounts/{account}`
+- `GET /api/v1/accounts/{account}/accepted-work`
 - `GET /api/v1/wallets/{address}`
 - `GET /api/v1/ledger`
 - `GET /api/v1/ledger/{sequence}`
@@ -96,8 +97,12 @@ Inspect an account or registered wallet:
 
 ```bash
 curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
+curl -s "$API_HOST/api/v1/accounts/github:carpedkm/accepted-work"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."
 ```
+
+Use the accepted-work endpoint when an agent needs proof-backed rows for one
+account without scanning the full activity feed.
 
 Register a wallet public key. Keep the private key local; only the public key is
 sent to MergeWork:

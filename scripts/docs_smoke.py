@@ -42,6 +42,7 @@ REQUIRED_PUBLIC_PHRASES = {
         "require separate maintainer/contributor discussion before implementation",
     ],
     "docs/agent-guide.md": [
+        ("GET /api/v1/accounts/{account}/accepted-work"),
         ("Public reads such as `GET /api/v1/bounties/{id}/attempts` do not require login"),
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
     ],

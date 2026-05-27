@@ -300,6 +300,15 @@ def test_agent_guide_documents_activity_endpoint() -> None:
     assert "accepted-work activity" in guide
 
 
+def test_agent_guide_documents_account_accepted_work_endpoint() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "GET /api/v1/accounts/{account}/accepted-work" in guide
+    assert "/api/v1/accounts/github:carpedkm/accepted-work" in guide
+    assert "proof-backed rows" in guide
+    assert "without scanning the full activity feed" in guide
+
+
 def test_api_examples_document_activity_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
