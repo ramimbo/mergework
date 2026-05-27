@@ -567,6 +567,9 @@ def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypat
     assert "Signed in as alice." in me
     assert "github:alice" in me
     assert "4 MRWK available to claim" in me
+    assert 'href="/accounts/github:alice"' in me
+    assert 'href="/activity?q=github%3Aalice"' in me
+    assert 'href="/api/v1/accounts/github:alice"' in me
 
 
 def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) -> None:
@@ -659,6 +662,7 @@ def test_me_page_prefills_claim_address_for_linked_wallet(sqlite_url: str, monke
     me = client.get("/me").text
 
     assert f'value="{address}"' in me
+    assert f'href="/wallets/{address}"' in me
     assert "Claim form is prefilled with your linked wallet." in me
 
 

@@ -7,6 +7,14 @@
   {% if github_login %}
   <p class="lead">Signed in as {{ github_login }}.</p>
   <p class="notice"><code>github:{{ github_login }}</code> has {{ github_balance_mrwk }} MRWK available to claim.</p>
+  <div class="actions" aria-label="Contributor account shortcuts">
+    <a href="/accounts/{{ github_account }}">Ledger account</a>
+    <a href="/activity?q={{ github_account | urlencode }}">Accepted work</a>
+    <a href="/api/v1/accounts/{{ github_account }}">Account JSON</a>
+    {% if linked_wallet_address %}
+    <a href="/wallets/{{ linked_wallet_address }}">Linked wallet</a>
+    {% endif %}
+  </div>
   <form method="post" action="/auth/logout" class="inline-form">
     <button type="submit">Sign out</button>
   </form>
