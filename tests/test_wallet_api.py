@@ -512,10 +512,26 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()
     _, funded_public, funded_address = _keypair()
+    _, linked_public, linked_address = _keypair()
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     _register_wallet(client, public_hex, "Main smoke wallet")
     _register_wallet(client, funded_public, "Funded smoke wallet")
     _fund_wallet(sqlite_url, funded_address)
+    with session_scope(sqlite_url) as session:
+        register_wallet(
+            session,
+            public_key_hex=linked_public,
+            label="Linked smoke wallet",
+            github_login="alice",
+        )
+        add_ledger_entry(
+            session,
+            entry_type="test_linked_wallet_funding",
+            from_account=TREASURY_ACCOUNT,
+            to_account=linked_address,
+            amount_microunits=2_500_000,
+            reference=f"test-funding:{linked_address}",
+        )
 
     wallets = client.get("/wallets").text
     detail = client.get(f"/wallets/{address}").text
@@ -526,6 +542,13 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Generate wallet" in wallets
     assert "Private key stays in this browser" in wallets
     assert "If you lose the private key" in wallets
+    assert "Wallet list summary" in wallets
+    assert "Wallets shown" in wallets
+    assert "Linked GitHub wallets" in wallets
+    assert "Total wallet balance" in wallets
+    assert "3</strong>" in wallets
+    assert "1</strong>" in wallets
+    assert "12.5 MRWK</strong>" in wallets
     assert (
         'id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off"'
         in wallets
