@@ -30,6 +30,38 @@ def test_call_mcp_tool_lists_bounties_from_extracted_dispatcher(sqlite_url: str)
     assert bounties[0]["title"] == "Code health bounty"
 
 
+def test_call_mcp_tool_list_bounties_searches_issue_url(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=406,
+            issue_url="https://github.com/ramimbo/mergework/issues/406",
+            title="Small fix bounty",
+            reward_mrwk="50",
+            acceptance="Useful small fixes should be findable from their source issue URL.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=407,
+            issue_url="https://github.com/ramimbo/mergework/issues/407",
+            title="Different bounty",
+            reward_mrwk="50",
+            acceptance="This row should not match the issue URL query.",
+        )
+
+    result = call_mcp_tool(
+        sqlite_url,
+        "list_bounties",
+        {"status": "open", "q": "https://github.com/ramimbo/mergework/issues/406"},
+    )
+
+    assert [row["issue_number"] for row in json.loads(result)] == [406]
+
+
 def test_submit_work_proof_repo_selector_matches_stored_repo_case(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
