@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.models import Bounty
 
 
 def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
@@ -313,6 +314,34 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert oversized_api_response.json()["detail"] == "bounty id is too large"
     oversized_page_response = client.get(f"/bounties/{oversized_bounty_id}")
     assert oversized_page_response.status_code == 400
+
+
+def test_bounty_detail_omits_source_issue_when_url_is_missing(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = Bounty(
+            repo="ramimbo/mergework",
+            issue_number=5,
+            issue_url="",
+            title="Bounty without an external issue",
+            reward_microunits=50_000_000,
+            reserved_microunits=50_000_000,
+            acceptance="This bounty has no external issue link.",
+        )
+        session.add(bounty)
+        session.flush()
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/bounties/{bounty_id}")
+
+    assert response.status_code == 200
+    assert "Inspect this bounty" in response.text
+    assert f'href="/api/v1/bounties/{bounty_id}"' in response.text
+    assert f'href="/api/v1/bounties/{bounty_id}/attempts"' in response.text
+    assert "Source issue" not in response.text
 
 
 def test_bounty_detail_shows_accepted_award_history(sqlite_url: str) -> None:
