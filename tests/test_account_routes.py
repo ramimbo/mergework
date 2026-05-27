@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.accounts import account_api_context, account_page_context, normalized_account
 from app.db import create_schema, session_scope
-from app.ledger.service import create_bounty, ensure_genesis, pay_bounty
+from app.ledger.service import create_bounty, ensure_genesis, pay_bounty, register_wallet
 from app.main import create_app
 
 
@@ -87,6 +87,85 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert "github:bob" in page_response.text
     assert "25 MRWK" in page_response.text
     assert f'href="/proofs/{proof.hash}"' in page_response.text
+
+
+def test_unknown_account_transfer_status_does_not_report_wallet_ready(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/accounts/not-a-wallet")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is False
+    assert response.json()["transfer_status"] == (
+        "This account is not eligible for MRWK wallet transfers. Use a github:<login> "
+        "account or registered mrwk1 wallet."
+    )
+
+
+def test_unregistered_wallet_transfer_status_requires_registration(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    account = "mrwk1" + ("0" * 40)
+
+    response = client.get(f"/api/v1/accounts/{account}")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is False
+    assert response.json()["transfer_status"] == (
+        "Wallet address is not registered yet. Register this mrwk1 wallet before transfers."
+    )
+
+
+def test_ledger_only_wallet_account_transfer_status_requires_registration(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    account = "mrwk1" + ("a" * 40)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=179,
+            issue_url="https://github.com/ramimbo/mergework/issues/179",
+            title="Ledger-only wallet account",
+            reward_mrwk="5",
+            acceptance="Account route should not treat ledger-only wallets as registered.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account=account,
+            submission_url="https://github.com/ramimbo/mergework/pull/179",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    response = client.get(f"/api/v1/accounts/{account}")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is True
+    assert response.json()["balance_mrwk"] == "5"
+    assert response.json()["transfer_status"] == (
+        "Wallet address is not registered yet. Register this mrwk1 wallet before transfers."
+    )
+
+
+def test_registered_wallet_transfer_status_reports_ready(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        wallet = register_wallet(session, public_key_hex="1" * 64, label="Main wallet")
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    response = client.get(f"/api/v1/accounts/{wallet.address}")
+
+    assert response.status_code == 200
+    assert response.json()["exists"] is True
+    assert response.json()["transfer_status"] == (
+        "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+    )
 
 
 def test_normalized_account_keeps_existing_account_validation_boundaries() -> None:

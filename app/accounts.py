@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
-from app.models import Account
+from app.models import Account, Wallet
 from app.path_params import SQLITE_INTEGER_MAX
 from app.serializers import (
     accepted_work_for_account,
@@ -77,7 +77,7 @@ def github_login_from_account(account: str) -> str | None:
     return login
 
 
-def account_transfer_status(account: str) -> str:
+def account_transfer_status(account: str, *, wallet_registered: bool = False) -> str:
     if account.startswith("github:"):
         return "Claim GitHub balances from /me after linking a registered mrwk1 wallet."
     if account.startswith(("treasury:", "reserve:")):
@@ -85,19 +85,30 @@ def account_transfer_status(account: str) -> str:
             "Internal ledger account. MRWK wallet transfers are only available "
             "for registered mrwk1 addresses."
         )
-    return "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+    if account.startswith("mrwk1"):
+        if wallet_registered:
+            return "MRWK wallet transfers are enabled for registered mrwk1 addresses."
+        return "Wallet address is not registered yet. Register this mrwk1 wallet before transfers."
+    return (
+        "This account is not eligible for MRWK wallet transfers. Use a github:<login> "
+        "account or registered mrwk1 wallet."
+    )
 
 
 def account_api_context(session: Session, account: str) -> dict[str, Any]:
     account = normalized_account(account)
     account_row = session.get(Account, account)
+    wallet_registered = account.startswith("mrwk1") and session.get(Wallet, account) is not None
     return {
         "account": account,
         "ledger_address": account,
         "github_login": github_login_from_account(account),
         "exists": account_row is not None,
         "balance_mrwk": format_mrwk(get_balance(session, account)),
-        "transfer_status": account_transfer_status(account),
+        "transfer_status": account_transfer_status(
+            account,
+            wallet_registered=wallet_registered,
+        ),
         "accepted_work": safe_account_accepted_summary(session, account),
     }
 
