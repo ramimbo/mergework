@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
@@ -11,18 +11,27 @@ from app.db import session_scope
 from app.serializers import activity_to_dict
 
 
-def activity_context(session: Session, query: str | None = None) -> dict[str, Any]:
-    return activity_to_dict(session, query)
+def activity_context(
+    session: Session, query: str | None = None, recent_limit: int = 100
+) -> dict[str, Any]:
+    return activity_to_dict(session, query, recent_limit=recent_limit)
 
 
 def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
     @app.get("/api/v1/activity")
-    def api_activity(q: str | None = Query(None)) -> dict[str, Any]:
+    def api_activity(
+        q: str | None = Query(None),
+        limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    ) -> dict[str, Any]:
         with session_scope(db_url) as session:
-            return activity_context(session, q)
+            return activity_context(session, q, recent_limit=limit)
 
     @app.get("/activity", response_class=HTMLResponse)
-    def activity_page(request: Request, q: str | None = Query(None)) -> HTMLResponse:
+    def activity_page(
+        request: Request,
+        q: str | None = Query(None),
+        limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    ) -> HTMLResponse:
         with session_scope(db_url) as session:
-            context = activity_context(session, q)
+            context = activity_context(session, q, recent_limit=limit)
         return templates.TemplateResponse(request, "activity.html", context)

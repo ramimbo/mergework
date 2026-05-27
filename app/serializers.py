@@ -184,7 +184,9 @@ def _activity_row_matches(row: dict[str, Any], query: str) -> bool:
     return any(query in str(value or "").lower() for value in searchable_values)
 
 
-def activity_to_dict(session: Session, query: str | None = None) -> dict[str, Any]:
+def activity_to_dict(
+    session: Session, query: str | None = None, recent_limit: int = 100
+) -> dict[str, Any]:
     """Build the public activity feed and contributor totals."""
     search_query = _activity_search_query(query)
     rows = session.execute(
@@ -247,7 +249,7 @@ def activity_to_dict(session: Session, query: str | None = None) -> dict[str, An
         },
         "query": search_query,
         "contributors": contributors,
-        "recent": recent[:100],
+        "recent": recent[:recent_limit],
     }
 
 

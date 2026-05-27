@@ -110,6 +110,15 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     assert payload["recent"][0]["bounty_url"] == f"/bounties/{second_bounty.id}"
     assert all("unproved" not in row["submission_url"] for row in payload["recent"])
 
+    limited = client.get("/api/v1/activity?limit=1")
+    assert limited.status_code == 200
+    limited_payload = limited.json()
+    assert limited_payload["totals"] == payload["totals"]
+    assert [row["proof_hash"] for row in limited_payload["recent"]] == [wallet_proof.hash]
+
+    invalid_limit = client.get("/api/v1/activity?limit=0")
+    assert invalid_limit.status_code == 422
+
 
 def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     create_schema(sqlite_url)
