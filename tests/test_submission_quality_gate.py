@@ -834,6 +834,81 @@ def test_submission_quality_gate_live_context_warns_on_bad_api_utf8(monkeypatch)
     } in result["checks"]
 
 
+def test_submission_quality_gate_live_context_warns_on_bad_attempts_utf8(
+    monkeypatch,
+) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps([{"number": 319, "title": "MRWK bounty: gate", "state": "OPEN"}]),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps({"createdAt": "2026-05-20T00:00:00Z", "comments": []}),
+                stderr="",
+            )
+        raise AssertionError(args)
+
+    class FakeResponse:
+        def __init__(self, body: bytes):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return self.body
+
+    def fake_urlopen(url, timeout):
+        if url == "https://api.example.test/api/v1/bounties?status=open&limit=200":
+            return FakeResponse(
+                json.dumps(
+                    [
+                        {
+                            "repo": "ramimbo/mergework",
+                            "issue_number": 319,
+                            "id": 66,
+                            "status": "open",
+                            "awards_remaining": 1,
+                        }
+                    ]
+                ).encode()
+            )
+        if url == "https://api.example.test/api/v1/bounties/66/attempts":
+            return FakeResponse(b"\xff\xfe")
+        raise AssertionError(url)
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    data = submission_quality_gate._load_live_context(
+        "ramimbo/mergework",
+        "Summary: work\n\nRefs #319\n\nValidation: pytest passed",
+        "https://api.example.test",
+    )
+    result = evaluate_submission(data)
+
+    assert "active attempts unavailable for bounty #319" in data["load_warning"]
+    assert "invalid start byte" in data["load_warning"]
+    assert data["bounties"][0]["active_attempts"] == []
+    assert data["bounties"][0]["active_attempts_verified"] is False
+    assert {
+        "name": "active_attempts",
+        "status": "warn",
+        "message": "active attempts for bounty #319 could not be verified",
+    } in result["checks"]
+
+
 @pytest.mark.parametrize(
     ("api_item", "warning_text"),
     [

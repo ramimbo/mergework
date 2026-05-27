@@ -462,7 +462,7 @@ def _load_api_attempts(api_host: str, bounty_id: Any) -> list[dict[str, Any]]:
     try:
         with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, OSError, URLError, json.JSONDecodeError) as exc:
+    except (HTTPError, OSError, URLError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"MergeWork API attempts data unavailable: {exc}") from exc
     attempts = payload.get("attempts") if isinstance(payload, dict) else payload
     if not isinstance(attempts, list):
