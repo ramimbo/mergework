@@ -208,12 +208,16 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 ```bash
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
+curl -s "$API_HOST/api/v1/activity?limit=25"
 ```
 
-The optional `q` parameter filters activity rows by account, amount, submission
-URL, proof hash, bounty repo, bounty issue URL, internal bounty id, or GitHub
-issue number. The response groups matching proof-backed bounty payments into
-`totals`, contributor rollups, and the most recent payment rows:
+The optional `q` parameter filters activity rows by account, amount,
+submission URL, proof hash, bounty repo, bounty issue URL, internal bounty id,
+or GitHub issue number. The optional `limit` parameter defaults to `100`,
+accepts values from `1` to `100`, and limits only the returned `recent` payment
+rows; `totals` and contributor rollups still summarize all matching
+proof-backed payments. The response groups matching proof-backed bounty
+payments into `totals`, contributor rollups, and the most recent payment rows:
 
 ```json
 {
@@ -256,7 +260,7 @@ issue number. The response groups matching proof-backed bounty payments into
 ```
 
 `contributors` is sorted by accepted MRWK amount, while `recent` is sorted by
-newest ledger sequence and capped to the latest 100 matching rows. Use
+newest ledger sequence and capped to the requested `limit`. Use
 `proof_hash` with `/api/v1/proofs/<proof_hash>` to inspect the public proof
 payload for a payment.
 
