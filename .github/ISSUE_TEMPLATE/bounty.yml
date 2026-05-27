@@ -1,20 +1,18 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
-  - type: textarea
-    id: work
+  - type: markdown
     attributes:
-      label: Work needed
-      description: Describe the useful accepted work.
-    validations:
-      required: true
+      value: |
+        Keep headings stable for human + agent parsing.
   - type: input
     id: reward
     attributes:
-      label: Proposed MRWK per award
-      placeholder: "250"
+      label: Reward
+      description: Repeat visible reward from title
+      placeholder: "250 MRWK per accepted award"
     validations:
       required: true
   - type: input
@@ -25,9 +23,55 @@ body:
     validations:
       required: true
   - type: textarea
+    id: work
+    attributes:
+      label: Work Needed
+      description: Clear scoped deliverable(s)
+    validations:
+      required: true
+  - type: textarea
     id: acceptance
     attributes:
-      label: Acceptance criteria
-      description: Explain what must be true before mrwk:accepted is applied.
+      label: Acceptance Criteria
+      description: Objective checks + required test/evidence
+    validations:
+      required: true
+  - type: textarea
+    id: submit
+    attributes:
+      label: How To Submit
+      description: PR/comment path and linking format (`Bounty #<issue>` or `Refs #<issue>`)
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / Tests
+      description: Commands, outputs, screenshots, logs
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+    validations:
+      required: true
+  - type: textarea
+    id: duplicate
+    attributes:
+      label: Duplicate Work Rules
+    validations:
+      required: true
+  - type: textarea
+    id: stale
+    attributes:
+      label: Stale Work Rules
+    validations:
+      required: true
+  - type: textarea
+    id: cautions
+    attributes:
+      label: Public Artifact Cautions
+      description: No investment/price/fabricated payout/liquidity/exchange/bridge promises
     validations:
       required: true

@@ -83,3 +83,68 @@ that PR.
 Paid bounty links are tracked in
 [docs/paid-bounties.md](paid-bounties.md) and the public
 [GitHub discussion](https://github.com/ramimbo/mergework/discussions/16).
+
+## Canonical Bounty Post Template
+
+Use this exact structure for new bounties so humans, GitHub workflows, API clients,
+and MCP agents can parse requirements without guessing.
+
+Title format:
+
+```
+MRWK bounty: <amount> MRWK - <short scope>
+```
+
+Body template:
+
+```md
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award`
+Max awards: `<count>`
+
+## Work Needed
+
+- Clear scoped deliverable(s).
+
+## Acceptance Criteria
+
+- Objective checks or review conditions.
+- Required tests, commands, or screenshots.
+- Include `Bounty #<issue>` or `Refs #<issue>` in PR body.
+
+## How To Submit
+
+- Open focused PR or issue comment with links to evidence.
+
+## Evidence / Tests
+
+- Commands run and results.
+- Artifacts needed for review.
+
+## Out of Scope
+
+- Explicitly excluded work.
+
+## Duplicate Work Rules
+
+- Earliest complete, reviewable submission wins unless issue says multi-award.
+
+## Stale Work Rules
+
+- Claims or draft PRs may be released after inactivity window defined in issue.
+
+## Public Artifact Cautions
+
+- No investment claims, price claims, fabricated payout claims, liquidity claims,
+  exchange claims, or bridge promises.
+- Keep private security details out of public artifacts.
+```
+
+Why fields matter:
+
+- GitHub workflow needs visible reward, max awards, scope, acceptance, and
+  submission path to apply labels and review consistently.
+- API clients need stable headings and structured values for automated parsing.
+- MCP agents need deterministic sections to decide claim/submit behavior and
+  produce reviewable evidence.

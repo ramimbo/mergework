@@ -1,5 +1,23 @@
 # Admin Runbook
 
+## Bounty Post Shape (Required)
+
+Use title format `MRWK bounty: <amount> MRWK - <short scope>` and keep reward +
+max-awards values in body under stable headings. Required sections:
+
+- `## MRWK Bounty`
+- `## Work Needed`
+- `## Acceptance Criteria`
+- `## How To Submit`
+- `## Evidence / Tests`
+- `## Out of Scope`
+- `## Duplicate Work Rules`
+- `## Stale Work Rules`
+- `## Public Artifact Cautions`
+
+These headings keep GitHub, API, and MCP bounty flows machine-readable and
+reduce ambiguous reviews.
+
 ## Post a Bounty
 
 1. Create or choose a GitHub issue.
