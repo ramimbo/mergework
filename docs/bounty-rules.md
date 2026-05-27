@@ -109,6 +109,27 @@ Copy and fill in the sections that apply:
     - Existing checks pass.
     - One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
 
+    ## Evidence or Tests
+
+    <Describe required test output, commands, or screenshots. Remove if not needed.>
+
+    ## Out of Scope
+
+    - <List work that will not be accepted even if technically related.>
+    - <Remove this section if everything relevant is in scope.>
+
+    ## Duplicate-Work Rules
+
+    <How overlapping submissions are handled. Default: duplicate, vague, or superseded work does not qualify.>
+
+    ## Stale-Work Rules
+
+    <How long claims remain valid without activity. Remove if not needed.>
+
+    ## Public Artifact Cautions
+
+    Do not post private keys, seed material, secrets, private vulnerability details, deployment credentials, price claims, investment claims, liquidity claims, bridge promises, or fabricated payout claims.
+
     ## How To Submit
 
     <Open a focused PR / Comment with /claim / Other path>. A maintainer must apply `mrwk:accepted` or record an admin payout before payment.

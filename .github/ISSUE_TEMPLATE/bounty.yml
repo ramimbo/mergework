@@ -38,7 +38,7 @@ body:
 
         ## Work Needed
 
-
+        <Describe the useful accepted work.>
 
         Useful accepted work can include:
 
@@ -49,6 +49,26 @@ body:
         - Open a focused PR that links this issue with `Bounty #<issue number>` or `Refs #<issue number>`.
         - Existing checks pass.
         - One award per distinct useful submission. Duplicate, vague, misleading, or unrelated work does not qualify.
+
+        ## Evidence or Tests
+
+        <Describe required test output, commands, or screenshots. Remove if not needed.>
+
+        ## Out of Scope
+
+        <List work that will not be accepted even if technically related. Remove if not needed.>
+
+        ## Duplicate-Work Rules
+
+        Duplicate, vague, misleading, or superseded submissions do not qualify.
+
+        ## Stale-Work Rules
+
+        <State how long claims remain valid without activity. Remove if not needed.>
+
+        ## Public Artifact Cautions
+
+        Do not post private keys, seed material, secrets, private vulnerability details, deployment credentials, price claims, investment claims, liquidity claims, bridge promises, or fabricated payout claims.
 
         ## How To Submit
 

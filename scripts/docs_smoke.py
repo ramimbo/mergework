@@ -58,6 +58,11 @@ REQUIRED_PUBLIC_PHRASES = {
         "Max awards: `<number>`",
         "## Work Needed",
         "## Acceptance Criteria",
+        "## Evidence or Tests",
+        "## Out of Scope",
+        "## Duplicate-Work Rules",
+        "## Stale-Work Rules",
+        "## Public Artifact Cautions",
         "## How To Submit",
     ],
 }
