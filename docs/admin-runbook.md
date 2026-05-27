@@ -97,6 +97,37 @@ Use `limit` to control the number of delivery rows returned (`1` to `200`,
 default `50`), for example:
 `/api/v1/admin/webhook-events?status=missing_submitter&limit=100`.
 
+### Payout Reconciliation
+
+Before marking a batch done, reconcile accepted submissions against public proof
+and ledger evidence:
+
+```bash
+curl -s "https://api.mrwk.ltclab.site/api/v1/reconciliation/payouts" \
+  -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN"
+```
+
+The API returns a `summary` plus one check per accepted submission. Check
+statuses are:
+
+- `paid`: exactly one matching bounty-payment proof and ledger entry.
+- `missing_payment`: the accepted submission has no matching payment evidence.
+- `duplicate_payment_evidence`: more than one proof matches the accepted
+  submission.
+- `mismatched_payment_evidence`: a proof exists, but the ledger entry does not
+  match the expected submission URL, account, bounty, type, or amount.
+
+For a local deploy or payout batch note, run the reconciliation script:
+
+```bash
+python scripts/reconcile_payouts.py
+```
+
+The script prints JSON with `summary`, non-paid `issues`, and
+`duplicate_source_urls`. It exits nonzero when unresolved payment issues or
+duplicate accepted source URLs are present, so operators can use it as a hard
+stop before adding `mrwk:paid` labels or paid-bounty documentation rows.
+
 ### PR Queue Health
 
 Use the queue-health script before accepting busy bounty rounds:
