@@ -208,6 +208,7 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 ```bash
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
+curl -s "$API_HOST/api/v1/activity?offset=100"
 ```
 
 The optional `q` parameter filters activity rows by account, amount, submission
@@ -257,6 +258,7 @@ issue number. The response groups matching proof-backed bounty payments into
 
 `contributors` is sorted by accepted MRWK amount, while `recent` is sorted by
 newest ledger sequence and capped to the latest 100 matching rows. Use
+`offset` from `0` upward to page the `recent` rows after any `q` filter. Use
 `proof_hash` with `/api/v1/proofs/<proof_hash>` to inspect the public proof
 payload for a payment.
 

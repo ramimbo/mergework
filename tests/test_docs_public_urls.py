@@ -304,6 +304,7 @@ def test_api_examples_document_activity_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
     assert "/api/v1/activity?q=p3xill" in examples
+    assert "/api/v1/activity?offset=100" in examples
     assert '"totals": {' in examples
     assert '"accepted_awards": 2' in examples
     assert '"accepted_mrwk": "115"' in examples
@@ -327,6 +328,7 @@ def test_api_examples_document_activity_response_shape() -> None:
     assert '"bounty_url": "/bounties/37"' in examples
     assert "bounty repo, bounty issue URL" in examples
     assert "newest ledger sequence" in examples
+    assert "`offset` from `0` upward" in examples
     assert "/api/v1/proofs/<proof_hash>" in examples
 
 

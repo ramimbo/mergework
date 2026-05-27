@@ -172,6 +172,64 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     assert no_match["recent"] == []
 
 
+def test_activity_api_honors_offset_for_recent_rows(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=166,
+            issue_url="https://github.com/ramimbo/mergework/issues/166",
+            title="Activity offset bounty",
+            reward_mrwk="10",
+            max_awards=3,
+            acceptance="Activity offset should page recent accepted work rows.",
+        )
+        first_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/166",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        second_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/167",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        third_proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:carol",
+            submission_url="https://github.com/ramimbo/mergework/pull/168",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/activity?offset=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["totals"] == {
+        "accepted_awards": 3,
+        "accepted_mrwk": "30",
+        "contributors": 3,
+    }
+    assert [row["proof_hash"] for row in payload["recent"]] == [
+        second_proof.hash,
+        first_proof.hash,
+    ]
+    assert third_proof.hash not in [row["proof_hash"] for row in payload["recent"]]
+    assert client.get("/api/v1/activity?offset=-1").status_code == 422
+
+
 def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
