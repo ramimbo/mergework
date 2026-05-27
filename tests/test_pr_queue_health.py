@@ -43,7 +43,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
             },
             {
                 "number": 4,
-                "title": "Guard MCP bounty search oversized numeric query",
+                "title": "[Draft] Guard MCP bounty search oversized numeric query",
                 "url": "https://github.com/ramimbo/mergework/pull/4",
                 "body": "Refs #292",
                 "merge_state": "unknown",
@@ -62,12 +62,14 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
         "missing_bounty_references": 1,
         "dirty_or_unstable_merge_state": 2,
         "needs_info": 1,
+        "drafts": 1,
         "duplicate_scope_groups": 1,
     }
     assert report["closed_bounty_references"][0]["pull_request"] == 1
     assert report["missing_bounty_references"][0]["pull_request"] == 2
     assert {item["pull_request"] for item in report["dirty_or_unstable_merge_state"]} == {3, 4}
     assert report["needs_info"][0]["pull_request"] == 3
+    assert report["drafts"][0]["pull_request"] == 4
     assert report["duplicate_scope_groups"] == [
         {
             "bounty": 292,
@@ -161,7 +163,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
                 },
                 {
                     "number": 4,
-                    "title": "Guard MCP bounty search oversized numeric query",
+                    "title": "[Draft] Guard MCP bounty search oversized numeric query",
                     "url": "https://github.com/ramimbo/mergework/pull/4",
                     "body": "Refs #292",
                     "merge_state": "unknown",
@@ -189,6 +191,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "Merge state is dirty" in markdown
     assert "### Needs info" in markdown
     assert "PR has mrwk:needs-info label" in markdown
+    assert "### Draft pull requests" in markdown
+    assert "PR is still marked as draft" in markdown
     assert "### Likely duplicate bounty scope" in markdown
     assert "- Bounty #292: guard mcp bounty search oversized numeric query (#3, #4)" in markdown
 
@@ -289,3 +293,12 @@ def test_pr_queue_health_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="pr list reached the 201 item safety cap"):
         pr_queue_health.load_live_queue("ramimbo/mergework")
+
+
+def test_pr_queue_health_flags_gh_draft_field() -> None:
+    report = analyze_queue(
+        {"bounties": [], "pull_requests": [{"number": 9, "title": "Ship preview", "isDraft": True}]}
+    )
+
+    assert report["summary"]["drafts"] == 1
+    assert report["drafts"][0]["pull_request"] == 9

@@ -9,6 +9,7 @@ from collections import defaultdict
 from typing import Any
 
 BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+DRAFT_TITLE_RE = re.compile(r"^\s*(?:\[draft\]|draft:)", re.IGNORECASE)
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30
@@ -101,6 +102,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 "labels": _labels(pr),
                 "merge_state": _merge_state(pr),
                 "scope": _scope_key(pr),
+                "is_draft": bool(pr.get("isDraft") or pr.get("is_draft")),
             }
         )
 
@@ -108,6 +110,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
     missing_bounty_references: list[dict[str, Any]] = []
     dirty_or_unstable_merge_state: list[dict[str, Any]] = []
     needs_info: list[dict[str, Any]] = []
+    drafts: list[dict[str, Any]] = []
     duplicate_groups: dict[tuple[int, str], list[int]] = defaultdict(list)
 
     for pr in normalized_prs:
@@ -144,6 +147,8 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             )
         if any(label.lower() == "mrwk:needs-info" for label in pr["labels"]):
             needs_info.append(_issue(pr, "mrwk_needs_info", "PR has mrwk:needs-info label"))
+        if pr["is_draft"] or DRAFT_TITLE_RE.search(pr["title"]):
+            drafts.append(_issue(pr, "draft_pull_request", "PR is still marked as draft"))
 
     duplicate_scope_groups = [
         {"bounty": bounty, "scope": scope, "pull_requests": sorted(numbers)}
@@ -162,12 +167,14 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             "missing_bounty_references": len(missing_bounty_references),
             "dirty_or_unstable_merge_state": len(dirty_or_unstable_merge_state),
             "needs_info": len(needs_info),
+            "drafts": len(drafts),
             "duplicate_scope_groups": len(duplicate_scope_groups),
         },
         "closed_bounty_references": closed_bounty_references,
         "missing_bounty_references": missing_bounty_references,
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
         "needs_info": needs_info,
+        "drafts": drafts,
         "duplicate_scope_groups": duplicate_scope_groups,
     }
     return report
@@ -181,6 +188,7 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
             "missing_bounty_references",
             "dirty_or_unstable_merge_state",
             "needs_info",
+            "drafts",
             "duplicate_scope_groups",
         )
     )
@@ -199,6 +207,8 @@ def format_text_report(report: dict[str, Any]) -> str:
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
+        ("Draft pull requests", "drafts"),
+        ("Draft pull requests", "drafts"),
     ]
     for title, key in sections:
         if report[key]:
@@ -241,6 +251,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
+        ("Draft pull requests", "drafts"),
     ]
     for title, key in sections:
         if report[key]:
@@ -294,7 +305,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             "--limit",
             str(GH_PR_SAFETY_CAP),
             "--json",
-            "number,title,url,body,labels,mergeStateStatus",
+            "number,title,url,body,labels,mergeStateStatus,isDraft",
         ]
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
