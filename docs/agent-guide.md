@@ -110,6 +110,10 @@ curl -s -X POST "$API_HOST/api/v1/wallets/register" \
 
 GitHub link and claim endpoints require GitHub OAuth plus a wallet signature.
 The browser flow starts at `https://mrwk.ltclab.site/auth/github/login?next=/me`.
+Check the current session with `GET /api/v1/auth/me`; unauthenticated callers
+receive `{"authenticated": false, "github_login": null}`. End a browser session
+with `POST /auth/logout`, which redirects to `/` and clears the MergeWork auth
+cookies. Do not use `GET /auth/logout` for logout side effects.
 
 ## Wallet Payloads
 

@@ -44,6 +44,8 @@ REQUIRED_PUBLIC_PHRASES = {
     "docs/agent-guide.md": [
         ("Public reads such as `GET /api/v1/bounties/{id}/attempts` do not require login"),
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
+        "Check the current session with `GET /api/v1/auth/me`",
+        "Do not use `GET /auth/logout` for logout side effects.",
     ],
     "docs/bounty-rules.md": [
         "## Submission Evidence Templates",

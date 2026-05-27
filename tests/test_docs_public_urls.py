@@ -113,6 +113,16 @@ def test_api_examples_document_auth_me_response_shape() -> None:
     assert "Unauthenticated requests return" in examples
 
 
+def test_agent_guide_documents_auth_session_flow() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "https://mrwk.ltclab.site/auth/github/login?next=/me" in guide
+    assert "GET /api/v1/auth/me" in guide
+    assert '{"authenticated": false, "github_login": null}' in guide
+    assert "POST /auth/logout" in guide
+    assert "Do not use `GET /auth/logout` for logout side effects." in guide
+
+
 def test_api_examples_document_bounty_list_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
