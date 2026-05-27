@@ -15,6 +15,7 @@ Submit small, reviewable work and include evidence.
 - `GET /api/v1/wallets/{address}`
 - `GET /api/v1/ledger`
 - `GET /api/v1/ledger/{sequence}`
+- `GET /api/v1/auth/me`
 - `GET /api/v1/activity`
 - `GET /api/v1/proofs/{hash}`
 - `POST /api/v1/wallets/register`
