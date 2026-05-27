@@ -526,6 +526,8 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Generate wallet" in wallets
     assert "Private key stays in this browser" in wallets
     assert "If you lose the private key" in wallets
+    assert 'id="wallet-limit" name="limit"' in wallets
+    assert '<option value="100" selected>100</option>' in wallets
     assert (
         'id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off"'
         in wallets
@@ -541,6 +543,24 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
+
+
+def test_wallets_page_honors_limit_filter(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    for index in range(3):
+        _, public_hex, _ = _keypair()
+        _register_wallet(client, public_hex, f"Limit wallet {index}")
+
+    limited = client.get("/wallets?limit=1")
+    assert limited.status_code == 200
+    limited_html = limited.text
+    assert '<option value="1" selected>1</option>' in limited_html
+    assert limited_html.count("<tr>") == 2
+    assert sum(f"Limit wallet {index}" in limited_html for index in range(3)) == 1
+
+    rejected = client.get("/wallets?limit=0")
+    assert rejected.status_code == 422
 
 
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:

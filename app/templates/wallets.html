@@ -29,6 +29,15 @@
     <h2>Registered wallets</h2>
     <p>Public addresses known to this ledger.</p>
   </div>
+  <form method="get" action="/wallets" aria-label="Registered wallet rows">
+    <label for="wallet-limit">Rows</label>
+    <select id="wallet-limit" name="limit">
+      {% for option in limit_options %}
+      <option value="{{ option }}"{% if selected_limit == option %} selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Apply</button>
+  </form>
   <table>
     <thead><tr><th>Address</th><th>Label</th><th>Balance</th><th>GitHub</th><th>Signed actions</th></tr></thead>
     <tbody>

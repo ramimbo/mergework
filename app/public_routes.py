@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -37,9 +37,16 @@ def public_bounties_context(
     }
 
 
-def wallets_page_context(session: Session) -> dict[str, Any]:
-    wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(100)).all()
-    return {"wallets": [wallet_to_dict(session, wallet) for wallet in wallets]}
+def wallets_page_context(session: Session, limit: int = 100) -> dict[str, Any]:
+    wallets = session.scalars(select(Wallet).order_by(Wallet.created_at.desc()).limit(limit)).all()
+    limit_options = [25, 50, 100, 200]
+    if limit not in limit_options:
+        limit_options = sorted([*limit_options, limit])
+    return {
+        "wallets": [wallet_to_dict(session, wallet) for wallet in wallets],
+        "selected_limit": limit,
+        "limit_options": limit_options,
+    }
 
 
 def wallet_page_context(session: Session, address: str) -> dict[str, Any]:
@@ -95,9 +102,12 @@ def register_public_routes(
         )
 
     @app.get("/wallets", response_class=HTMLResponse)
-    def wallets_page(request: Request) -> HTMLResponse:
+    def wallets_page(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    ) -> HTMLResponse:
         with session_scope(db_url) as session:
-            context = wallets_page_context(session)
+            context = wallets_page_context(session, limit)
         return templates.TemplateResponse(request, "wallets.html", context)
 
     @app.get("/wallets/{address}", response_class=HTMLResponse)
