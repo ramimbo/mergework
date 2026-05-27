@@ -57,6 +57,7 @@ REQUIRED_PUBLIC_PHRASES = {
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
+BOUNTY_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/bounty.yml"
 
 
 def _local_target_exists(source: Path, target: str) -> bool:
@@ -92,6 +93,26 @@ def main() -> int:
         for link in LINK_RE.findall(text):
             if not _local_target_exists(path, link):
                 print(f"broken local link in {relative}: {link}")
+                ok = False
+
+    bounty_issue_template = ROOT / BOUNTY_ISSUE_TEMPLATE
+    if not bounty_issue_template.exists():
+        print(f"missing bounty issue template: {BOUNTY_ISSUE_TEMPLATE}")
+        ok = False
+    else:
+        bounty_template = bounty_issue_template.read_text(encoding="utf-8")
+        bounty_required_phrases = [
+            "MRWK bounty: <amount> MRWK - <short scope>",
+            "agent-friendly bounty post template",
+            "How To Submit",
+            "Evidence Required",
+            "Out of Scope",
+            "Duplicate and Stale Work Rules",
+        ]
+        squashed_bounty_template = _squash(bounty_template)
+        for phrase in bounty_required_phrases:
+            if _squash(phrase) not in squashed_bounty_template:
+                print(f"bounty issue template missing required phrase: {phrase}")
                 ok = False
     docs_issue_template = ROOT / DOCS_ISSUE_TEMPLATE
     if not docs_issue_template.exists():

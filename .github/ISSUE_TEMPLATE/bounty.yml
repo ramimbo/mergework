@@ -1,33 +1,79 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
-  - type: textarea
-    id: work
+  - type: markdown
     attributes:
-      label: Work needed
-      description: Describe the useful accepted work.
-    validations:
-      required: true
+      value: |
+        Use the agent-friendly bounty post template from docs/bounty-rules.md.
+        Keep the public text factual; do not claim fiat value, exchange support,
+        bridge availability, acceptance, or payment until public proof exists.
   - type: input
     id: reward
     attributes:
-      label: Proposed MRWK per award
-      placeholder: "250"
+      label: Reward
+      description: MRWK per accepted award. Repeat this in the issue body as `Reward: <amount> MRWK per accepted award`.
+      placeholder: "250 MRWK per accepted award"
     validations:
       required: true
   - type: input
     id: max_awards
     attributes:
       label: Max awards
+      description: Number of separate payouts allowed. Repeat this in the issue body as `Max awards: <number>`.
       placeholder: "1"
+    validations:
+      required: true
+  - type: textarea
+    id: work
+    attributes:
+      label: Work Needed
+      description: Name the files, pages, commands, APIs, or behavior to change or verify.
+      placeholder: "Concrete, reviewable scope only."
     validations:
       required: true
   - type: textarea
     id: acceptance
     attributes:
-      label: Acceptance criteria
-      description: Explain what must be true before mrwk:accepted is applied.
+      label: Acceptance Criteria
+      description: Objective conditions maintainers can verify before applying mrwk:accepted.
+      placeholder: |
+        - Focused PR or comment references this bounty.
+        - Evidence/test output is included.
+        - Public wording stays factual.
+    validations:
+      required: true
+  - type: textarea
+    id: how_to_submit
+    attributes:
+      label: How To Submit
+      description: Tell contributors exactly how to submit the work.
+      placeholder: |
+        Open a focused PR or comment with Summary, Linked bounty, Changed files or checked surface, Evidence and test output, and Out-of-scope notes.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence_required
+    attributes:
+      label: Evidence Required
+      description: Exact commands, screenshots, links, fixtures, or review notes required for reproduction.
+      placeholder: "Command output, screenshots, links, fixtures, or review notes."
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+      description: List speculative, unrelated, private, security-sensitive, tokenomics, price, liquidity, exchange, bridge, or broad rewrite work that will not qualify.
+      placeholder: "No tokenomics/price claims, exchange/bridge claims, private data, unrelated rewrites, or unfocused submissions."
+    validations:
+      required: true
+  - type: textarea
+    id: duplicate_stale_rules
+    attributes:
+      label: Duplicate and Stale Work Rules
+      description: Explain duplicate and stale submission handling.
+      placeholder: "Duplicate submissions do not qualify unless they add distinct accepted evidence or a maintainer asks for another award slot."
     validations:
       required: true
