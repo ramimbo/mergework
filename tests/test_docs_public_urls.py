@@ -333,7 +333,11 @@ def test_api_examples_document_activity_response_shape() -> None:
 def test_api_examples_document_accepted_work_bounty_context() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
-    assert "/api/v1/accounts/github:carpedkm/accepted-work" in examples
+    assert "/api/v1/accounts/github:carpedkm/accepted-work?limit=25" in examples
+    assert "Use `limit` from `1` to" in examples
+    assert "`200` to cap returned `accepted_work` rows" in examples
+    assert "The `summary`" in examples
+    assert "object remains the full-account accepted-work total" in examples
     assert '"bounty_id": 67' in examples
     assert '"bounty_url": "/bounties/67"' in examples
     assert "internal bounty id and public bounty URL" in examples

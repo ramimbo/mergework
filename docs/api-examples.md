@@ -315,13 +315,16 @@ for registered `mrwk1` addresses.
 Read the proof-backed accepted-work list for a single account:
 
 ```bash
-curl -s "$API_HOST/api/v1/accounts/github:carpedkm/accepted-work"
+curl -s "$API_HOST/api/v1/accounts/github:carpedkm/accepted-work?limit=25"
 ```
 
 The response includes the account summary plus the same accepted-work rows used
 by the public account page, so agents can inspect recent proof, ledger,
 submission, source issue, internal bounty id and public bounty URL, and
-maintainer acceptance details without scraping HTML:
+maintainer acceptance details without scraping HTML. Use `limit` from `1` to
+`200` to cap returned `accepted_work` rows; the default is `100`. The `summary`
+object remains the full-account accepted-work total even when the row list is
+limited:
 
 ```json
 {
