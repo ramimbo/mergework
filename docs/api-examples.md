@@ -312,6 +312,30 @@ For `treasury:` and `reserve:` accounts, `github_login` is `null` and
 `transfer_status` explains that direct MRWK wallet transfers are only available
 for registered `mrwk1` addresses.
 
+Valid account identifiers that have no ledger rows still return HTTP 200 with
+`exists: false`, zero balances, and empty accepted-work fields. The public HTML
+account page mirrors that empty state with "no ledger activity" and no
+transactions:
+
+```json
+{
+  "account": "github:mw-smoke-no-ledger-20260527",
+  "ledger_address": "github:mw-smoke-no-ledger-20260527",
+  "github_login": "mw-smoke-no-ledger-20260527",
+  "exists": false,
+  "balance_mrwk": "0",
+  "transfer_status": "Claim GitHub balances from /me after linking a registered mrwk1 wallet.",
+  "accepted_work": {
+    "accepted_awards": 0,
+    "accepted_mrwk": "0",
+    "latest_ledger_sequence": null,
+    "latest_submission_url": null,
+    "latest_proof_hash": null,
+    "latest_proof_url": null
+  }
+}
+```
+
 Read the proof-backed accepted-work list for a single account:
 
 ```bash

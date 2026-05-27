@@ -82,6 +82,10 @@ def test_api_examples_document_account_response_shape() -> None:
     assert '"github_login": "tatelyman"' in examples
     assert '"exists": true' in examples
     assert '"balance_mrwk": "395"' in examples
+    assert '"account": "github:mw-smoke-no-ledger-20260527"' in examples
+    assert '"exists": false' in examples
+    assert '"accepted_awards": 0' in examples
+    assert "no ledger activity" in examples
     assert "Claim GitHub balances from /me" in examples
     assert "treasury:" in examples
     assert "registered `mrwk1` addresses" in examples
