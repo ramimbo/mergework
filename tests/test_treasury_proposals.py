@@ -380,6 +380,36 @@ def test_manual_payout_rejects_missing_bounty_before_proposal_creation(
         assert session.scalar(select(func.count(TreasuryProposal.id))) == 0
 
 
+@pytest.mark.parametrize("action", ["pay_bounty", "close_bounty"])
+def test_direct_pay_and_close_proposals_reject_oversized_bounty_id(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, action: str
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    payload: dict[str, object] = {
+        "bounty_id": 2**63,
+        "closed_by": "maintainer",
+        "reference": "https://github.com/ramimbo/mergework/issues/1#close",
+    }
+    if action == "pay_bounty":
+        payload = {
+            "bounty_id": 2**63,
+            "to_account": "github:bob",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/1",
+            "accepted_by": "maintainer",
+        }
+
+    response = client.post(
+        "/api/v1/treasury/proposals",
+        headers=ADMIN_HEADERS,
+        json={"action": action, "payload": payload},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "bounty id is too large"
+    with session_scope(sqlite_url) as session:
+        assert session.scalar(select(func.count(TreasuryProposal.id))) == 0
+
+
 def test_manual_payout_rejects_existing_unpaid_submission_before_proposal_creation(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

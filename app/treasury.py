@@ -34,6 +34,7 @@ from app.models import (
     TreasuryProposal,
     utc_now,
 )
+from app.path_params import SQLITE_INTEGER_MAX
 from app.serializers import bounty_to_dict
 
 TREASURY_PROPOSAL_DELAY = timedelta(hours=24)
@@ -135,6 +136,8 @@ def _canonical_payload(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         bounty_id = _payload_int(_required_payload_value(payload, "bounty_id"), "bounty_id")
         if bounty_id <= 0:
             raise LedgerError("bounty id must be positive")
+        if bounty_id > SQLITE_INTEGER_MAX:
+            raise LedgerError("bounty id is too large")
         clean: dict[str, Any] = {
             "bounty_id": bounty_id,
             "to_account": _clean_string(
@@ -159,6 +162,8 @@ def _canonical_payload(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         bounty_id = _payload_int(_required_payload_value(payload, "bounty_id"), "bounty_id")
         if bounty_id <= 0:
             raise LedgerError("bounty id must be positive")
+        if bounty_id > SQLITE_INTEGER_MAX:
+            raise LedgerError("bounty id is too large")
         reference = _optional_string(payload.get("reference"), "reference", 500)
         clean = {
             "bounty_id": bounty_id,
