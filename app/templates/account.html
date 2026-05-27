@@ -18,8 +18,8 @@
   </dl>
   <div class="actions" aria-label="Account shortcuts">
     <a href="/activity?q={{ account.account | urlencode }}">Search activity</a>
-    <a href="/api/v1/accounts/{{ account.account }}/accepted-work">Accepted-work JSON</a>
-    <a href="/api/v1/accounts/{{ account.account }}">Account JSON</a>
+    <a href="/api/v1/accounts/{{ account.account | urlencode }}/accepted-work">Accepted-work JSON</a>
+    <a href="/api/v1/accounts/{{ account.account | urlencode }}">Account JSON</a>
   </div>
 </section>
 

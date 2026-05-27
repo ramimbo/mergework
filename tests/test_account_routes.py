@@ -87,9 +87,22 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert "github:bob" in page_response.text
     assert "25 MRWK" in page_response.text
     assert 'href="/activity?q=github%3Abob"' in page_response.text
-    assert 'href="/api/v1/accounts/github:bob/accepted-work"' in page_response.text
-    assert 'href="/api/v1/accounts/github:bob"' in page_response.text
+    assert 'href="/api/v1/accounts/github%3Abob/accepted-work"' in page_response.text
+    assert 'href="/api/v1/accounts/github%3Abob"' in page_response.text
     assert f'href="/proofs/{proof.hash}"' in page_response.text
+
+
+def test_account_shortcuts_urlencode_account_path_segments(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page_response = client.get("/accounts/foo%23bar")
+
+    assert page_response.status_code == 200
+    assert 'href="/activity?q=foo%23bar"' in page_response.text
+    assert 'href="/api/v1/accounts/foo%23bar/accepted-work"' in page_response.text
+    assert 'href="/api/v1/accounts/foo%23bar"' in page_response.text
+    assert 'href="/api/v1/accounts/foo#bar/accepted-work"' not in page_response.text
 
 
 def test_normalized_account_keeps_existing_account_validation_boundaries() -> None:
