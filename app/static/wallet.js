@@ -16,6 +16,12 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+function asciiJson(value) {
+  return JSON.stringify(value).replace(/[\u0080-\uFFFF]/g, (char) => {
+    return `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  });
+}
+
 function stableJson(value) {
   if (Array.isArray(value)) {
     return `[${value.map(stableJson).join(",")}]`;
@@ -23,10 +29,10 @@ function stableJson(value) {
   if (value && typeof value === "object") {
     return `{${Object.keys(value)
       .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .map((key) => `${asciiJson(key)}:${stableJson(value[key])}`)
       .join(",")}}`;
   }
-  return JSON.stringify(value);
+  return asciiJson(value);
 }
 
 async function sha256Hex(bytes) {

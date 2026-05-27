@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -616,6 +619,42 @@ def test_github_wallet_actions_clear_private_key_after_submit_attempt() -> None:
         idx_clear_private_key,
     }
     assert idx_set_result < idx_refresh_nonce < idx_set_error < idx_finally < idx_clear_private_key
+
+
+def test_wallet_js_canonicalizes_unicode_like_server() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required to execute wallet.js canonicalization")
+    wallet_js = Path("app/static/wallet.js").read_text(encoding="utf-8")
+    payload = {
+        "type": "mrwk_transfer_v1",
+        "from_address": "mrwk1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "to_address": "mrwk1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "amount_microunits": 1_500_000,
+        "nonce": 7,
+        "memo": "café 😀",
+    }
+    node_script = f"""
+const vm = require("vm");
+const context = {{
+  console,
+  TextEncoder,
+  Uint8Array,
+  crypto: {{subtle: {{}}}},
+  document: {{querySelector: () => null, getElementById: () => null}},
+}};
+vm.createContext(context);
+vm.runInContext({json.dumps(wallet_js)}, context);
+console.log(vm.runInContext(`stableJson({json.dumps(payload)})`, context));
+"""
+    result = subprocess.run(
+        [node, "-e", node_script],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == canonical_wallet_json(payload)
 
 
 def test_reject_self_transfer(sqlite_url: str) -> None:
