@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -546,9 +547,12 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Wallets shown" in wallets
     assert "Linked GitHub wallets" in wallets
     assert "Displayed wallet balance" in wallets
-    assert "3</strong>" in wallets
-    assert "1</strong>" in wallets
-    assert "12.5 MRWK</strong>" in wallets
+    assert re.search(r"<span>Wallets shown</span>\s*<strong>3</strong>", wallets)
+    assert re.search(r"<span>Linked GitHub wallets</span>\s*<strong>1</strong>", wallets)
+    assert re.search(
+        r"<span>Displayed wallet balance</span>\s*<strong>12\.5 MRWK</strong>",
+        wallets,
+    )
     assert (
         'id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off"'
         in wallets
