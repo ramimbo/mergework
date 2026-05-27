@@ -1899,6 +1899,7 @@ def test_ledger_page_exposes_limit_controls(sqlite_url: str) -> None:
     assert 'href="/ledger/31"' in page.text
     assert 'href="/ledger/6"' not in page.text
     assert client.get("/ledger?limit=0").status_code == 422
+    assert client.get("/ledger?limit=201").status_code == 422
 
     custom_limit_page = client.get("/ledger?limit=10").text
     assert '<option value="10" selected>10</option>' in custom_limit_page

@@ -120,6 +120,9 @@ code.hash { overflow-wrap: anywhere; }
   font: inherit;
   padding: 7px 10px;
 }
+.ledger-toolbar button {
+  width: auto;
+}
 .ledger-toolbar a {
   border: 1px solid var(--line);
   border-radius: 6px;
