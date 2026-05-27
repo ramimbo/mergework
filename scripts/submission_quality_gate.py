@@ -11,7 +11,16 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
+BOUNTY_REF_RE = re.compile(
+    rf"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+){ISSUE_NUMBER_BOUNDARY}",
+    re.IGNORECASE,
+)
+GITHUB_ISSUE_URL_RE = re.compile(
+    rf"https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/"
+    rf"(?P<number>\d+){ISSUE_NUMBER_BOUNDARY}",
+    re.IGNORECASE,
+)
 EVIDENCE_RE = re.compile(
     r"\b(pytest|ruff|mypy|validation|verified|test evidence|checks? passed)\b",
     re.IGNORECASE,
@@ -27,11 +36,20 @@ def _check(name: str, status: str, message: str) -> dict[str, str]:
     return {"name": name, "status": status, "message": message}
 
 
-def _bounty_refs(text: str) -> list[int]:
+def _bounty_refs(text: str, repo: str | None = None) -> list[int]:
     refs: list[int] = []
     seen: set[int] = set()
     for match in BOUNTY_REF_RE.findall(text):
         ref = int(match)
+        if ref in seen:
+            continue
+        seen.add(ref)
+        refs.append(ref)
+    normalized_repo = repo.lower() if repo else None
+    for match in GITHUB_ISSUE_URL_RE.finditer(text):
+        if normalized_repo is not None and match.group("repo").lower() != normalized_repo:
+            continue
+        ref = int(match.group("number"))
         if ref in seen:
             continue
         seen.add(ref)
@@ -174,13 +192,16 @@ def _has_evidence(text: str) -> bool:
     return False
 
 
-def _matching_pr_bounty_refs(pr: dict[str, Any]) -> list[int]:
+def _matching_pr_bounty_refs(pr: dict[str, Any], repo: str | None = None) -> list[int]:
     text = "\n".join(str(pr.get(key) or "") for key in ("title", "body"))
-    return _bounty_refs(text)
+    return _bounty_refs(text, repo)
 
 
 def _similar_open_prs(
-    pull_requests: list[dict[str, Any]], bounty_ref: int | None, submission_title: str
+    pull_requests: list[dict[str, Any]],
+    bounty_ref: int | None,
+    submission_title: str,
+    repo: str | None = None,
 ) -> list[dict[str, Any]]:
     if bounty_ref is None or not submission_title:
         return []
@@ -188,7 +209,7 @@ def _similar_open_prs(
     for pr in pull_requests:
         if str(pr.get("state") or "OPEN").lower() not in {"open", "opened"}:
             continue
-        if bounty_ref not in _matching_pr_bounty_refs(pr):
+        if bounty_ref not in _matching_pr_bounty_refs(pr, repo):
             continue
         title = str(pr.get("title") or "")
         if _similarity(submission_title, title) < 0.78:
@@ -205,6 +226,8 @@ def _similar_open_prs(
 
 def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
     text = str(data.get("submission_text") or "")
+    repo = data.get("repo")
+    repo = repo if isinstance(repo, str) and repo else None
     now = _current_time(data)
     bounties = {
         int(item["number"]): item
@@ -213,14 +236,15 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
     }
     pull_requests = [item for item in data.get("pull_requests", []) if isinstance(item, dict)]
     checks: list[dict[str, str]] = []
-    refs = _bounty_refs(text)
+    refs = _bounty_refs(text, repo)
     bounty_ref = refs[0] if refs else None
     if bounty_ref is None:
         checks.append(
             _check(
                 "bounty_reference",
                 "fail",
-                "submission text must include Bounty #<issue>, Refs #<issue>, or /claim #<issue>",
+                "submission text must include Bounty #<issue>, Refs #<issue>, "
+                "/claim #<issue>, or a GitHub issue URL",
             )
         )
     else:
@@ -312,7 +336,7 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
             )
         )
 
-    similar = _similar_open_prs(pull_requests, bounty_ref, _title_from_submission(text))
+    similar = _similar_open_prs(pull_requests, bounty_ref, _title_from_submission(text), repo)
     if similar:
         checks.append(
             _check(
@@ -497,7 +521,7 @@ def _load_live_context(
     except RuntimeError as exc:
         api_bounties = {}
         load_warnings.append(str(exc))
-    referenced_bounties = set(_bounty_refs(submission_text))
+    referenced_bounties = set(_bounty_refs(submission_text, repo))
     bounties = []
     for issue in issues:
         if "bounty" not in str(issue.get("title", "")).lower():
@@ -542,7 +566,12 @@ def _load_live_context(
                     f"active attempts unavailable for bounty #{issue['number']}: "
                     "MergeWork API bounty id unavailable for attempts lookup"
                 )
-    data = {"submission_text": submission_text, "bounties": bounties, "pull_requests": prs}
+    data = {
+        "repo": repo,
+        "submission_text": submission_text,
+        "bounties": bounties,
+        "pull_requests": prs,
+    }
     if load_warnings:
         data["load_warning"] = "; ".join(load_warnings)
     return data

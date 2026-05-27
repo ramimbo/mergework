@@ -8,7 +8,16 @@ import sys
 from collections import defaultdict
 from typing import Any
 
-BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
+BOUNTY_REF_RE = re.compile(
+    rf"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+){ISSUE_NUMBER_BOUNDARY}",
+    re.IGNORECASE,
+)
+GITHUB_ISSUE_URL_RE = re.compile(
+    rf"https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/"
+    rf"(?P<number>\d+){ISSUE_NUMBER_BOUNDARY}",
+    re.IGNORECASE,
+)
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30
@@ -44,18 +53,24 @@ def _scope_key(raw: dict[str, Any]) -> str:
     return " ".join(title.lower().split())
 
 
-def _bounty_refs(raw: dict[str, Any]) -> list[int]:
+def _bounty_refs(raw: dict[str, Any], repo: str | None = None) -> list[int]:
     explicit = raw.get("bounty_refs")
     if isinstance(explicit, list):
-        refs = [item for item in explicit if isinstance(item, int)]
-        if refs:
-            return sorted(set(refs))
+        explicit_refs = [item for item in explicit if isinstance(item, int)]
+        if explicit_refs:
+            return sorted(set(explicit_refs))
     text = "\n".join(
         str(raw.get(key) or "")
         for key in ("title", "body", "description")
         if raw.get(key) is not None
     )
-    return sorted({int(match) for match in BOUNTY_REF_RE.findall(text)})
+    refs: set[int] = {int(match) for match in BOUNTY_REF_RE.findall(text)}
+    normalized_repo = repo.lower() if repo else None
+    for match in GITHUB_ISSUE_URL_RE.finditer(text):
+        if normalized_repo is not None and match.group("repo").lower() != normalized_repo:
+            continue
+        refs.add(int(match.group("number")))
+    return sorted(refs)
 
 
 def _is_open_bounty(raw: dict[str, Any]) -> bool:
@@ -82,6 +97,8 @@ def _issue(pr: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
 
 
 def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
+    repo = data.get("repo")
+    repo = repo if isinstance(repo, str) and repo else None
     bounties = {
         int(item["number"]): item
         for item in data.get("bounties", [])
@@ -97,7 +114,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 "number": int(pr["number"]),
                 "title": str(pr.get("title") or ""),
                 "url": pr.get("url"),
-                "refs": _bounty_refs(pr),
+                "refs": _bounty_refs(pr, repo),
                 "labels": _labels(pr),
                 "merge_state": _merge_state(pr),
                 "scope": _scope_key(pr),
@@ -116,7 +133,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 _issue(
                     pr,
                     "missing_bounty_reference",
-                    "No Bounty #<issue>, Refs #<issue>, or /claim #<issue> found",
+                    "No Bounty #<issue>, Refs #<issue>, /claim #<issue>, or GitHub issue URL found",
                 )
             )
         for ref in pr["refs"]:
@@ -332,7 +349,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
         for issue in issues
         if "bounty" in str(issue.get("title", "")).lower()
     ]
-    return {"pull_requests": prs, "bounties": bounty_issues}
+    return {"repo": repo, "pull_requests": prs, "bounties": bounty_issues}
 
 
 def _load_input(path: str) -> dict[str, Any]:

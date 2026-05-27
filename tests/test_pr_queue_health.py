@@ -127,6 +127,34 @@ def test_pr_queue_health_accepts_claim_command_reference() -> None:
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_accepts_full_github_issue_url_reference() -> None:
+    report = analyze_queue(
+        {
+            "repo": "ramimbo/mergework",
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Harden bounty submission checks",
+                    "body": "https://github.com/ramimbo/mergework/issues/310",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 9,
+                    "title": "Foreign issue URL should not count",
+                    "body": "https://github.com/other/project/issues/310",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 1
+    assert report["missing_bounty_references"][0]["pull_request"] == 9
+
+
 def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     report = analyze_queue(
         {
@@ -183,7 +211,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "### Missing bounty references" in markdown
     assert (
         "- [PR #2](https://github.com/ramimbo/mergework/pull/2): "
-        "Improve bounty filters (No Bounty #<issue>, Refs #<issue>, or /claim #<issue> found)"
+        "Improve bounty filters (No Bounty #<issue>, Refs #<issue>, /claim #<issue>, "
+        "or GitHub issue URL found)"
     ) in markdown
     assert "### Dirty or unstable merge state" in markdown
     assert "Merge state is dirty" in markdown

@@ -66,6 +66,66 @@ def test_submission_quality_gate_accepts_claim_command_reference() -> None:
     } in result["checks"]
 
 
+def test_submission_quality_gate_accepts_full_github_issue_url_reference() -> None:
+    result = evaluate_submission(
+        {
+            "repo": "ramimbo/mergework",
+            "submission_text": """
+            Summary:
+            Harden the bounty submission checks.
+
+            https://github.com/ramimbo/mergework/issues/319
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 12,
+                    "title": "Harden the bounty submission checks",
+                    "body": "https://github.com/ramimbo/mergework/issues/319",
+                    "state": "OPEN",
+                    "url": "https://github.com/ramimbo/mergework/pull/12",
+                }
+            ],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert result["bounty_reference"] == 319
+    assert result["similar_open_prs"] == [
+        {
+            "number": 12,
+            "title": "Harden the bounty submission checks",
+            "url": "https://github.com/ramimbo/mergework/pull/12",
+        }
+    ]
+    assert {
+        "name": "bounty_reference",
+        "status": "pass",
+        "message": "found bounty reference #319",
+    } in result["checks"]
+
+
+def test_submission_quality_gate_ignores_foreign_full_github_issue_url_reference() -> None:
+    result = evaluate_submission(
+        {
+            "repo": "ramimbo/mergework",
+            "submission_text": (
+                "Summary: add validation\n\n"
+                "https://github.com/other/project/issues/319\n\n"
+                "Validation: pytest passed"
+            ),
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert result["bounty_reference"] is None
+
+
 def test_submission_quality_gate_fails_missing_reference() -> None:
     result = evaluate_submission(
         {
@@ -80,7 +140,8 @@ def test_submission_quality_gate_fails_missing_reference() -> None:
         "name": "bounty_reference",
         "status": "fail",
         "message": (
-            "submission text must include Bounty #<issue>, Refs #<issue>, or /claim #<issue>"
+            "submission text must include Bounty #<issue>, Refs #<issue>, "
+            "/claim #<issue>, or a GitHub issue URL"
         ),
     }
 
