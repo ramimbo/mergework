@@ -11,6 +11,19 @@
   "wallet_transfer": "Wallet transfer",
   "genesis": "Genesis"
 } %}
+<section class="ledger-toolbar" aria-label="Ledger controls">
+  <p>Showing latest {{ entries | length }} ledger entries.</p>
+  <form method="get" action="/ledger">
+    <label for="ledger-limit">Rows</label>
+    <select id="ledger-limit" name="limit">
+      {% for option in ledger_limit_options %}
+      <option value="{{ option }}"{% if option == ledger_limit %} selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Update</button>
+    <a href="/api/v1/ledger?limit={{ ledger_limit }}">JSON</a>
+  </form>
+</section>
 <div class="ledger-list">
   {% for entry in entries %}
   {% set type_class = entry.type | replace("_", "-") %}

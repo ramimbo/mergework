@@ -7,7 +7,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
-from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
+from app.ledger.service import (
+    add_ledger_entry,
+    close_bounty,
+    create_bounty,
+    ensure_genesis,
+    pay_bounty,
+)
 from app.main import create_app
 from app.models import BountyAttempt, Proof
 
@@ -1865,6 +1871,37 @@ def test_ledger_page_uses_wrapping_entry_cards(sqlite_url: str) -> None:
     assert 'class="ledger-card-grid"' in ledger
     assert 'class="ledger-field ledger-field--reference reference-cell"' in ledger
     assert 'class="table-scroll ledger-table-wrap"' not in ledger
+
+
+def test_ledger_page_exposes_limit_controls(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for index in range(30):
+            add_ledger_entry(
+                session,
+                entry_type="manual_adjustment",
+                from_account="treasury:mrwk",
+                to_account=f"github:contributor-{index}",
+                amount_microunits=0,
+                reference=f"manual:ledger-limit-{index}",
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/ledger?limit=25")
+
+    assert page.status_code == 200
+    assert "Showing latest 25 ledger entries." in page.text
+    assert 'name="limit"' in page.text
+    assert '<option value="25" selected>25</option>' in page.text
+    assert 'href="/api/v1/ledger?limit=25"' in page.text
+    assert 'href="/ledger/31"' in page.text
+    assert 'href="/ledger/6"' not in page.text
+    assert client.get("/ledger?limit=0").status_code == 422
+
+    custom_limit_page = client.get("/ledger?limit=10").text
+    assert '<option value="10" selected>10</option>' in custom_limit_page
 
 
 def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:

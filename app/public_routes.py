@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -16,6 +16,8 @@ from app.ledger_views import account_ledger_transactions
 from app.models import Wallet
 from app.path_params import proof_hash_from_path
 from app.serializers import bounty_list_summary, wallet_to_dict
+
+LEDGER_LIMIT_OPTIONS = (25, 50, 100, 200)
 
 
 def public_bounties_context(
@@ -34,6 +36,15 @@ def public_bounties_context(
         "query_text": query_text,
         "selected_sort": selected_sort,
         "sort_options": BOUNTY_SORT_LABELS,
+    }
+
+
+def ledger_page_context(entries: list[dict[str, Any]], limit: int) -> dict[str, Any]:
+    limit_options = sorted({*LEDGER_LIMIT_OPTIONS, limit})
+    return {
+        "entries": entries,
+        "ledger_limit": limit,
+        "ledger_limit_options": limit_options,
     }
 
 
@@ -60,7 +71,7 @@ def register_public_routes(
     templates: Jinja2Templates,
     list_bounties_by_status: Callable[[str | None, str | None, str | None], list[dict[str, Any]]],
     api_bounty: Callable[[int], dict[str, Any]],
-    api_ledger: Callable[[], list[dict[str, Any]]],
+    api_ledger: Callable[[int], list[dict[str, Any]]],
     api_ledger_entry: Callable[[int], dict[str, Any]],
     api_proof: Callable[[str], dict[str, Any]],
 ) -> None:
@@ -85,8 +96,15 @@ def register_public_routes(
         )
 
     @app.get("/ledger", response_class=HTMLResponse)
-    def ledger_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "ledger.html", {"entries": api_ledger()})
+    def ledger_page(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "ledger.html",
+            ledger_page_context(api_ledger(limit), limit),
+        )
 
     @app.get("/ledger/{sequence}", response_class=HTMLResponse)
     def ledger_entry_page(request: Request, sequence: int) -> HTMLResponse:
