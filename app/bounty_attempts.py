@@ -97,6 +97,7 @@ def list_bounty_attempts(
     *,
     include_expired: bool = False,
     limit: int | None = None,
+    offset: int = 0,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     now = _as_utc(now or _utc_now())
@@ -104,6 +105,8 @@ def list_bounty_attempts(
     if not include_expired:
         query = query.where(*_active_attempt_conditions(bounty.id, now))
     query = query.order_by(BountyAttempt.created_at.desc(), BountyAttempt.id.desc())
+    if offset:
+        query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
     attempts = session.scalars(query).all()
@@ -148,7 +151,11 @@ def register_bounty_attempt_routes(
         return submitter_account
 
     @app.get("/api/v1/bounties/{bounty_id}/attempts")
-    def api_bounty_attempts(bounty_id: int, include_expired: bool = Query(False)) -> dict[str, Any]:
+    def api_bounty_attempts(
+        bounty_id: int,
+        include_expired: bool = Query(False),
+        offset: int = Query(0, ge=0),
+    ) -> dict[str, Any]:
         bounty_id = positive_bounty_id(bounty_id)
         now = _utc_now()
         with session_scope(db_url) as session:
@@ -156,7 +163,7 @@ def register_bounty_attempt_routes(
             if bounty is None:
                 raise HTTPException(status_code=404, detail="bounty not found")
             listing = list_bounty_attempts(
-                session, bounty, include_expired=include_expired, now=now
+                session, bounty, include_expired=include_expired, offset=offset, now=now
             )
             return {
                 "bounty_id": bounty_id,

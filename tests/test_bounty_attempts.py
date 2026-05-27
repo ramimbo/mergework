@@ -107,6 +107,12 @@ def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, mo
         "github:alice",
     ]
 
+    offset_visible = client.get(f"/api/v1/bounties/{bounty.id}/attempts?offset=1")
+    assert offset_visible.status_code == 200
+    assert [attempt["submitter_account"] for attempt in offset_visible.json()["attempts"]] == [
+        "github:alice"
+    ]
+
     wrong_submitter = client.post(
         f"/api/v1/bounty-attempts/{first_attempt['id']}/release",
         json={"submitter_account": "github:bob"},
