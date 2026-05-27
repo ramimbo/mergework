@@ -275,6 +275,22 @@ def test_api_examples_document_mcp_submit_work_proof_structured_response() -> No
     assert '"id": "confirm_award_slot"' in examples
 
 
+def test_agent_docs_show_mcp_bounty_filter_arguments() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    for text in (guide, examples):
+        assert '"name":"list_bounties"' in text
+        assert '"status":"open"' in text
+        assert '"q":"docs"' in text
+        assert '"limit":2' in text
+        assert "`open`, `paid`, or `closed`" in text
+
+    assert "repository, title, acceptance text" in guide
+    assert "`1` through `100`" in guide
+    assert "GitHub issue-number search" in examples
+
+
 def test_agent_guide_explains_internal_bounty_ids() -> None:
     guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
 

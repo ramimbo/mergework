@@ -475,6 +475,16 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+`list_bounties` also accepts the same agent-facing filters advertised by the
+MCP tool description: `status` (`open`, `paid`, or `closed`), `q` for text or
+GitHub issue-number search, and `limit` from `1` to `100`:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"list_bounties","arguments":{"status":"open","q":"docs","limit":2}}}'
+```
+
 Call `get_bounty` with the internal bounty `id` returned by `list_bounties`,
 not the GitHub issue number:
 

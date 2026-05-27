@@ -179,6 +179,17 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+Use `status`, `q`, and `limit` when narrowing bounty candidates from an agent
+loop. The `status` filter accepts `open`, `paid`, or `closed`; `q` searches
+repository, title, acceptance text, and numeric GitHub issue numbers; `limit`
+accepts `1` through `100` and defaults to `25`:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"list_bounties","arguments":{"status":"open","q":"docs","limit":2}}}'
+```
+
 Inspect active attempt reservations for a bounty before opening overlapping
 work:
 
