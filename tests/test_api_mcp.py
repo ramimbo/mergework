@@ -50,6 +50,44 @@ def test_ledger_api_rejects_out_of_range_limits(sqlite_url: str, limit: str) -> 
     assert response.status_code == 422
 
 
+def test_ledger_api_honors_offset(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        first = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=201,
+            issue_url="https://github.com/ramimbo/mergework/issues/201",
+            title="Older ledger row",
+            reward_mrwk="25",
+            acceptance="Ledger offset should skip newest rows.",
+        )
+        second = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=202,
+            issue_url="https://github.com/ramimbo/mergework/issues/202",
+            title="Newer ledger row",
+            reward_mrwk="25",
+            acceptance="Ledger offset should return later pages.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    newest = client.get("/api/v1/ledger?limit=1")
+    shifted = client.get("/api/v1/ledger?limit=1&offset=1")
+    exhausted = client.get("/api/v1/ledger?limit=1&offset=99")
+    invalid = client.get("/api/v1/ledger?offset=-1")
+
+    assert newest.status_code == 200
+    assert shifted.status_code == 200
+    assert [entry["reference"] for entry in newest.json()] == [second.issue_url]
+    assert [entry["reference"] for entry in shifted.json()] == [first.issue_url]
+    assert exhausted.json() == []
+    assert invalid.status_code == 422
+
+
 def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

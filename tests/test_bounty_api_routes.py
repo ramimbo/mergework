@@ -295,11 +295,18 @@ def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:
 
     limited = client.get("/api/v1/bounties?status=open&limit=2")
     summary = client.get("/api/v1/bounties/summary?status=open&limit=2")
+    shifted = client.get("/api/v1/bounties?status=open&limit=1&offset=1")
+    shifted_summary = client.get("/api/v1/bounties/summary?status=open&limit=1&offset=1")
+    exhausted = client.get("/api/v1/bounties?status=open&limit=2&offset=99")
 
     assert [item["id"] for item in limited.json()] == [third.id, second.id]
+    assert [item["id"] for item in shifted.json()] == [second.id]
     assert summary.json()["bounties_shown"] == 2
     assert summary.json()["open_awards"] == 2
+    assert shifted_summary.json()["bounties_shown"] == 1
+    assert shifted_summary.json()["open_awards"] == 1
     assert first.id not in [item["id"] for item in limited.json()]
+    assert exhausted.json() == []
 
 
 def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
@@ -311,5 +318,7 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
 
     assert client.get("/api/v1/bounties?limit=0").status_code == 422
     assert client.get("/api/v1/bounties?limit=201").status_code == 422
+    assert client.get("/api/v1/bounties?offset=-1").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=0").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=201").status_code == 422
+    assert client.get("/api/v1/bounties/summary?offset=-1").status_code == 422

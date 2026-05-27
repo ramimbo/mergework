@@ -16,6 +16,7 @@ curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
 curl -s "$API_HOST/api/v1/bounties?status=open&sort=available&limit=5"
+curl -s "$API_HOST/api/v1/bounties?status=open&sort=available&limit=5&offset=5"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
 ```
@@ -50,11 +51,12 @@ available slot counts.
 Use `sort` to choose the bounty order: `newest` is the default, `reward` sorts
 by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
 sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
-rows after filtering and sorting.
+rows after filtering and sorting. Use `offset` from `0` upward to skip rows
+after the same filtering and sorting step.
 
 Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
-`limit` filters when an agent only needs capacity totals instead of full bounty
-rows:
+`limit` and `offset` filters when an agent only needs capacity totals instead
+of full bounty rows:
 
 ```json
 {
@@ -179,11 +181,13 @@ Read recent ledger entries and inspect one entry:
 
 ```bash
 curl -s "$API_HOST/api/v1/ledger?limit=10"
+curl -s "$API_HOST/api/v1/ledger?limit=10&offset=10"
 curl -s "$API_HOST/api/v1/ledger/<sequence>"
 ```
 
 Ledger entries use the internal immutable sequence number as the API path key.
-Recent-list and single-entry responses share the same shape:
+Recent-list queries accept `limit` from `1` to `200` and `offset` from `0`
+upward. Recent-list and single-entry responses share the same shape:
 
 ```json
 {

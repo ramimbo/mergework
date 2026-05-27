@@ -91,6 +91,7 @@ def test_api_examples_document_ledger_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
     assert "/api/v1/ledger?limit=10" in examples
+    assert "/api/v1/ledger?limit=10&offset=10" in examples
     assert "/api/v1/ledger/<sequence>" in examples
     assert '"sequence": 329' in examples
     assert '"type": "bounty_reserve"' in examples
@@ -102,6 +103,7 @@ def test_api_examples_document_ledger_response_shape() -> None:
     )
     assert '"proof_hash": null' in examples
     assert "bounty-payment ledger entries" in examples
+    assert "Recent-list queries accept `limit` from `1` to `200`" in examples
 
 
 def test_api_examples_document_auth_me_response_shape() -> None:
@@ -118,6 +120,7 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
 
     assert "/api/v1/bounties?status=open" in examples
     assert "/api/v1/bounties?status=open&sort=available&limit=5" in examples
+    assert "/api/v1/bounties?status=open&sort=available&limit=5&offset=5" in examples
     assert "/api/v1/bounties/summary?status=open&q=proof" in examples
     assert "/api/v1/bounties/summary?status=open&sort=awards&limit=5" in examples
     assert "status` can be omitted or set to" in examples
@@ -126,6 +129,7 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "`available` sorts by the remaining MRWK pool" in examples
     assert "remaining award slots" in examples
     assert "Use `limit` from `1` to `200`" in examples
+    assert "Use `offset` from `0` upward" in examples
     assert '"id": 36' in examples
     assert '"repo": "ramimbo/mergework"' in examples
     assert '"issue_number": 164' in examples
@@ -141,6 +145,7 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "capacity totals" in examples
     assert "full bounty" in examples
     assert "same optional `status`, `q`, `sort`, and" in examples
+    assert "`limit` and `offset` filters" in examples
     assert "Use `id` for the single-bounty API path" in examples
 
 

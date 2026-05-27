@@ -26,9 +26,9 @@ def ledger_entries_to_dicts(
     return [ledger_to_dict(entry, proofs.get(entry.sequence)) for entry in entries]
 
 
-def recent_ledger_entries(session: Session, limit: int) -> list[dict[str, Any]]:
+def recent_ledger_entries(session: Session, limit: int, offset: int = 0) -> list[dict[str, Any]]:
     entries = session.scalars(
-        select(LedgerEntry).order_by(LedgerEntry.sequence.desc()).limit(limit)
+        select(LedgerEntry).order_by(LedgerEntry.sequence.desc()).offset(offset).limit(limit)
     ).all()
     return ledger_entries_to_dicts(session, entries)
 
