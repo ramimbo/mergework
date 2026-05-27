@@ -532,7 +532,7 @@ def _load_live_context(
                 "id": api_bounty.get("id"),
                 "number": issue["number"],
                 "title": issue.get("title"),
-                "state": issue.get("state"),
+                "state": api_bounty.get("state", issue.get("state")),
                 "awards_remaining": awards_remaining,
                 "payability_verified": issue["number"] in api_bounties
                 and awards_remaining is not None,
