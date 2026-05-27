@@ -127,6 +127,38 @@ def test_pr_queue_health_accepts_claim_command_reference() -> None:
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_ignores_native_bounty_ids_when_issue_ref_is_present() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 406, "state": "OPEN", "awards_remaining": 16}],
+            "pull_requests": [
+                {
+                    "number": 524,
+                    "title": "Refs #406: Reject malformed IPv4 public URLs",
+                    "body": (
+                        "Focused #406 small fix. Evidence: live bounty #66 / issue #406 "
+                        "preflight returned status=open."
+                    ),
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 525,
+                    "title": "Guard another #406 edge case",
+                    "body": "MRWK bounty #66 maps to issue #406.",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["closed_bounty_references"] == 0
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["closed_bounty_references"] == []
+    assert report["missing_bounty_references"] == []
+
+
 def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     report = analyze_queue(
         {
@@ -183,7 +215,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "### Missing bounty references" in markdown
     assert (
         "- [PR #2](https://github.com/ramimbo/mergework/pull/2): "
-        "Improve bounty filters (No Bounty #<issue>, Refs #<issue>, or /claim #<issue> found)"
+        "Improve bounty filters "
+        "(No Bounty #<issue>, Issue #<issue>, Refs #<issue>, or /claim #<issue> found)"
     ) in markdown
     assert "### Dirty or unstable merge state" in markdown
     assert "Merge state is dirty" in markdown
