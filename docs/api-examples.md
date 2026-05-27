@@ -117,6 +117,12 @@ Include expired or released attempts when auditing abandoned work:
 curl -s "$API_HOST/api/v1/bounties/<bounty_id>/attempts?include_expired=true"
 ```
 
+Add `limit=1..200` when a client only needs the newest attempt rows:
+
+```bash
+curl -s "$API_HOST/api/v1/bounties/<bounty_id>/attempts?include_expired=true&limit=25"
+```
+
 Register an attempt with a submitter identity, optional source URL, and TTL:
 
 ```bash
