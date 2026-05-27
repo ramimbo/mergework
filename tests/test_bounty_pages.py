@@ -295,6 +295,11 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert "<span>Issue</span>" in response.text
     assert "100 MRWK" in response.text
     assert "What has to be true" in response.text
+    assert "Inspect this bounty" in response.text
+    assert f'href="/api/v1/bounties/{bounty.id}"' in response.text
+    assert f'href="/api/v1/bounties/{bounty.id}/attempts"' in response.text
+    assert f'href="/api/v1/bounties/{bounty.id}/attempts?include_expired=true"' in response.text
+    assert 'href="https://github.com/ramimbo/mergework/issues/4"' in response.text
     assert "Focused PR improves status, reward, issue link, and acceptance text." in response.text
 
     missing_response = client.get("/api/v1/bounties/999")

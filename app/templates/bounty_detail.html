@@ -45,6 +45,19 @@
     <h2 id="acceptance-heading">What has to be true</h2>
     <p>{{ bounty.acceptance }}</p>
   </section>
+
+  <section class="acceptance-card" aria-labelledby="contributor-links-heading">
+    <p class="eyebrow">Contributor links</p>
+    <h2 id="contributor-links-heading">Inspect this bounty</h2>
+    <ul>
+      <li><a href="/api/v1/bounties/{{ bounty.id }}">Bounty JSON</a></li>
+      <li><a href="/api/v1/bounties/{{ bounty.id }}/attempts">Active attempts JSON</a></li>
+      <li><a href="/api/v1/bounties/{{ bounty.id }}/attempts?include_expired=true">All attempts JSON</a></li>
+      {% if issue_url %}
+      <li><a href="{{ issue_url }}">Source issue</a></li>
+      {% endif %}
+    </ul>
+  </section>
 </section>
 
 <section>
