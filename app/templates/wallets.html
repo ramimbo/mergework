@@ -29,6 +29,20 @@
     <h2>Registered wallets</h2>
     <p>Public addresses known to this ledger.</p>
   </div>
+  <section class="bounty-list-summary" aria-label="Wallet list summary">
+    <article>
+      <span>Wallets shown</span>
+      <strong>{{ summary.wallets_shown }}</strong>
+    </article>
+    <article>
+      <span>Linked GitHub wallets</span>
+      <strong>{{ summary.linked_github_wallets }}</strong>
+    </article>
+    <article>
+      <span>Total wallet balance</span>
+      <strong>{{ summary.total_balance_mrwk }} MRWK</strong>
+    </article>
+  </section>
   <table>
     <thead><tr><th>Address</th><th>Label</th><th>Balance</th><th>GitHub</th><th>Signed actions</th></tr></thead>
     <tbody>
