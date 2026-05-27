@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
     "README.md",
@@ -101,13 +103,30 @@ def main() -> int:
         ok = False
     else:
         bounty_template = bounty_issue_template.read_text(encoding="utf-8")
+        try:
+            yaml.safe_load(bounty_template)
+        except yaml.YAMLError as exc:
+            print(f"bounty issue template must parse as YAML: {exc}")
+            ok = False
         bounty_required_phrases = [
             "MRWK bounty: <amount> MRWK - <short scope>",
             "agent-friendly bounty post template",
-            "How To Submit",
-            "Evidence Required",
-            "Out of Scope",
-            "Duplicate and Stale Work Rules",
+            "id: reward",
+            "label: Reward",
+            "id: max_awards",
+            "label: Max awards",
+            "id: work",
+            "label: Work Needed",
+            "id: acceptance",
+            "label: Acceptance Criteria",
+            "id: how_to_submit",
+            "label: How To Submit",
+            "id: evidence_required",
+            "label: Evidence Required",
+            "id: out_of_scope",
+            "label: Out of Scope",
+            "id: duplicate_stale_rules",
+            "label: Duplicate and Stale Work Rules",
         ]
         squashed_bounty_template = _squash(bounty_template)
         for phrase in bounty_required_phrases:

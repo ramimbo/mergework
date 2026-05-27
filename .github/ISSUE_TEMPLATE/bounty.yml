@@ -13,7 +13,7 @@ body:
     id: reward
     attributes:
       label: Reward
-      description: MRWK per accepted award. Repeat this in the issue body as `Reward: <amount> MRWK per accepted award`.
+      description: "MRWK per accepted award. Repeat this in the issue body as `Reward: <amount> MRWK per accepted award`."
       placeholder: "250 MRWK per accepted award"
     validations:
       required: true
@@ -21,7 +21,7 @@ body:
     id: max_awards
     attributes:
       label: Max awards
-      description: Number of separate payouts allowed. Repeat this in the issue body as `Max awards: <number>`.
+      description: "Number of separate payouts allowed. Repeat this in the issue body as `Max awards: <number>`."
       placeholder: "1"
     validations:
       required: true
