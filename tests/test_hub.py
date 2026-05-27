@@ -10,12 +10,17 @@ from app.hub import (
 
 def test_host_without_port_normalizes_host_headers() -> None:
     assert host_without_port("LtcLab.Site:443") == "ltclab.site"
+    assert host_without_port("LtcLab.Site.:443") == "ltclab.site"
     assert host_without_port("www.ltclab.site") == "www.ltclab.site"
+    assert host_without_port("www.ltclab.site.") == "www.ltclab.site"
+    assert host_without_port("[::1]:8000") == "::1"
+    assert host_without_port("::1") == "::1"
     assert host_without_port("") == ""
 
 
 def test_is_ltc_lab_host_matches_root_domain_only() -> None:
     assert is_ltc_lab_host("ltclab.site")
+    assert is_ltc_lab_host("ltclab.site.:443")
     assert is_ltc_lab_host("www.ltclab.site:8443")
     assert not is_ltc_lab_host("mrwk.ltclab.site")
     assert not is_ltc_lab_host("api.mrwk.ltclab.site")

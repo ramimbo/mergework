@@ -26,7 +26,15 @@ LTC_LAB_PROJECTS = (
 
 
 def host_without_port(host_header: str) -> str:
-    return host_header.split(":", 1)[0].lower()
+    host = host_header.strip().lower()
+    if host.startswith("["):
+        end = host.find("]")
+        if end != -1:
+            return host[1:end]
+        return host
+    if host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    return host.rstrip(".")
 
 
 def is_ltc_lab_host(host_header: str) -> bool:

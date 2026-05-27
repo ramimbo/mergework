@@ -1517,9 +1517,12 @@ def test_host_specific_homepages(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     lab = client.get("/", headers={"host": "ltclab.site"}).text
+    lab_trailing_dot = client.get("/", headers={"host": "ltclab.site.:443"}).text
     mrwk = client.get("/", headers={"host": "mrwk.ltclab.site"}).text
 
     assert "LTC Lab" in lab
+    assert "LTC Lab" in lab_trailing_dot
+    assert "Open-source work, recorded as MRWK" not in lab_trailing_dot
     assert "MRWK from LTC Lab" in lab
     assert "https://api.mrwk.ltclab.site" in lab
     assert "https://mcp.mrwk.ltclab.site" in lab
