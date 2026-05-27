@@ -341,6 +341,7 @@ def test_bounty_detail_omits_source_issue_when_url_is_missing(sqlite_url: str) -
     assert "Inspect this bounty" in response.text
     assert f'href="/api/v1/bounties/{bounty_id}"' in response.text
     assert f'href="/api/v1/bounties/{bounty_id}/attempts"' in response.text
+    assert f'href="/api/v1/bounties/{bounty_id}/attempts?include_expired=true"' in response.text
     assert "Source issue" not in response.text
 
 
