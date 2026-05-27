@@ -155,6 +155,86 @@ def test_accepted_pr_label_pays_pr_author_for_linked_bounty_issue(sqlite_url: st
         assert get_balance(session, "github:maintainer") == 0
 
 
+def test_accepted_pr_label_ignores_native_bounty_ids_before_issue_ref(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    cases = [
+        (
+            "delivery-pr-live-bounty-id",
+            "Evidence: live bounty #66 / issue #406 preflight returned status=open.",
+        ),
+        (
+            "delivery-pr-native-bounty-id",
+            "Evidence: native bounty #66 maps to issue #406.",
+        ),
+        (
+            "delivery-pr-internal-bounty-id",
+            "Evidence: internal bounty #66; issue #406 is the GitHub bounty issue.",
+        ),
+    ]
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=66,
+            issue_url="https://github.com/ramimbo/mergework/issues/66",
+            title="Wrong native-id lookalike",
+            reward_mrwk="1",
+            max_awards=len(cases),
+            acceptance="This should not be selected from native MRWK bounty text.",
+        )
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=406,
+            issue_url="https://github.com/ramimbo/mergework/issues/406",
+            title="Useful bug reports and small fixes",
+            reward_mrwk="50",
+            max_awards=len(cases),
+            acceptance="Accepted PR bodies may include native MRWK ids plus the GitHub issue.",
+        )
+
+    for pull_number, (delivery_id, pr_body) in enumerate(cases, start=406):
+        body = json.dumps(
+            {
+                "action": "labeled",
+                "label": {"name": "mrwk:accepted"},
+                "pull_request": {
+                    "number": pull_number,
+                    "html_url": f"https://github.com/ramimbo/mergework/pull/{pull_number}",
+                    "body": pr_body,
+                    "user": {"login": "contributor"},
+                },
+                "repository": {"full_name": "ramimbo/mergework"},
+                "sender": {"login": "maintainer"},
+            },
+            separators=(",", ":"),
+        ).encode()
+
+        result = handle_github_webhook(
+            sqlite_url,
+            {
+                "X-GitHub-Delivery": delivery_id,
+                "X-GitHub-Event": "pull_request",
+                "X-Hub-Signature-256": _signature("secret", body),
+            },
+            body,
+            "secret",
+        )
+
+        assert result["status"] == "paid"
+
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, "github:contributor") == 150_000_000
+        for delivery_id, _pr_body in cases:
+            event = session.get(WebhookEvent, delivery_id)
+            assert event is not None
+            assert event.processed_status == "paid"
+
+
 def test_accepted_issue_event_for_pull_request_does_not_pay_matching_bounty(
     sqlite_url: str,
 ) -> None:

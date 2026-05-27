@@ -19,7 +19,8 @@ ACCEPTED_LABEL = "mrwk:accepted"
 ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
 MAX_SQLITE_INTEGER = 2**63 - 1
 LINKED_ISSUE_RE = re.compile(
-    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?|bounty)\s+"
+    r"(?:(?<!live )(?<!mrwk )(?<!native )(?<!internal )\bbounty"
+    r"|\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?|issues?))\s+"
     rf"(?:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?P<repo_number>\d+){ISSUE_NUMBER_BOUNDARY}"
     rf"|#(?P<number>\d+){ISSUE_NUMBER_BOUNDARY})",
     re.IGNORECASE,
