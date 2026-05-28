@@ -149,6 +149,22 @@ def test_pr_queue_health_ignores_native_bounty_ids_when_issue_ref_is_present() -
                     "merge_state": "clean",
                     "labels": [],
                 },
+                {
+                    "number": 526,
+                    "title": "Ignore native #406 evidence ids",
+                    "body": (
+                        "Evidence: native bounty #66 / issue #406 preflight returned status=open."
+                    ),
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 527,
+                    "title": "Ignore internal #406 evidence ids",
+                    "body": "Evidence: internal bounty #66, issue #406 is the GitHub bounty.",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
             ],
         }
     )
