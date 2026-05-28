@@ -103,6 +103,11 @@ def test_public_discovery_routes_are_bounded_and_use_public_origin(sqlite_url: s
     assert favicon.headers["content-type"].startswith("image/svg+xml")
     assert b"<svg" in favicon.content
 
+    openapi_paths = client.get("/openapi.json").json()["paths"]
+    assert "/robots.txt" not in openapi_paths
+    assert "/sitemap.xml" not in openapi_paths
+    assert "/favicon.ico" not in openapi_paths
+
     assert client.head("/robots.txt").content == b""
     assert client.head("/sitemap.xml").content == b""
     assert client.head("/favicon.ico").content == b""
