@@ -5,11 +5,13 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
+DEFAULT_PROTOCOL_VERSION = "2025-06-18"
+SERVER_INFO = {"name": "MergeWork MCP", "version": "0.1.0"}
 
 MCP_TOOLS: list[dict[str, Any]] = [
     {
@@ -100,7 +102,7 @@ def _tool_result_response(response_id: Any, tool_result: str | dict[str, Any]) -
 
 async def handle_mcp_request(
     request: Request, database_url: str, call_tool: MCPToolHandler
-) -> dict[str, Any] | JSONResponse:
+) -> dict[str, Any] | JSONResponse | Response:
     try:
         payload = await request.json()
     except ValueError:
@@ -111,6 +113,28 @@ async def handle_mcp_request(
 
     response_id = payload.get("id")
     method = payload.get("method")
+    if method == "initialize":
+        params = payload.get("params", {})
+        if not isinstance(params, dict):
+            return _jsonrpc_error(response_id, -32602, "invalid params")
+        requested_version = params.get("protocolVersion")
+        protocol_version = (
+            requested_version if isinstance(requested_version, str) else DEFAULT_PROTOCOL_VERSION
+        )
+        return {
+            "jsonrpc": "2.0",
+            "id": response_id,
+            "result": {
+                "protocolVersion": protocol_version,
+                "capabilities": {"tools": {}},
+                "serverInfo": SERVER_INFO,
+            },
+        }
+    if method == "notifications/initialized":
+        return Response(status_code=202)
+    if method == "ping":
+        return {"jsonrpc": "2.0", "id": response_id, "result": {}}
+
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}
 

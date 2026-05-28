@@ -206,6 +206,56 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert "100000000" in balance["result"]["content"][0]["text"]
 
 
+def test_mcp_initialize_advertises_tool_capability(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 42,
+        "result": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "MergeWork MCP", "version": "0.1.0"},
+        },
+    }
+
+
+def test_mcp_initialized_notification_returns_accepted(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+    )
+
+    assert response.status_code == 202
+    assert response.content == b""
+
+
+def test_mcp_ping_returns_empty_result(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post("/mcp", json={"jsonrpc": "2.0", "id": 43, "method": "ping"})
+
+    assert response.status_code == 200
+    assert response.json() == {"jsonrpc": "2.0", "id": 43, "result": {}}
+
+
 def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     now = datetime.now(UTC)
