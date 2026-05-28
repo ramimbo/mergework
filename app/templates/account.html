@@ -16,6 +16,10 @@
     <dt>Send status</dt>
     <dd>{{ account.transfer_status }}</dd>
   </dl>
+  <nav class="actions" aria-label="Account inspection links">
+    <a href="/api/v1/accounts/{{ account.account }}">View account JSON</a>
+    <a href="/api/v1/accounts/{{ account.account }}/accepted-work">View accepted-work JSON</a>
+  </nav>
 </section>
 
 <section aria-labelledby="accepted-work-summary">
