@@ -127,6 +127,36 @@ def test_pr_queue_health_accepts_claim_command_reference() -> None:
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_ignores_boolean_explicit_bounty_refs() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 406, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 531,
+                    "title": "Boolean refs are not issue refs",
+                    "body": "",
+                    "bounty_refs": [True, False],
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 532,
+                    "title": "Valid explicit issue ref still counts",
+                    "body": "",
+                    "bounty_refs": [True, 406],
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 1
+    assert report["missing_bounty_references"][0]["pull_request"] == 531
+    assert report["closed_bounty_references"] == []
+
+
 def test_pr_queue_health_ignores_native_bounty_ids_when_issue_ref_is_present() -> None:
     report = analyze_queue(
         {
