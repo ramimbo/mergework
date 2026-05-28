@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.db import create_schema, session_scope
 from app.ledger.service import add_ledger_entry, create_bounty, ensure_genesis, pay_bounty
 from app.ledger_views import (
+    account_ledger_transaction_types,
     account_ledger_transactions,
     ledger_entry_to_dict,
     recent_ledger_entries,
@@ -74,8 +75,14 @@ def test_account_ledger_transactions_filters_both_sides(sqlite_url: str) -> None
         )
 
         rows = account_ledger_transactions(session, "github:alice")
+        filtered_rows = account_ledger_transactions(
+            session, "github:alice", entry_type="manual_adjustment"
+        )
+        transaction_types = account_ledger_transaction_types(session, "github:alice")
 
     assert [row["sequence"] for row in rows] == [manual_entry.sequence, proof.ledger_sequence]
+    assert [row["sequence"] for row in filtered_rows] == [manual_entry.sequence]
+    assert transaction_types == ["bounty_payment", "manual_adjustment"]
     assert rows[0]["from"] == "github:alice"
     assert rows[0]["to"] == "github:bob"
     assert rows[0]["proof_hash"] is None

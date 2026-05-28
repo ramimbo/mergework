@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
+from app.main import create_app
 from app.public_routes import public_bounties_context
 
 
@@ -31,4 +34,39 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
             "available": "Most MRWK available",
             "awards": "Most award slots",
         },
+        "selected_limit": None,
+        "limit_options": (10, 25, 50, 100, 200),
+        "api_results_url": "/api/v1/bounties?status=open&q=proof&sort=reward",
     }
+
+
+def test_public_bounties_context_preserves_limited_json_results_url() -> None:
+    context = public_bounties_context([], status=None, q="issue #580", sort="newest", limit=25)
+
+    assert context["api_results_url"] == "/api/v1/bounties?q=issue+%23580&limit=25"
+
+
+def test_docs_page_marks_static_github_links_as_untrusted(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/docs")
+
+    assert page.status_code == 200
+    for url in (
+        "https://github.com/ramimbo/mergework/discussions/16",
+        "https://github.com/ramimbo/mergework/blob/main/docs/bounty-rules.md",
+        "https://github.com/ramimbo/mergework/blob/main/docs/paid-bounties.md",
+        "https://github.com/ramimbo/mergework/blob/main/docs/agent-guide.md",
+        "https://github.com/ramimbo/mergework/blob/main/docs/api-examples.md",
+        "https://github.com/ramimbo/mergework/blob/main/docs/ledger.md",
+    ):
+        assert f'href="{url}" rel="nofollow noopener"' in page.text
+
+
+def test_ltc_lab_header_marks_github_nav_link_as_untrusted(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/", headers={"host": "ltclab.site"})
+
+    assert page.status_code == 200
+    assert ('href="https://github.com/ramimbo/mergework" rel="nofollow noopener"') in page.text

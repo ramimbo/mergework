@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-from scripts.docs_smoke import REQUIRED
+from scripts.docs_smoke import REQUIRED, _template_field_is_required
 
 
 def test_readme_lists_live_ltclab_urls() -> None:
@@ -12,40 +13,24 @@ def test_readme_lists_live_ltclab_urls() -> None:
     assert "https://mrwk.ltclab.site" in readme
     assert "https://api.mrwk.ltclab.site" in readme
     assert "https://mcp.mrwk.ltclab.site" in readme
+    assert "https://mrwk.ltclab.site/activity" in readme
     assert "https://github.com/ramimbo/mergework/discussions/16" in readme
     assert "docs/paid-bounties.md" in readme
     assert "docs/api-examples.md" in readme
 
 
-def test_paid_bounties_lists_api_mcp_round3_payments() -> None:
+def test_paid_bounties_points_to_authoritative_payment_records() -> None:
     paid = Path("docs/paid-bounties.md").read_text(encoding="utf-8")
 
-    assert "[#411 public API and MCP examples accuracy, round 3]" in paid
-    assert "[PR #412](https://github.com/ramimbo/mergework/pull/412)" in paid
-    assert "[PR #424](https://github.com/ramimbo/mergework/pull/424)" in paid
-    assert "fe00016678d3a0dd408ba165b0e04516f16e09cc5c4b512df3c28e60f6f72015" in paid
-    assert "be12d8e13f6ff0b5c77a643cbe304a083418956d7cdc3c08ab5aded96c892fa4" in paid
-
-
-def test_paid_bounties_lists_recent_docs_payments() -> None:
-    paid = Path("docs/paid-bounties.md").read_text(encoding="utf-8")
-    proof_445 = "f5b9b286c4cfefe6de73198dd7be5b8d5e1013264623573b7e49488dd6efaecb"
-    proof_446 = "bba272164648c1bca33710226173a350d002a22f23aa1bf24c46ec594cf2cc9c"
-
-    assert (
-        "| 2026-05-26 | [#426 documentation updates and improvements]"
-        "(https://github.com/ramimbo/mergework/issues/426) | "
-        "[PR #446](https://github.com/ramimbo/mergework/pull/446) | "
-        "`github:campersurfer` | 50 MRWK | [bba27216]"
-        f"(https://mrwk.ltclab.site/proofs/{proof_446}) |"
-    ) in paid
-    assert (
-        "| 2026-05-26 | [#411 public API and MCP examples accuracy, round 3]"
-        "(https://github.com/ramimbo/mergework/issues/411) | "
-        "[PR #445](https://github.com/ramimbo/mergework/pull/445) | "
-        "`github:campersurfer` | 75 MRWK | [f5b9b286]"
-        f"(https://mrwk.ltclab.site/proofs/{proof_445}) |"
-    ) in paid
+    assert "source of truth for MRWK bounty payments" in paid
+    assert "not manually updated for" in paid
+    assert "every payout" in paid
+    assert "https://mrwk.ltclab.site/activity" in paid
+    assert "https://api.mrwk.ltclab.site/api/v1/activity" in paid
+    assert "GET /api/v1/bounties/{id}" in paid
+    assert "GET /api/v1/proofs/{proof_hash}" in paid
+    assert "https://github.com/ramimbo/mergework/discussions/16" in paid
+    assert not re.search(r"(?m)^\|\s*20\d{2}-\d{2}-\d{2}\b", paid)
 
 
 def test_api_examples_document_internal_bounty_ids() -> None:
@@ -76,6 +61,7 @@ def test_api_examples_document_mcp_get_proof_response_shape() -> None:
 
 def test_api_examples_document_account_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+    squashed = " ".join(examples.split())
 
     assert "/api/v1/accounts/treasury:mrwk" in examples
     assert '"ledger_address": "github:tatelyman"' in examples
@@ -85,6 +71,13 @@ def test_api_examples_document_account_response_shape() -> None:
     assert "Claim GitHub balances from /me" in examples
     assert "treasury:" in examples
     assert "registered `mrwk1` addresses" in examples
+    assert "Internal ledger accounts use the same account response shape" in examples
+    assert '"account": "treasury:mrwk"' in examples
+    assert '"github_login": null' in examples
+    assert (
+        "Treasury and reserve balances change as bounties are reserved, paid, and released"
+        in squashed
+    )
 
 
 def test_api_examples_document_ledger_response_shape() -> None:
@@ -284,6 +277,20 @@ def test_agent_guide_explains_internal_bounty_ids() -> None:
 
 def test_docs_smoke_covers_public_api_examples() -> None:
     assert "docs/api-examples.md" in REQUIRED
+
+
+def test_docs_smoke_requires_bounty_evidence_exclusion_and_duplicate_fields() -> None:
+    template = Path(".github/ISSUE_TEMPLATE/bounty.yml").read_text(encoding="utf-8").lower()
+
+    assert _template_field_is_required(template, "evidence")
+    assert _template_field_is_required(template, "out_of_scope")
+    assert _template_field_is_required(template, "duplicate_stale_rules")
+    assert not _template_field_is_required(
+        template.replace("id: evidence", "id: optional_evidence", 1), "evidence"
+    )
+    assert not _template_field_is_required(
+        template.replace("required: true", "required: false", 1), "work"
+    )
 
 
 def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:

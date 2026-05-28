@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ledger.service import create_bounty
 from app.models import WebhookEvent
+from app.treasury import propose_treasury_action
 
 ADMIN_WEBHOOK_LIMIT_OPTIONS = [10, 25, 50, 100]
 WEBHOOK_OUTCOME_SCAN_ORDER = {
@@ -108,15 +108,20 @@ def create_admin_bounty_from_form(
     reward_mrwk: str,
     max_awards: int,
     acceptance: str,
+    proposed_by: str,
 ) -> int:
-    bounty = create_bounty(
+    proposal = propose_treasury_action(
         session,
-        repo=repo,
-        issue_number=issue_number,
-        issue_url=issue_url,
-        title=title,
-        reward_mrwk=reward_mrwk,
-        max_awards=max_awards,
-        acceptance=acceptance,
+        action="create_bounty",
+        payload={
+            "repo": repo,
+            "issue_number": issue_number,
+            "issue_url": issue_url,
+            "title": title,
+            "reward_mrwk": reward_mrwk,
+            "max_awards": max_awards,
+            "acceptance": acceptance,
+        },
+        proposed_by=proposed_by,
     )
-    return int(bounty.id)
+    return int(proposal.id)

@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}MRWK Bounty #{{ bounty.id }}{% endblock %}
 {% block content %}
+<nav class="back-nav" aria-label="Bounty navigation">
+  <a href="/bounties">&larr; Back to bounties</a>
+</nav>
 <section class="detail">
   <p class="eyebrow">Bounty #{{ bounty.id }}</p>
   <h1>{{ bounty.title }}</h1>
@@ -10,7 +13,7 @@
   <div class="bounty-summary" aria-label="Bounty summary">
     <article>
       <span>Status</span>
-      <strong class="status-pill">{{ bounty.status }}</strong>
+      <strong class="status-pill status-{{ bounty.status }}">{{ bounty.status }}</strong>
     </article>
     <article>
       <span>Reward per award</span>
@@ -44,6 +47,26 @@
     <p class="eyebrow">Acceptance</p>
     <h2 id="acceptance-heading">What has to be true</h2>
     <p>{{ bounty.acceptance }}</p>
+  </section>
+
+  <section class="next-steps-card" aria-labelledby="bounty-next-steps-heading">
+    <p class="eyebrow">Contributor next steps</p>
+    <h2 id="bounty-next-steps-heading">Before you start</h2>
+    <ol>
+      <li>Confirm the source issue is still open and your change is not already covered by another PR.</li>
+      <li>Keep the PR focused, link the source issue as <strong>Bounty #{{ bounty.issue_number }}</strong>, and include test or smoke-check evidence.</li>
+      <li>
+        {% if bounty.awards_remaining %}
+          {{ bounty.awards_remaining }} award{% if bounty.awards_remaining != 1 %}s{% endif %} still open for distinct accepted work.
+        {% else %}
+          No awards remain; treat new work as unpaid unless maintainers reopen the bounty.
+        {% endif %}
+      </li>
+    </ol>
+    <div class="next-steps-actions" aria-label="Bounty action links">
+      {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">Open source issue</a>{% endif %}
+      <a href="/api/v1/bounties/{{ bounty.id }}">View JSON details</a>
+    </div>
   </section>
 </section>
 

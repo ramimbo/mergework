@@ -10,10 +10,11 @@ HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 def issue_number_search_value(query: str) -> int | None:
     """Return a bounded GitHub issue number from a plain numeric search query."""
-    if not query.isdigit():
+    clean = query.removeprefix("#")
+    if not clean.isdigit():
         return None
     try:
-        issue_number = int(query)
+        issue_number = int(clean)
     except ValueError:
         return None
     return issue_number if issue_number <= SQLITE_INTEGER_MAX else None

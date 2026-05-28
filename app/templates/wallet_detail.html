@@ -38,6 +38,22 @@
     <h2>Transactions</h2>
     <p>Credits and debits involving this wallet.</p>
   </div>
+  {% if transaction_types %}
+  <form method="get" action="/wallets/{{ wallet.address }}" aria-label="Filter wallet transactions">
+    <label for="wallet-transaction-type">Type</label>
+    <select id="wallet-transaction-type" name="type">
+      <option value="">All transaction types</option>
+      {% for transaction_type in transaction_types %}
+      <option value="{{ transaction_type }}"{% if selected_transaction_type == transaction_type %} selected{% endif %}>{{ transaction_type }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+    {% if selected_transaction_type %}<a href="/wallets/{{ wallet.address }}">Clear</a>{% endif %}
+  </form>
+  {% if selected_transaction_type %}
+  <p class="notice">Showing {{ selected_transaction_type }} transactions.</p>
+  {% endif %}
+  {% endif %}
   <table>
     <thead><tr><th>#</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Proof</th></tr></thead>
     <tbody>
@@ -51,7 +67,11 @@
         <td>{% if entry.proof_hash %}<a href="/proofs/{{ entry.proof_hash }}">proof</a>{% else %}-{% endif %}</td>
       </tr>
       {% else %}
-      <tr><td colspan="6">No wallet transactions yet.</td></tr>
+      <tr>
+        <td colspan="6">
+          {% if selected_transaction_type %}No wallet transactions match this type.{% else %}No wallet transactions yet.{% endif %}
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>

@@ -20,12 +20,15 @@ def assert_bad_request(func, *args):
 
 def test_issue_number_search_value_accepts_bounded_numeric_query():
     assert issue_number_search_value("340") == 340
+    assert issue_number_search_value("#340") == 340
     assert issue_number_search_value(str(SQLITE_INTEGER_MAX)) == SQLITE_INTEGER_MAX
 
 
 def test_issue_number_search_value_rejects_non_numeric_or_overflow_query():
     assert issue_number_search_value("") is None
+    assert issue_number_search_value("#") is None
     assert issue_number_search_value(" 340") is None
+    assert issue_number_search_value(" #340") is None
     assert issue_number_search_value("340a") is None
     assert issue_number_search_value(str(SQLITE_INTEGER_MAX + 1)) is None
 

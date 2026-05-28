@@ -22,6 +22,18 @@ from app.serializers import (
 from app.wallets import WalletError, normalize_wallet_address
 
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
+    {"value": "all", "label": "All"},
+    {"value": "bounty_payment", "label": "Bounty payments"},
+    {"value": "bounty_reserve", "label": "Bounty reserves"},
+    {"value": "bounty_release", "label": "Bounty releases"},
+    {"value": "github_claim", "label": "GitHub claims"},
+    {"value": "wallet_transfer", "label": "Wallet transfers"},
+    {"value": "genesis", "label": "Genesis"},
+]
+ACCOUNT_TRANSACTION_TYPES = {
+    str(option["value"]) for option in ACCOUNT_TRANSACTION_TYPE_OPTIONS if option["value"] != "all"
+}
 
 
 def normalized_wallet_address(address: str) -> str:
@@ -113,13 +125,36 @@ def account_accepted_work_context(
     }
 
 
-def account_page_context(session: Session, account: str, limit: int | None = 100) -> dict[str, Any]:
+def _transaction_type_filter(tx_type: str | None) -> tuple[str, str | None]:
+    selected = (tx_type or "all").strip().lower()
+    if selected in {"", "all"}:
+        return "all", None
+    if selected not in ACCOUNT_TRANSACTION_TYPES:
+        allowed = ", ".join(option["value"] for option in ACCOUNT_TRANSACTION_TYPE_OPTIONS)
+        raise HTTPException(
+            status_code=400,
+            detail=f"transaction type must be one of: {allowed}",
+        )
+    return selected, selected
+
+
+def account_page_context(
+    session: Session,
+    account: str,
+    limit: int | None = 100,
+    transaction_type: str | None = None,
+) -> dict[str, Any]:
     account = normalized_account(account)
+    selected_transaction_type, transaction_filter = _transaction_type_filter(transaction_type)
     return {
         "account": account_api_context(session, account),
         "accepted_summary": safe_account_accepted_summary(session, account),
         "accepted_work": safe_accepted_work_for_account(session, account, limit),
-        "transactions": account_ledger_transactions(session, account),
+        "selected_transaction_type": selected_transaction_type,
+        "transaction_type_options": ACCOUNT_TRANSACTION_TYPE_OPTIONS,
+        "transactions": account_ledger_transactions(
+            session, account, entry_type=transaction_filter
+        ),
     }
 
 
@@ -138,8 +173,11 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
 
     @app.get("/accounts/{account}", response_class=HTMLResponse)
     def account_page(
-        request: Request, account: str, limit: Annotated[int, Query(ge=1, le=200)] = 100
+        request: Request,
+        account: str,
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+        tx_type: str | None = Query(None),
     ) -> HTMLResponse:
         with session_scope(db_url) as session:
-            context = account_page_context(session, account, limit)
+            context = account_page_context(session, account, limit, tx_type)
         return templates.TemplateResponse(request, "account.html", context)
