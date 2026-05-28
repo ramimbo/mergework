@@ -154,7 +154,7 @@ def test_proposal_execution_requires_admin_delay_and_is_idempotent(
     )
 
     assert unauthenticated.status_code == 401
-    assert too_early.status_code == 400
+    assert too_early.status_code == 409
     assert too_early.json()["detail"] == "proposal delay has not elapsed"
     assert executed.status_code == 200
     assert executed.json()["status"] == "executed"
@@ -543,7 +543,6 @@ def test_manual_payout_freezes_github_destination_at_proposal_creation(
         assert get_balance(session, wallet_address) == 0
 
 
-
 def test_execution_revalidates_stale_pay_proposal_after_close(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -588,6 +587,7 @@ def test_execution_revalidates_stale_pay_proposal_after_close(
     assert executed.json()["detail"] == "bounty is not open"
     with session_scope(sqlite_url) as session:
         assert get_balance(session, "github:bob") == 0
+
 
 def test_challenges_require_accepted_work_and_can_block_invalid_proposals(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
@@ -641,7 +641,7 @@ def test_challenges_require_accepted_work_and_can_block_invalid_proposals(
     assert subjective.json()["status"] == "noted"
     assert blocking.status_code == 200
     assert blocking.json()["status"] == "accepted_blocking"
-    assert execute.status_code == 400
+    assert execute.status_code == 409
     assert execute.json()["detail"] == "proposal has blocking challenge"
     with session_scope(sqlite_url) as session:
         assert session.scalar(select(func.count(TreasuryChallenge.id))) == 2

@@ -277,9 +277,7 @@ def _validate_create_bounty_proposal(session: Session, payload: dict[str, Any]) 
     if exclude_id is not None:
         pending_reserved -= reserved
     if (
-        _epoch_reserved_microunits(session, _db_now())
-        + pending_reserved
-        + reserved
+        _epoch_reserved_microunits(session, _db_now()) + pending_reserved + reserved
         > TREASURY_EPOCH_RESERVE_CAP_MICRO
     ):
         raise LedgerError("treasury epoch reserve cap exceeded")
