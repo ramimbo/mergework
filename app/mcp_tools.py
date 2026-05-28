@@ -27,6 +27,10 @@ from app.serializers import (
 
 
 def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | dict[str, Any]:
+    def reject_control_chars(field: str, value: str) -> None:
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError(f"{field} must not contain control characters")
+
     def int_arg(field: str) -> int:
         value = args[field]
         if isinstance(value, bool):
@@ -123,6 +127,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             query = select(Bounty).where(Bounty.status == normalized_status)
             query_text = optional_clean_str_arg("q")
             if query_text:
+                reject_control_chars("q", query_text)
                 escaped_query = (
                     query_text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 )

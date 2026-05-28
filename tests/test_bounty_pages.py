@@ -282,6 +282,9 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert backslash_search.status_code == 200
     assert [row["issue_number"] for row in backslash_search.json()] == [66]
 
+    control_char_page_search = client.get("/bounties", params={"q": "\x00"})
+    assert control_char_page_search.status_code == 400
+
 
 def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     create_schema(sqlite_url)

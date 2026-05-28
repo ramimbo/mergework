@@ -540,6 +540,7 @@ def test_mcp_list_bounties_honors_sort_argument(sqlite_url: str) -> None:
         ({"limit": 0}, 34),
         ({"limit": 101}, 35),
         ({"sort": "invalid"}, 36),
+        ({"q": "\x00"}, 37),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(

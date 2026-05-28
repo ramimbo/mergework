@@ -313,3 +313,28 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
     assert client.get("/api/v1/bounties?limit=201").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=0").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=201").status_code == 422
+
+
+def test_bounty_api_rejects_control_character_search_queries(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=53,
+            issue_url="https://github.com/ramimbo/mergework/issues/53",
+            title="Control character bounty search",
+            reward_mrwk="5",
+            acceptance="Control characters should not widen bounty search results.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    list_response = client.get("/api/v1/bounties?q=%00")
+    summary_response = client.get("/api/v1/bounties/summary?q=%00")
+
+    assert list_response.status_code == 400
+    assert list_response.json()["detail"] == "q must not contain control characters"
+    assert summary_response.status_code == 400
+    assert summary_response.json()["detail"] == "q must not contain control characters"

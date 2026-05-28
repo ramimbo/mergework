@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -11,8 +11,17 @@ from app.db import session_scope
 from app.serializers import activity_to_dict
 
 
+def _normalized_activity_search_query(query: str | None) -> str | None:
+    if query is None:
+        return None
+    normalized_query = query.strip()
+    if any(ord(char) < 32 or ord(char) == 127 for char in normalized_query):
+        raise HTTPException(status_code=400, detail="q must not contain control characters")
+    return normalized_query
+
+
 def activity_context(session: Session, query: str | None = None) -> dict[str, Any]:
-    return activity_to_dict(session, query)
+    return activity_to_dict(session, _normalized_activity_search_query(query))
 
 
 def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:

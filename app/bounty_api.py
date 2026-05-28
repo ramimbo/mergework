@@ -81,6 +81,14 @@ def _ledger_http_error(exc: LedgerError) -> HTTPException:
     return HTTPException(status_code=400, detail=detail)
 
 
+def _normalized_bounty_search_query(query_text: str | None) -> str | None:
+    if query_text is None:
+        return None
+    if CONTROL_CHAR_RE.search(query_text):
+        raise HTTPException(status_code=400, detail="q must not contain control characters")
+    return query_text.strip()
+
+
 def register_bounty_api_routes(
     app: FastAPI,
     *,
@@ -114,25 +122,24 @@ def register_bounty_api_routes(
                         status_code=400, detail="status must be one of: open, paid, closed"
                     )
                 query = query.where(Bounty.status == normalized_status)
-            if query_text is not None:
-                normalized_query = query_text.strip()
-                if normalized_query:
-                    escaped_query = (
-                        normalized_query.lower()
-                        .replace("\\", "\\\\")
-                        .replace("%", "\\%")
-                        .replace("_", "\\_")
-                    )
-                    like_query = f"%{escaped_query}%"
-                    issue_number = issue_number_search_value(normalized_query)
-                    text_filter = or_(
-                        func.lower(Bounty.repo).like(like_query, escape="\\"),
-                        func.lower(Bounty.title).like(like_query, escape="\\"),
-                        func.lower(Bounty.acceptance).like(like_query, escape="\\"),
-                    )
-                    if issue_number is not None:
-                        text_filter = or_(text_filter, Bounty.issue_number == issue_number)
-                    query = query.where(text_filter)
+            normalized_query = _normalized_bounty_search_query(query_text)
+            if normalized_query:
+                escaped_query = (
+                    normalized_query.lower()
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                like_query = f"%{escaped_query}%"
+                issue_number = issue_number_search_value(normalized_query)
+                text_filter = or_(
+                    func.lower(Bounty.repo).like(like_query, escape="\\"),
+                    func.lower(Bounty.title).like(like_query, escape="\\"),
+                    func.lower(Bounty.acceptance).like(like_query, escape="\\"),
+                )
+                if issue_number is not None:
+                    text_filter = or_(text_filter, Bounty.issue_number == issue_number)
+                query = query.where(text_filter)
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             sorted_bounties = sort_bounties(
                 [bounty_to_dict(bounty) for bounty in bounties], normalized_sort
