@@ -543,6 +543,52 @@ def test_manual_payout_freezes_github_destination_at_proposal_creation(
         assert get_balance(session, wallet_address) == 0
 
 
+
+def test_execution_revalidates_stale_pay_proposal_after_close(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=89,
+            issue_url="https://github.com/ramimbo/mergework/issues/89",
+            title="Stale payout proposal",
+            reward_mrwk="5",
+            acceptance="Contributor comments with proof.",
+        )
+        bounty_id = bounty.id
+    proposal = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:bob",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/89",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+    with session_scope(sqlite_url) as session:
+        from app.ledger.service import close_bounty
+
+        close_bounty(
+            session,
+            bounty_id=bounty_id,
+            closed_by="maintainer",
+            reference="https://github.com/ramimbo/mergework/issues/89",
+        )
+    _make_executable(sqlite_url, proposal["id"])
+
+    executed = client.post(
+        f"/api/v1/treasury/proposals/{proposal['id']}/execute", headers=ADMIN_HEADERS
+    )
+
+    assert executed.status_code == 400
+    assert executed.json()["detail"] == "bounty is not open"
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, "github:bob") == 0
+
 def test_challenges_require_accepted_work_and_can_block_invalid_proposals(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

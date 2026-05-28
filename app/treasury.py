@@ -265,12 +265,15 @@ def _validate_create_bounty_proposal(session: Session, payload: dict[str, Any]) 
     issue_url = str(payload["issue_url"])
     if not _github_issue_url_matches(repo, issue_number, issue_url):
         raise LedgerError("issue_url must match repo and issue_number")
-    if _has_pending_create_bounty_proposal(session, repo=repo, issue_number=issue_number):
+    exclude_id = int(payload["_proposal_id"]) if "_proposal_id" in payload else None
+    if _has_pending_create_bounty_proposal(
+        session, repo=repo, issue_number=issue_number, exclude_proposal_id=exclude_id
+    ):
         raise LedgerError("create_bounty proposal already pending")
     reserved = parse_mrwk_amount(str(payload["reward_mrwk"])) * int(payload["max_awards"])
     if (
         _epoch_reserved_microunits(session, _db_now())
-        + _pending_create_bounty_reserved_microunits(session)
+        + _pending_create_bounty_reserved_microunits(session, through_proposal_id=exclude_id)
         + reserved
         > TREASURY_EPOCH_RESERVE_CAP_MICRO
     ):
@@ -294,7 +297,10 @@ def _validate_pay_bounty_proposal(session: Session, payload: dict[str, Any]) -> 
         raise LedgerError("bounty not found")
     if bounty.status != "open":
         raise LedgerError("bounty is not open")
-    if _has_pending_close_bounty_proposal(session, bounty_id=bounty_id):
+    exclude_id = int(payload["_proposal_id"]) if "_proposal_id" in payload else None
+    if _has_pending_close_bounty_proposal(
+        session, bounty_id=bounty_id, exclude_proposal_id=exclude_id
+    ):
         raise LedgerError("bounty has pending close proposal")
     submission_url = str(payload["submission_url"])
     if (
@@ -304,7 +310,11 @@ def _validate_pay_bounty_proposal(session: Session, payload: dict[str, Any]) -> 
         is not None
     ):
         raise LedgerError("submission already paid")
-    pending_payouts = _pending_pay_bounty_payloads(session, bounty_id)
+    pending_payouts = [
+        (proposal, pending_payload)
+        for proposal, pending_payload in _pending_pay_bounty_payloads(session, bounty_id)
+        if exclude_id is None or proposal.id != exclude_id
+    ]
     if any(
         str(pending_payload["submission_url"]) == submission_url
         for _, pending_payload in pending_payouts
@@ -326,9 +336,14 @@ def _validate_close_bounty_proposal(session: Session, payload: dict[str, Any]) -
         raise LedgerError("bounty not found")
     if bounty.status != "open":
         raise LedgerError("bounty is not open")
-    if _has_pending_close_bounty_proposal(session, bounty_id=bounty_id):
+    exclude_id = int(payload["_proposal_id"]) if "_proposal_id" in payload else None
+    if _has_pending_close_bounty_proposal(
+        session, bounty_id=bounty_id, exclude_proposal_id=exclude_id
+    ):
         raise LedgerError("close_bounty proposal already pending")
-    if _has_pending_pay_bounty_proposal(session, bounty_id=bounty_id):
+    if _has_pending_pay_bounty_proposal(
+        session, bounty_id=bounty_id, exclude_proposal_id=exclude_id
+    ):
         raise LedgerError("bounty has pending payout proposals")
 
 
@@ -528,11 +543,15 @@ def execute_treasury_proposal(
     payload = _canonical_payload(proposal.action, proposal_payload(proposal))
     if _proposal_hash(proposal.action, payload) != proposal.payload_hash:
         raise LedgerError("proposal payload hash mismatch")
+    validation_payload = {**payload, "_proposal_id": proposal.id}
     if proposal.action == "create_bounty":
+        _validate_create_bounty_proposal(session, validation_payload)
         result, ledger_sequence = _execute_create_bounty(session, payload, now)
     elif proposal.action == "pay_bounty":
+        _validate_pay_bounty_proposal(session, validation_payload)
         result, ledger_sequence = _execute_pay_bounty(session, payload)
     elif proposal.action == "close_bounty":
+        _validate_close_bounty_proposal(session, validation_payload)
         result, ledger_sequence = _execute_close_bounty(session, payload)
     else:
         raise LedgerError("unsupported treasury action")
