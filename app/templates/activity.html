@@ -40,12 +40,12 @@
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Latest work</dt>
             {% set latest_submission_url = safe_public_url(contributor.latest_submission_url) %}
-            <dd>{% if latest_submission_url %}<a href="{{ latest_submission_url }}">{{ contributor.latest_submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ contributor.latest_submission_url }}</code>{% endif %}</dd>
+            <dd>{% if latest_submission_url %}<a href="{{ latest_submission_url }}" rel="nofollow noopener">{{ contributor.latest_submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ contributor.latest_submission_url }}</code>{% endif %}</dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Latest bounty</dt>
             {% set latest_bounty_issue_url = safe_public_url(contributor.latest_bounty_issue_url) %}
-            <dd>{% if latest_bounty_issue_url %}<a href="{{ latest_bounty_issue_url }}">{{ contributor.latest_bounty_repo }} #{{ contributor.latest_bounty_issue_number }}</a>{% else %}-{% endif %}</dd>
+            <dd>{% if latest_bounty_issue_url %}<a href="{{ latest_bounty_issue_url }}" rel="nofollow noopener">{{ contributor.latest_bounty_repo }} #{{ contributor.latest_bounty_issue_number }}</a>{% else %}-{% endif %}</dd>
           </div>
           <div class="ledger-field ledger-field--proof">
             <dt>Latest proof</dt>
@@ -90,13 +90,13 @@
             <dd>
               {% if row.bounty_url %}<a href="{{ row.bounty_url }}">Bounty #{{ row.bounty_id }}</a>{% endif %}
               {% if row.bounty_url and bounty_issue_url %} · {% endif %}
-              {% if bounty_issue_url %}<a href="{{ bounty_issue_url }}">{{ row.bounty_repo }} #{{ row.bounty_issue_number }}</a>{% elif not row.bounty_url %}-{% endif %}
+              {% if bounty_issue_url %}<a href="{{ bounty_issue_url }}" rel="nofollow noopener">{{ row.bounty_repo }} #{{ row.bounty_issue_number }}</a>{% elif not row.bounty_url %}-{% endif %}
             </dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Accepted work</dt>
             {% set submission_url = safe_public_url(row.submission_url) %}
-            <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ row.submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ row.submission_url }}</code>{% endif %}</dd>
+            <dd>{% if submission_url %}<a href="{{ submission_url }}" rel="nofollow noopener">{{ row.submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ row.submission_url }}</code>{% endif %}</dd>
           </div>
           <div class="ledger-field ledger-field--proof">
             <dt>Proof</dt>

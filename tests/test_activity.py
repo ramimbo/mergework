@@ -230,8 +230,12 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'name="q"' in paid.text
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in paid.text
     assert "Latest bounty" in paid.text
-    assert 'href="https://github.com/ramimbo/mergework/issues/12"' in paid.text
-    assert 'href="https://github.com/ramimbo/mergework/pull/12"' in paid.text
+    assert (
+        'href="https://github.com/ramimbo/mergework/issues/12" rel="nofollow noopener"' in paid.text
+    )
+    assert (
+        'href="https://github.com/ramimbo/mergework/pull/12" rel="nofollow noopener"' in paid.text
+    )
     assert f'href="/proofs/{proof.hash}"' in paid.text
     assert "/accounts/github:bob" in paid.text
 

@@ -11,7 +11,7 @@
     <dd><code>{{ account.ledger_address }}</code></dd>
     {% if account.github_login %}
     <dt>GitHub profile</dt>
-    <dd><a href="https://github.com/{{ account.github_login }}">@{{ account.github_login }}</a></dd>
+    <dd><a href="https://github.com/{{ account.github_login }}" rel="nofollow noopener">@{{ account.github_login }}</a></dd>
     {% endif %}
     <dt>Send status</dt>
     <dd>{{ account.transfer_status }}</dd>
@@ -47,7 +47,7 @@
   <p class="reference-cell">
     Latest accepted work:
     {% if latest_submission_url %}
-    <a href="{{ latest_submission_url }}">{{ accepted_summary.latest_submission_url | replace("https://github.com/", "") }}</a>
+    <a href="{{ latest_submission_url }}" rel="nofollow noopener">{{ accepted_summary.latest_submission_url | replace("https://github.com/", "") }}</a>
     {% else %}
     <code>{{ accepted_summary.latest_submission_url }}</code>
     {% endif %}
@@ -82,13 +82,13 @@
             <dd>
               {% if work.bounty_url %}<a href="{{ work.bounty_url }}">Bounty #{{ work.bounty_id }}</a>{% endif %}
               {% if work.bounty_url and issue_url %} · {% endif %}
-              {% if issue_url %}<a href="{{ issue_url }}">{{ work.repo }} #{{ work.issue_number }}</a>{% elif not work.bounty_url %}-{% endif %}
+              {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">{{ work.repo }} #{{ work.issue_number }}</a>{% elif not work.bounty_url %}-{% endif %}
             </dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Submission</dt>
             {% set submission_url = safe_public_url(work.submission_url) %}
-            <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ work.submission_url | replace("https://github.com/", "") }}</a>{% elif work.submission_url %}<code>{{ work.submission_url }}</code>{% else %}-{% endif %}</dd>
+            <dd>{% if submission_url %}<a href="{{ submission_url }}" rel="nofollow noopener">{{ work.submission_url | replace("https://github.com/", "") }}</a>{% elif work.submission_url %}<code>{{ work.submission_url }}</code>{% else %}-{% endif %}</dd>
           </div>
           <div class="ledger-field ledger-field--proof">
             <dt>Proof</dt>
