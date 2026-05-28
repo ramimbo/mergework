@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
 from app.hub import (
     host_without_port,
     is_ltc_lab_host,
     ltc_lab_context,
     mergework_hub_context,
 )
+from app.main import create_app
 
 
 def test_host_without_port_normalizes_host_headers() -> None:
@@ -47,3 +52,23 @@ def test_mergework_hub_context_preserves_status_and_base_url() -> None:
         "status": status,
         "public_base_url": "https://mrwk.ltclab.site",
     }
+
+
+def test_public_shell_exposes_keyboard_skip_link(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert '<a class="skip-link" href="#content">Skip to content</a>' in response.text
+    assert '<nav aria-label="Primary navigation">' in response.text
+    assert '<main id="content" tabindex="-1">' in response.text
+
+
+def test_public_styles_define_visible_focus_state() -> None:
+    css = Path("app/static/style.css").read_text(encoding="utf-8")
+
+    assert ".skip-link:focus" in css
+    assert "transform: translateY(0);" in css
+    assert "a:focus-visible" in css
+    assert "outline: 3px solid var(--accent);" in css

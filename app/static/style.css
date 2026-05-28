@@ -25,6 +25,33 @@ body {
   color: var(--text);
   font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+main:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.skip-link {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0 0 6px 0;
+  color: var(--accent);
+  font-weight: 700;
+  left: 0;
+  padding: 10px 14px;
+  position: absolute;
+  top: 0;
+  transform: translateY(-120%);
+  transition: transform .12s ease;
+  z-index: 20;
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
 header {
   display: flex;
   justify-content: space-between;

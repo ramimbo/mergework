@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
+    <a class="skip-link" href="#content">Skip to content</a>
     <header>
       <a class="brand" href="/">{% if site_context == "ltc_lab" %}LTC Lab{% else %}MergeWork <span>MRWK</span>{% endif %}</a>
-      <nav>
+      <nav aria-label="Primary navigation">
         {% if site_context == "ltc_lab" %}
         <a href="#projects">Projects</a>
         <a href="https://mrwk.ltclab.site">MRWK</a>
@@ -26,6 +27,6 @@
         {% endif %}
       </nav>
     </header>
-    <main>{% block content %}{% endblock %}</main>
+    <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
   </body>
 </html>
