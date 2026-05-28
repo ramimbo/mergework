@@ -9,7 +9,8 @@ from collections import defaultdict
 from typing import Any
 
 BOUNTY_REF_RE = re.compile(
-    r"(?:(?<!live )(?<!mrwk )\bbounty|\b(?:issues?|refs?|fixes|closes|claims?))\s+#(\d+)",
+    r"(?:(?<!live )(?<!mrwk )(?<!native )(?<!internal )\bbounty"
+    r"|\b(?:issues?|refs?|fixes|closes|claims?))\s+#(\d+)",
     re.IGNORECASE,
 )
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
