@@ -89,7 +89,7 @@ class BountyAttempt(Base):
     status: Mapped[str] = mapped_column(String(40), default="active", index=True)
     expires_at: Mapped[datetime] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)ow)
+    updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
     bounty: Mapped[Bounty] = relationship(back_populates="attempts")
 
 
