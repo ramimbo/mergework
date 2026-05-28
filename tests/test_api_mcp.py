@@ -76,6 +76,38 @@ def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:
     assert post_only.headers["allow"] == "POST"
 
 
+def test_public_discovery_routes_are_bounded_and_use_public_origin(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    robots = client.get("/robots.txt")
+    assert robots.status_code == 200
+    assert robots.headers["content-type"].startswith("text/plain")
+    assert robots.text == (
+        "User-agent: *\nAllow: /\nSitemap: https://mrwk.ltclab.site/sitemap.xml\n"
+    )
+
+    sitemap = client.get("/sitemap.xml")
+    assert sitemap.status_code == 200
+    assert sitemap.headers["content-type"].startswith("application/xml")
+    assert "<loc>https://mrwk.ltclab.site/</loc>" in sitemap.text
+    assert "<loc>https://mrwk.ltclab.site/docs</loc>" in sitemap.text
+    assert "<loc>https://mrwk.ltclab.site/api/v1/status</loc>" in sitemap.text
+    assert "http://testserver" not in sitemap.text
+
+    favicon = client.get("/favicon.ico")
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"].startswith("image/svg+xml")
+    assert b"<svg" in favicon.content
+
+    assert client.head("/robots.txt").content == b""
+    assert client.head("/sitemap.xml").content == b""
+    assert client.head("/favicon.ico").content == b""
+
+
 def test_trailing_slash_redirects_keep_forwarded_https_scheme(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

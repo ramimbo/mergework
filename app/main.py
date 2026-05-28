@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit, urlunsplit
+from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -88,6 +89,23 @@ API_DOCS_CSP = (
     "worker-src 'self' blob:"
 )
 API_DOCS_PATHS = {"/api/docs", "/api/redoc"}
+PUBLIC_SITEMAP_PATHS = (
+    "/",
+    "/docs",
+    "/bounties",
+    "/activity",
+    "/ledger",
+    "/wallets",
+    "/transfer",
+    "/me",
+    "/api/docs",
+    "/api/v1/status",
+)
+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0e7c66"/>
+  <path d="M16 42V18h7l9 13 9-13h7v24h-7V29L34 39h-4l-7-10v13z" fill="#fff"/>
+</svg>
+"""
 
 
 def _request_was_forwarded_https(request: Request) -> bool:
@@ -316,6 +334,31 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             return data
 
     register_activity_routes(app, db_url=db_url, templates=templates)
+
+    @app.get("/robots.txt", include_in_schema=False)
+    def robots_txt() -> Response:
+        sitemap_url = f"{settings.public_base_url}/sitemap.xml"
+        body = f"User-agent: *\nAllow: /\nSitemap: {sitemap_url}\n"
+        return Response(body, media_type="text/plain; charset=utf-8")
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    def sitemap_xml() -> Response:
+        base_url = settings.public_base_url.rstrip("/")
+        urlset = "\n".join(
+            f"  <url><loc>{xml_escape(base_url + path)}</loc></url>"
+            for path in PUBLIC_SITEMAP_PATHS
+        )
+        body = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"{urlset}\n"
+            "</urlset>\n"
+        )
+        return Response(body, media_type="application/xml; charset=utf-8")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> Response:
+        return Response(FAVICON_SVG, media_type="image/svg+xml")
 
     @app.post("/webhooks/github")
     async def github_webhook(request: Request) -> JSONResponse:
