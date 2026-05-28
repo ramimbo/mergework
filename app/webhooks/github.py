@@ -13,13 +13,14 @@ from app.ledger.service import (
     pay_bounty,
     resolve_payout_account,
 )
-from app.models import WebhookEvent
+from app.models import Bounty, WebhookEvent
 
 ACCEPTED_LABEL = "mrwk:accepted"
 ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
 MAX_SQLITE_INTEGER = 2**63 - 1
 LINKED_ISSUE_RE = re.compile(
-    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?|bounty)\s+"
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?|bounty|claims?)"
+    r"(?:\s+|\s*:\s*)"
     rf"(?:(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?P<repo_number>\d+){ISSUE_NUMBER_BOUNDARY}"
     rf"|#(?P<number>\d+){ISSUE_NUMBER_BOUNDARY})",
     re.IGNORECASE,
@@ -116,6 +117,10 @@ def _github_issue_number(value: Any) -> int | None:
     return value
 
 
+def _bounty_accepts_awards(bounty: Bounty) -> bool:
+    return bounty.status == "open" and bounty.awards_paid < bounty.max_awards
+
+
 def _handle_accepted_issue_label(
     database_url: str,
     payload: dict[str, Any],
@@ -198,11 +203,22 @@ def _handle_accepted_issue_label(
     with session_scope(database_url) as session:
         bounty = None
         bounty_issue_number = None
+        first_found_bounty = None
+        first_found_issue_number = None
         for candidate in bounty_issue_numbers:
-            bounty = find_bounty_by_issue(session, repo, candidate)
-            if bounty is not None:
+            candidate_bounty = find_bounty_by_issue(session, repo, candidate)
+            if candidate_bounty is None:
+                continue
+            if first_found_bounty is None:
+                first_found_bounty = candidate_bounty
+                first_found_issue_number = candidate
+            if _bounty_accepts_awards(candidate_bounty):
+                bounty = candidate_bounty
                 bounty_issue_number = candidate
                 break
+        if bounty is None:
+            bounty = first_found_bounty
+            bounty_issue_number = first_found_issue_number
         if bounty is None:
             session.add(
                 WebhookEvent(

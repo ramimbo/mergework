@@ -407,6 +407,12 @@ def test_deploy_readiness_rejects_malformed_public_base_url_hosts() -> None:
     assert expected in underscore_errors
 
 
+def test_deploy_readiness_rejects_dotless_public_base_url_host() -> None:
+    errors = validate_deploy_settings(_settings(public_base_url="https://internal"))
+
+    assert "MERGEWORK_PUBLIC_BASE_URL must use a public host" in errors
+
+
 def test_deploy_readiness_script_runs_directly_from_source() -> None:
     env = {
         **os.environ,

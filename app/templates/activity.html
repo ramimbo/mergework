@@ -15,6 +15,9 @@
 {% if query %}
 <p class="notice">Showing accepted work matching “{{ query }}”.</p>
 {% endif %}
+<nav class="actions detail-actions" aria-label="Activity inspection links">
+  <a href="/api/v1/activity{% if query %}?q={{ query | urlencode }}{% endif %}">View JSON activity</a>
+</nav>
 
 <section class="grid">
   <article><strong>{{ totals.accepted_awards }}</strong><span>accepted awards</span></article>

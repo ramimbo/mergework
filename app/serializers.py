@@ -46,8 +46,8 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
     ).all()
     awards: list[dict[str, Any]] = []
     for proof in proofs:
-        data = json.loads(proof.public_json)
-        if not isinstance(data, dict) or data.get("kind") != "bounty_payment":
+        data = _proof_payload(proof)
+        if data is None:
             continue
         proof_hash = str(proof.hash)
         awards.append(
@@ -168,6 +168,13 @@ def _activity_search_query(query: str | None) -> str:
     return (query or "").strip().lower()
 
 
+def _activity_hash_issue_query(query: str) -> str | None:
+    if not query.startswith("#"):
+        return None
+    issue_number = query[1:]
+    return issue_number if issue_number.isdigit() else None
+
+
 def _activity_row_matches(row: dict[str, Any], query: str) -> bool:
     if not query:
         return True
@@ -181,7 +188,15 @@ def _activity_row_matches(row: dict[str, Any], query: str) -> bool:
         row["bounty_issue_url"],
         row["bounty_issue_number"],
     )
-    return any(query in str(value or "").lower() for value in searchable_values)
+    if any(query in str(value or "").lower() for value in searchable_values):
+        return True
+    issue_number = _activity_hash_issue_query(query)
+    if issue_number is None:
+        return False
+    return issue_number in {
+        str(row["bounty_id"] or ""),
+        str(row["bounty_issue_number"] or ""),
+    }
 
 
 def activity_to_dict(session: Session, query: str | None = None) -> dict[str, Any]:

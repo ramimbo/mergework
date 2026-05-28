@@ -46,6 +46,7 @@ def register_admin_routes(
         request: Request,
         webhook_status: str | None = Query(None),
         webhook_limit: Annotated[int, Query(ge=1, le=100)] = 25,
+        proposal_id: Annotated[int | None, Query(ge=1)] = None,
     ) -> Any:
         login = admin_login_from_request(request)
         if login is None:
@@ -60,6 +61,7 @@ def register_admin_routes(
                 webhook_status=webhook_status,
                 webhook_limit=webhook_limit,
             )
+            context["proposal_id"] = proposal_id
         return templates.TemplateResponse(
             request,
             "admin.html",
@@ -87,7 +89,7 @@ def register_admin_routes(
             raise HTTPException(status_code=403, detail="invalid CSRF token")
         with session_scope(db_url) as session:
             try:
-                bounty_id = create_admin_bounty_from_form(
+                proposal_id = create_admin_bounty_from_form(
                     session,
                     repo=repo,
                     issue_number=issue_number,
@@ -96,7 +98,8 @@ def register_admin_routes(
                     reward_mrwk=reward_mrwk,
                     max_awards=max_awards,
                     acceptance=acceptance,
+                    proposed_by=admin_login,
                 )
             except LedgerError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return RedirectResponse(f"/bounties/{bounty_id}", status_code=303)
+        return RedirectResponse(f"/admin?proposal_id={proposal_id}", status_code=303)
