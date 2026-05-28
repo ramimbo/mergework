@@ -11,7 +11,10 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+BOUNTY_REF_RE = re.compile(
+    r"\b(?:bounty|refs?|references?|fixes|closes|claims?|resolves?)\s+#(\d+)",
+    re.IGNORECASE,
+)
 EVIDENCE_RE = re.compile(
     r"\b(pytest|ruff|mypy|validation|verified|test evidence|checks? passed)\b",
     re.IGNORECASE,

@@ -66,6 +66,28 @@ def test_submission_quality_gate_accepts_claim_command_reference() -> None:
     } in result["checks"]
 
 
+def test_submission_quality_gate_accepts_resolve_and_reference_words() -> None:
+    for text in ("Resolves #319", "Reference #319", "References #319"):
+        result = evaluate_submission(
+            {
+                "submission_text": f"""
+                Summary:
+                Harden the bounty reference parser.
+
+                {text}
+
+                Validation:
+                - pytest passed.
+                """,
+                "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+                "pull_requests": [],
+            }
+        )
+
+        assert result["status"] == "pass"
+        assert result["bounty_reference"] == 319
+
+
 def test_submission_quality_gate_fails_missing_reference() -> None:
     result = evaluate_submission(
         {
