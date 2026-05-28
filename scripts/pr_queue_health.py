@@ -51,7 +51,9 @@ def _scope_key(raw: dict[str, Any]) -> str:
 def _bounty_refs(raw: dict[str, Any]) -> list[int]:
     explicit = raw.get("bounty_refs")
     if isinstance(explicit, list):
-        explicit_refs = [item for item in explicit if isinstance(item, int)]
+        explicit_refs = [
+            item for item in explicit if isinstance(item, int) and not isinstance(item, bool)
+        ]
         if explicit_refs:
             return sorted(set(explicit_refs))
     text = "\n".join(
