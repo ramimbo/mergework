@@ -16,6 +16,7 @@
   <ul class="doc-list">
     <li><a href="/api/v1/status">API status</a></li>
     <li><a href="/api/docs">OpenAPI docs</a></li>
+    <li><a href="/openapi.json">OpenAPI JSON schema</a></li>
     <li><a href="/api/v1/bounties">Bounty API</a></li>
     <li><a href="/activity">Activity dashboard</a></li>
     <li><a href="/api/v1/activity">Activity API</a></li>
@@ -28,6 +29,13 @@
     <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/agent-guide.md">Agent usage</a></li>
     <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/api-examples.md">Public API examples</a></li>
     <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/ledger.md">Ledger details</a></li>
+  </ul>
+  <h2>Machine-readable shortcuts</h2>
+  <ul class="doc-list">
+    <li><a href="/api/v1/bounties?status=open&amp;sort=available">Open bounties by available MRWK</a></li>
+    <li><a href="/api/v1/bounties/summary?status=open">Open bounty summary</a></li>
+    <li><a href="/api/v1/activity?limit=20">Latest accepted-work activity JSON</a></li>
+    <li><a href="https://mcp.mrwk.ltclab.site/mcp">MCP JSON-RPC endpoint</a></li>
   </ul>
   <h2>Payout access</h2>
   <p>MRWK balances can live on native <code>mrwk1</code> wallet addresses. A wallet signs transfer, GitHub-link, and claim payloads with its private key; the server verifies signatures and records accepted movements in the explorer.</p>

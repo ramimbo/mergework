@@ -1543,8 +1543,13 @@ def test_docs_page_lists_live_ltclab_urls(sqlite_url: str) -> None:
     assert "docs/paid-bounties.md" in docs
     assert "docs/api-examples.md" in docs
     assert "OpenAPI docs" in docs
+    assert 'href="/openapi.json">OpenAPI JSON schema</a>' in docs
     assert 'href="/activity"' in docs
     assert 'href="/api/v1/activity"' in docs
+    assert 'href="/api/v1/bounties?status=open&amp;sort=available"' in docs
+    assert 'href="/api/v1/bounties/summary?status=open"' in docs
+    assert 'href="/api/v1/activity?limit=20"' in docs
+    assert 'href="https://mcp.mrwk.ltclab.site/mcp"' in docs
     assert "SwaggerUIBundle" in api_docs
 
 
