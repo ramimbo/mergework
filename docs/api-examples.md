@@ -221,6 +221,52 @@ Unauthenticated requests return a public session shape with a `null` login:
 }
 ```
 
+Read pending or executed treasury proposals:
+
+```bash
+curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
+```
+
+Treasury proposal reads are public. The list endpoint returns the newest 100
+proposals first, and the detail endpoint returns one proposal by internal
+proposal id:
+
+```json
+{
+  "id": 2,
+  "type": "treasury_proposal",
+  "action": "create_bounty",
+  "status": "pending",
+  "payload_hash": "3d0292a4265d81afadbdfe24bdd76cbb463cc49b1717d38fe9ec3595906f659d",
+  "payload": {
+    "repo": "ramimbo/mergework",
+    "issue_number": 597,
+    "issue_url": "https://github.com/ramimbo/mergework/issues/597",
+    "title": "MRWK bounty: 75 MRWK - post-deploy treasury proposal verification",
+    "reward_mrwk": "75",
+    "max_awards": 8,
+    "acceptance": "Accepted work must verify or improve the live post-#458 treasury proposal workflow."
+  },
+  "proposed_by": "api-token",
+  "executed_by": null,
+  "proposed_at": "2026-05-28T20:27:20.476851",
+  "executes_after": "2026-05-29T20:27:20.476851",
+  "executed_at": null,
+  "executed_ledger_sequence": null,
+  "result": {},
+  "challenges": []
+}
+```
+
+`action` is one of `create_bounty`, `pay_bounty`, or `close_bounty`. Pending
+proposals can execute only after `executes_after`; executed proposals include
+`executed_at`, `executed_ledger_sequence`, and a result object such as the
+created bounty or proof-backed payout. `POST /api/v1/treasury/proposals` and
+`POST /api/v1/treasury/proposals/<proposal_id>/execute` require the admin
+token. `POST /api/v1/treasury/proposals/<proposal_id>/challenges` requires a
+GitHub-authenticated session with accepted MRWK work.
+
 Read recent ledger entries and inspect one entry:
 
 ```bash

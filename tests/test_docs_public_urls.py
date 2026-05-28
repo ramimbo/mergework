@@ -98,6 +98,23 @@ def test_api_examples_document_auth_me_response_shape() -> None:
     assert "Unauthenticated requests return" in examples
 
 
+def test_api_examples_document_treasury_proposal_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/treasury/proposals" in examples
+    assert "/api/v1/treasury/proposals/<proposal_id>" in examples
+    assert '"type": "treasury_proposal"' in examples
+    assert '"action": "create_bounty"' in examples
+    assert '"status": "pending"' in examples
+    assert '"payload_hash":' in examples
+    assert '"executes_after":' in examples
+    assert '"executed_ledger_sequence": null' in examples
+    assert '"challenges": []' in examples
+    assert "`create_bounty`, `pay_bounty`, or `close_bounty`" in examples
+    assert "admin token" in examples
+    assert "GitHub-authenticated session with accepted MRWK work" in examples
+
+
 def test_api_examples_document_bounty_list_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
