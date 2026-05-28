@@ -242,14 +242,14 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
 
     assert filtered.status_code == 200
     assert 'value="bob"' in filtered.text
-    assert "Showing accepted work matching “bob”." in filtered.text
+    assert 'Showing accepted work matching "bob".' in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
     assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
     assert issue_ref.status_code == 200
     assert 'value="#12"' in issue_ref.text
-    assert "Showing accepted work matching “#12”." in issue_ref.text
+    assert 'Showing accepted work matching "#12".' in issue_ref.text
     assert 'href="/api/v1/activity?q=%2312">View JSON activity</a>' in issue_ref.text
     assert "github:bob" in issue_ref.text
 
@@ -257,7 +257,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
 
     assert no_match.status_code == 200
     assert 'value="alice"' in no_match.text
-    assert "Showing accepted work matching “alice”." in no_match.text
+    assert 'Showing accepted work matching "alice".' in no_match.text
     assert "No contributors match this search." in no_match.text
     assert "No accepted work matches this search." in no_match.text
     assert "No accepted bounty payments yet." not in no_match.text
