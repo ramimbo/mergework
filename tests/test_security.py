@@ -975,9 +975,7 @@ def test_bounty_payment_proof_rejects_control_character_metadata(sqlite_url: str
                 accepted_by="maintainer\nops",
                 verifier_result={"label": "mrwk:accepted"},
             )
-        with pytest.raises(
-            LedgerError, match="note must not contain control characters"
-        ):
+        with pytest.raises(LedgerError, match="note must not contain control characters"):
             pay_bounty(
                 session,
                 bounty_id=second_bounty.id,
