@@ -219,9 +219,11 @@ def _reject_metadata_control_chars(value: Any, path: str) -> None:
 
 def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     clean = dict(verifier_result)
-    _reject_metadata_control_chars(clean, "verifier_result")
     try:
+        _reject_metadata_control_chars(clean, "verifier_result")
         canonical_json(clean)
+    except RecursionError as exc:
+        raise LedgerError("verifier_result is too deeply nested") from exc
     except (TypeError, ValueError) as exc:
         raise LedgerError("verifier_result must be JSON serializable") from exc
     return clean

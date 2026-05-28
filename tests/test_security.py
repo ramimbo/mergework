@@ -989,7 +989,7 @@ def test_bounty_payment_proof_rejects_nested_control_character_metadata(
         assert session.scalars(select(Proof)).all() == []
 
 
-def test_bounty_payment_proof_preserves_safe_nested_metadata(sqlite_url: str) -> None:
+def test_bounty_payment_proof_rejects_recursive_metadata(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
@@ -998,6 +998,38 @@ def test_bounty_payment_proof_preserves_safe_nested_metadata(sqlite_url: str) ->
             repo="ramimbo/mergework",
             issue_number=172,
             issue_url="https://github.com/ramimbo/mergework/issues/172",
+            title="Recursive proof metadata",
+            reward_mrwk="25",
+            acceptance="Recursive verifier metadata should fail with a bounded error.",
+        )
+        verifier_result: dict[str, object] = {"label": "mrwk:accepted"}
+        verifier_result["self"] = verifier_result
+
+        with pytest.raises(LedgerError, match="verifier_result is too deeply nested"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url="https://github.com/ramimbo/mergework/pull/172-recursive",
+                accepted_by="maintainer",
+                verifier_result=verifier_result,
+            )
+
+        assert bounty.awards_paid == 0
+        assert get_balance(session, "github:alice") == 0
+        assert session.scalars(select(Submission)).all() == []
+        assert session.scalars(select(Proof)).all() == []
+
+
+def test_bounty_payment_proof_preserves_safe_nested_metadata(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=173,
+            issue_url="https://github.com/ramimbo/mergework/issues/173",
             title="Safe nested proof metadata",
             reward_mrwk="25",
             acceptance="Safe nested metadata should remain visible in public proof JSON.",
