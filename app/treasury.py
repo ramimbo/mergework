@@ -271,9 +271,14 @@ def _validate_create_bounty_proposal(session: Session, payload: dict[str, Any]) 
     ):
         raise LedgerError("create_bounty proposal already pending")
     reserved = parse_mrwk_amount(str(payload["reward_mrwk"])) * int(payload["max_awards"])
+    pending_reserved = _pending_create_bounty_reserved_microunits(
+        session, through_proposal_id=exclude_id
+    )
+    if exclude_id is not None:
+        pending_reserved -= reserved
     if (
         _epoch_reserved_microunits(session, _db_now())
-        + _pending_create_bounty_reserved_microunits(session, through_proposal_id=exclude_id)
+        + pending_reserved
         + reserved
         > TREASURY_EPOCH_RESERVE_CAP_MICRO
     ):

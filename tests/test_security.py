@@ -976,7 +976,7 @@ def test_bounty_payment_proof_rejects_control_character_metadata(sqlite_url: str
                 verifier_result={"label": "mrwk:accepted"},
             )
         with pytest.raises(
-            LedgerError, match="verifier_result.note must not contain control characters"
+            LedgerError, match="note must not contain control characters"
         ):
             pay_bounty(
                 session,
@@ -1027,7 +1027,7 @@ def test_admin_payout_api_rejects_control_character_note(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == ("verifier_result.note must not contain control characters")
+    assert response.json()["detail"] == ("note must not contain control characters")
     with session_scope(sqlite_url) as session:
         assert get_balance(session, "github:alice") == 0
 
