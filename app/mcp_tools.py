@@ -106,6 +106,14 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError("limit must be at most 100")
         return value
 
+    def list_offset_arg() -> int:
+        if "offset" not in args or args.get("offset") is None:
+            return 0
+        value = positive_int_arg("offset")
+        if value > 10_000:
+            raise ValueError("offset must be at most 10000")
+        return value
+
     def optional_bool_arg(field: str, default: bool = False) -> bool:
         value = args.get(field, default)
         if value is None:
@@ -138,14 +146,17 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 query = query.where(text_filter)
             sort = normalize_bounty_sort(optional_clean_str_arg("sort"))
             limit = list_limit_arg()
+            offset = list_offset_arg()
             if sort == "newest":
                 newest_bounties = session.scalars(
-                    query.order_by(Bounty.id.desc()).limit(limit)
+                    query.order_by(Bounty.id.desc()).offset(offset).limit(limit)
                 ).all()
                 return json.dumps([bounty_to_dict(bounty) for bounty in newest_bounties])
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             sorted_bounties = sort_bounties([bounty_to_dict(bounty) for bounty in bounties], sort)
-            return json.dumps(sorted_bounties[:limit])
+            start = offset
+            end = start + limit
+            return json.dumps(sorted_bounties[start:end])
         if name == "get_bounty":
             bounty = session.get(Bounty, positive_int_arg("id"))
             if bounty is None:

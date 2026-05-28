@@ -58,7 +58,7 @@ def register_public_routes(
     *,
     db_url: str,
     templates: Jinja2Templates,
-    list_bounties_by_status: Callable[[str | None, str | None, str | None], list[dict[str, Any]]],
+    list_bounties_by_status: Callable[..., list[dict[str, Any]]],
     api_bounty: Callable[[int], dict[str, Any]],
     api_ledger: Callable[[], list[dict[str, Any]]],
     api_ledger_entry: Callable[[int], dict[str, Any]],
@@ -70,8 +70,10 @@ def register_public_routes(
         status: str | None = Query(None),
         q: str | None = Query(None),
         sort: str | None = Query(None),
+        limit: int | None = Query(None),
+        offset: int | None = Query(None),
     ) -> HTMLResponse:
-        bounties = list_bounties_by_status(status, q, sort)
+        bounties = list_bounties_by_status(status, q, sort, limit=limit, offset=offset)
         return templates.TemplateResponse(
             request,
             "bounties.html",

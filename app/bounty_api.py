@@ -87,6 +87,7 @@ def register_bounty_api_routes(
         query_text: str | None = None,
         sort: str | None = None,
         limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         try:
             normalized_sort = normalize_bounty_sort(sort)
@@ -124,27 +125,31 @@ def register_bounty_api_routes(
             sorted_bounties = sort_bounties(
                 [bounty_to_dict(bounty) for bounty in bounties], normalized_sort
             )
-            if limit is not None:
-                return sorted_bounties[:limit]
-            return sorted_bounties
+            start = offset if offset is not None else 0
+            end = (start + limit) if limit is not None else None
+            return sorted_bounties[start:end]
 
     @app.get("/api/v1/bounties")
     def api_bounties(
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+        offset: Annotated[int | None, Query(ge=0, le=10000)] = None,
         sort: str | None = Query(None),
     ) -> list[dict[str, Any]]:
-        return _list_bounties_by_status(status, q, sort=sort, limit=limit)
+        return _list_bounties_by_status(status, q, sort=sort, limit=limit, offset=offset)
 
     @app.get("/api/v1/bounties/summary")
     def api_bounties_summary(
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+        offset: Annotated[int | None, Query(ge=0, le=10000)] = None,
         sort: str | None = Query(None),
     ) -> dict[str, Any]:
-        return bounty_list_summary(_list_bounties_by_status(status, q, sort=sort, limit=limit))
+        return bounty_list_summary(
+            _list_bounties_by_status(status, q, sort=sort, limit=limit, offset=offset)
+        )
 
     @app.get("/api/v1/admin/webhook-events")
     def api_admin_webhook_events(
