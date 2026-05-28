@@ -1,1 +1,0 @@
-"""MergeWork application package."""
