@@ -9,8 +9,11 @@ from collections import defaultdict
 from typing import Any
 
 BOUNTY_REF_RE = re.compile(
-    r"(?:(?<!live )(?<!mrwk )(?<!native )(?<!internal )\bbounty"
-    r"|\b(?:issues?|refs?|fixes|closes|claims?))\s+#(\d+)",
+    r"\b(?P<keyword>bounty|issues?|refs?|fixes|closes|claims?)\s+#(?P<number>\d+)",
+    re.IGNORECASE,
+)
+NATIVE_BOUNTY_PREFIX_RE = re.compile(
+    r"(?:^|[^A-Za-z0-9_])(?:live|mrwk|native|internal)\s+$",
     re.IGNORECASE,
 )
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
@@ -59,7 +62,14 @@ def _bounty_refs(raw: dict[str, Any]) -> list[int]:
         for key in ("title", "body", "description")
         if raw.get(key) is not None
     )
-    return sorted({int(match) for match in BOUNTY_REF_RE.findall(text)})
+    refs: set[int] = set()
+    for match in BOUNTY_REF_RE.finditer(text):
+        if match.group("keyword").lower() == "bounty" and NATIVE_BOUNTY_PREFIX_RE.search(
+            text[: match.start()]
+        ):
+            continue
+        refs.add(int(match.group("number")))
+    return sorted(refs)
 
 
 def _is_open_bounty(raw: dict[str, Any]) -> bool:
