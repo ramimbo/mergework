@@ -47,7 +47,7 @@
           <dt>Reference</dt>
           <dd>
             {% if reference_url %}
-              <a href="{{ reference_url }}">{{ entry.reference | replace("https://github.com/", "") }}</a>
+              <a href="{{ reference_url }}" rel="nofollow noopener">{{ entry.reference | replace("https://github.com/", "") }}</a>
             {% elif entry.reference %}
               <code>{{ entry.reference }}</code>
             {% else %}

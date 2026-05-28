@@ -16,12 +16,8 @@ from app.config import Settings
 from app.db import session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
+    CONTROL_CHAR_RE,
     LedgerError,
-    close_bounty,
-    create_bounty,
-    format_mrwk,
-    pay_bounty,
-    resolve_payout_account,
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
@@ -32,6 +28,7 @@ from app.serializers import (
     bounty_to_dict,
     payout_reconciliation_to_dict,
 )
+from app.treasury import proposal_to_dict, propose_treasury_action
 
 
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
@@ -66,6 +63,22 @@ def _existing_payout_proof_for_submission(
         .where(Proof.submission_id == submission.id, Proof.kind == "bounty_payment")
         .limit(1)
     )
+
+
+def _ledger_http_error(exc: LedgerError) -> HTTPException:
+    detail = str(exc)
+    if detail == "bounty not found":
+        return HTTPException(status_code=404, detail=detail)
+    if detail in {
+        "submission already paid",
+        "create_bounty proposal already pending",
+        "pay_bounty proposal already pending for submission",
+        "close_bounty proposal already pending",
+        "bounty has pending close proposal",
+        "bounty has pending payout proposals",
+    }:
+        return HTTPException(status_code=409, detail=detail)
+    return HTTPException(status_code=400, detail=detail)
 
 
 def register_bounty_api_routes(
@@ -163,23 +176,25 @@ def register_bounty_api_routes(
         data = await json_object(request)
         with session_scope(db_url) as session:
             try:
-                bounty = create_bounty(
+                proposal = propose_treasury_action(
                     session,
-                    repo=required_str(data, "repo"),
-                    issue_number=required_int(data, "issue_number"),
-                    issue_url=required_str(data, "issue_url"),
-                    title=required_str(data, "title"),
-                    reward_mrwk=str(data["reward_mrwk"]),
-                    max_awards=optional_int(data, "max_awards", 1),
-                    acceptance=required_str(data, "acceptance"),
+                    action="create_bounty",
+                    payload={
+                        "repo": required_str(data, "repo"),
+                        "issue_number": required_int(data, "issue_number"),
+                        "issue_url": required_str(data, "issue_url"),
+                        "title": required_str(data, "title"),
+                        "reward_mrwk": str(data["reward_mrwk"]),
+                        "max_awards": optional_int(data, "max_awards", 1),
+                        "acceptance": required_str(data, "acceptance"),
+                    },
+                    proposed_by=admin_login,
                 )
             except KeyError as exc:
                 raise HTTPException(status_code=400, detail=f"{exc.args[0]} is required") from exc
             except LedgerError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-            result = bounty_to_dict(bounty)
-            result["created_by"] = admin_login
-            return result
+                raise _ledger_http_error(exc) from exc
+            return proposal_to_dict(proposal)
 
     @app.get("/api/v1/bounties/{bounty_id}")
     def api_bounty(bounty_id: int) -> dict[str, Any]:
@@ -224,7 +239,7 @@ def register_bounty_api_routes(
                 ) from exc
             raise
         except LedgerError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise _ledger_http_error(exc) from exc
         accepted_by = optional_str(data, "accepted_by", admin_login) or admin_login
         verifier_result = {
             "source": "admin_api",
@@ -233,46 +248,37 @@ def register_bounty_api_routes(
         if data.get("note") is not None:
             note = optional_str(data, "note").strip()
             if note:
+                if CONTROL_CHAR_RE.search(note):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="verifier_result.note must not contain control characters",
+                    )
                 verifier_result["note"] = note[:240]
         with session_scope(db_url) as session:
-            try:
-                to_account = resolve_payout_account(session, requested_account)
-                proof = pay_bounty(
-                    session,
-                    bounty_id=bounty_id,
-                    to_account=to_account,
-                    submission_url=clean_submission_url,
-                    accepted_by=accepted_by,
-                    verifier_result=verifier_result,
-                )
-                bounty = session.get(Bounty, bounty_id)
-                if bounty is None:
-                    raise LedgerError("bounty not found")
-                bounty_state = bounty_to_dict(bounty)
-                proof_payload = json.loads(proof.public_json)
-            except LedgerError as exc:
-                if str(exc) == "submission already paid":
-                    existing_proof = _existing_payout_proof_for_submission(
-                        session, bounty_id, clean_submission_url
-                    )
-                    if existing_proof is not None:
-                        return JSONResponse(
-                            status_code=409,
-                            content=_payout_response_from_proof(
-                                existing_proof, status="already_paid"
-                            ),
-                        )
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-            payout_response = _payout_response_from_proof(proof, status="paid")
-            payout_response.update(
-                {
-                    "bounty_status": bounty_state["status"],
-                    "awards_paid": bounty_state["awards_paid"],
-                    "awards_remaining": bounty_state["awards_remaining"],
-                    "submission_url": proof_payload["submission_url"],
-                }
+            existing_proof = _existing_payout_proof_for_submission(
+                session, bounty_id, clean_submission_url
             )
-            return payout_response
+            if existing_proof is not None:
+                return JSONResponse(
+                    status_code=409,
+                    content=_payout_response_from_proof(existing_proof, status="already_paid"),
+                )
+            try:
+                proposal = propose_treasury_action(
+                    session,
+                    action="pay_bounty",
+                    payload={
+                        "bounty_id": bounty_id,
+                        "to_account": requested_account,
+                        "submission_url": clean_submission_url,
+                        "accepted_by": accepted_by,
+                        "note": verifier_result.get("note"),
+                    },
+                    proposed_by=admin_login,
+                )
+            except LedgerError as exc:
+                raise _ledger_http_error(exc) from exc
+            return proposal_to_dict(proposal)
 
     @app.post("/api/v1/bounties/{bounty_id}/close")
     async def api_close_bounty(
@@ -286,20 +292,19 @@ def register_bounty_api_routes(
         closed_by = optional_str(data, "closed_by", admin_login)
         with session_scope(db_url) as session:
             try:
-                release = close_bounty(
+                proposal = propose_treasury_action(
                     session,
-                    bounty_id=bounty_id,
-                    closed_by=closed_by,
-                    reference=reference,
+                    action="close_bounty",
+                    payload={
+                        "bounty_id": bounty_id,
+                        "closed_by": closed_by,
+                        "reference": reference,
+                    },
+                    proposed_by=admin_login,
                 )
             except LedgerError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-            return {
-                "status": "closed",
-                "bounty_id": bounty_id,
-                "released_mrwk": format_mrwk(release.amount_microunits) if release else "0",
-                "ledger_sequence": release.sequence if release else None,
-            }
+                raise _ledger_http_error(exc) from exc
+            return proposal_to_dict(proposal)
 
     return {
         "list_bounties_by_status": _list_bounties_by_status,

@@ -44,7 +44,7 @@
   </div>
   {% if accepted_summary.latest_proof_hash %}
   {% set latest_submission_url = safe_public_url(accepted_summary.latest_submission_url) %}
-  <p>
+  <p class="reference-cell">
     Latest accepted work:
     {% if latest_submission_url %}
     <a href="{{ latest_submission_url }}">{{ accepted_summary.latest_submission_url | replace("https://github.com/", "") }}</a>
@@ -113,6 +113,11 @@
     <h2>Transactions</h2>
     <p>Credits and debits involving this account.</p>
   </div>
+  <nav class="actions" aria-label="Transaction type filters">
+    {% for option in transaction_type_options %}
+    <a href="/accounts/{{ account.account }}{% if option.value != 'all' %}?tx_type={{ option.value }}{% endif %}"{% if selected_transaction_type == option.value %} aria-current="page"{% endif %}>{{ option.label }}</a>
+    {% endfor %}
+  </nav>
   <table>
     <thead><tr><th>#</th><th>Type</th><th>From</th><th>To</th><th>Amount</th><th>Proof</th></tr></thead>
     <tbody>

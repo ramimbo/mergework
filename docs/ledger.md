@@ -12,14 +12,30 @@ current balances, transfers, and payout proofs.
 
 ## Bounty Reserve Model
 
-Posting a bounty creates a reserve ledger entry from treasury to
-`reserve:bounty:{id}`. Multi-award bounties reserve the per-award reward times
-the maximum award count. Each accepted payout moves one award from that reserve
-account to a linked `mrwk1` wallet, or to a temporary `github:{login}` account
-when the contributor has not linked a wallet yet.
+Executing a bounty creation treasury proposal creates a reserve ledger entry
+from treasury to `reserve:bounty:{id}`. Multi-award bounties reserve the
+per-award reward times the maximum award count. Each accepted payout moves one
+award from that reserve account to a linked `mrwk1` wallet, or to a temporary
+`github:{login}` account when the contributor has not linked a wallet yet.
 
 This keeps treasury balance useful: it shows MRWK not already reserved for open
 bounties.
+
+## Treasury Proposal Surface
+
+Normal admin treasury actions use public proposals before ledger mutation:
+
+- create bounty
+- manual bounty payout
+- close bounty and release reserve
+
+Proposal execution is delayed 24 hours. Bounty reserve execution is capped at
+`10,000 MRWK` per 24-hour epoch. GitHub users with accepted MRWK work can submit
+machine-checkable challenges or public notes.
+
+This makes normal app-path treasury movement visible and rule-checkable. It does
+not prevent direct server or database bypass by an operator with production
+access.
 
 ## Hash Chain
 

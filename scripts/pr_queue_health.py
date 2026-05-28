@@ -6,11 +6,16 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
-BOUNTY_REF_RE = re.compile(r"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+)", re.IGNORECASE)
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.bounty_refs import BOUNTY_REF_RE
+
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30
@@ -18,6 +23,7 @@ GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
 API_BOUNTY_SAFETY_CAP = 200
 DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
+MAX_BOUNTY_REF = 2**63 - 1
 
 
 def _labels(raw: dict[str, Any]) -> list[str]:
@@ -59,7 +65,15 @@ def _bounty_refs(raw: dict[str, Any]) -> list[int]:
         for key in ("title", "body", "description")
         if raw.get(key) is not None
     )
-    return sorted({int(match) for match in BOUNTY_REF_RE.findall(text)})
+    found_refs: set[int] = set()
+    for match in BOUNTY_REF_RE.findall(text):
+        try:
+            ref = int(match)
+        except ValueError:
+            continue
+        if ref <= MAX_BOUNTY_REF:
+            found_refs.add(ref)
+    return sorted(found_refs)
 
 
 def _is_open_bounty(raw: dict[str, Any]) -> bool:
@@ -122,7 +136,8 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 _issue(
                     pr,
                     "missing_bounty_reference",
-                    "No Bounty #<issue>, Refs #<issue>, or /claim #<issue> found",
+                    "No bounty reference such as Bounty #<issue>, Refs #<issue>, "
+                    "Fixes #<issue>, or /claim #<issue> found",
                 )
             )
         for ref in pr["refs"]:

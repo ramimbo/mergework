@@ -4,6 +4,8 @@ import hashlib
 import hmac
 import json
 import re
+from datetime import timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +28,15 @@ from app.ledger.service import (
     register_wallet,
 )
 from app.main import _safe_next_path, _signed_value, create_app
-from app.models import Bounty, LedgerEntry, Proof, Submission, WebhookEvent
+from app.models import (
+    Bounty,
+    LedgerEntry,
+    Proof,
+    Submission,
+    TreasuryProposal,
+    WebhookEvent,
+    utc_now,
+)
 from app.webhooks.github import handle_github_webhook
 
 
@@ -48,6 +58,17 @@ def _admin_bounty_form_data(csrf_token: str | None = None) -> dict[str, str]:
     if csrf_token is not None:
         data["csrf_token"] = csrf_token
     return data
+
+
+def _execute_treasury_proposal(client: TestClient, sqlite_url: str, proposal_id: int) -> Any:
+    with session_scope(sqlite_url) as session:
+        proposal = session.get(TreasuryProposal, proposal_id)
+        assert proposal is not None
+        proposal.executes_after = utc_now() - timedelta(seconds=1)
+    return client.post(
+        f"/api/v1/treasury/proposals/{proposal_id}/execute",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
 
 
 def test_browser_responses_set_security_headers(sqlite_url: str) -> None:
@@ -281,7 +302,7 @@ def test_admin_bounty_api_returns_400_for_malformed_json(
     assert missing_field.json()["detail"] == "repo is required"
 
 
-def test_admin_bounty_api_rejects_duplicate_repo_issue(
+def test_admin_bounty_api_rejects_duplicate_pending_repo_issue_proposal(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
@@ -303,8 +324,12 @@ def test_admin_bounty_api_rejects_duplicate_repo_issue(
     )
 
     assert first.status_code == 200
-    assert duplicate.status_code == 400
-    assert duplicate.json()["detail"] == "bounty already exists for issue"
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == "create_bounty proposal already pending"
+    first_execution = _execute_treasury_proposal(client, sqlite_url, first.json()["id"])
+
+    assert first_execution.status_code == 200
+    assert first_execution.json()["result"]["bounty"]["issue_number"] == 77
 
 
 def test_admin_bounty_api_rejects_fractional_integer_fields(
@@ -473,11 +498,20 @@ def test_admin_payout_api_requires_admin_token_not_cookie_auth(
 
     assert cookie_only.status_code == 401
     assert token_auth.status_code == 200
-    assert token_auth.json()["to_account"] == wallet_address
-    assert token_auth.json()["submission_id"] is not None
-    assert token_auth.json()["ledger_sequence"] is not None
-    assert token_auth.json()["ledger_url"].startswith("/ledger/")
-    assert token_auth.json()["proof_url"].startswith("/proofs/")
+    assert token_auth.json()["action"] == "pay_bounty"
+    assert token_auth.json()["payload"]["to_account"] == wallet_address
+    with session_scope(sqlite_url) as session:
+        assert get_balance(session, wallet_address) == 0
+
+    executed = _execute_treasury_proposal(client, sqlite_url, token_auth.json()["id"])
+
+    assert executed.status_code == 200
+    payout = executed.json()["result"]["payout"]
+    assert payout["to_account"] == wallet_address
+    assert payout["submission_id"] is not None
+    assert payout["ledger_sequence"] is not None
+    assert payout["ledger_url"].startswith("/ledger/")
+    assert payout["proof_url"].startswith("/proofs/")
     with session_scope(sqlite_url) as session:
         assert get_balance(session, wallet_address) == 25_000_000
 
@@ -514,12 +548,13 @@ def test_admin_payout_api_returns_existing_proof_for_duplicate_submission(
     first = client.post(f"/api/v1/bounties/{bounty_id}/pay", headers=headers, json=first_payload)
 
     assert first.status_code == 200
-    first_body = first.json()
+    first_proposal = first.json()
+    assert first_proposal["action"] == "pay_bounty"
+    first_execution = _execute_treasury_proposal(client, sqlite_url, first_proposal["id"])
+    assert first_execution.status_code == 200
+    first_body = first_execution.json()["result"]["payout"]
     assert first_body["status"] == "paid"
     assert first_body["bounty_id"] == bounty_id
-    assert first_body["bounty_status"] == "open"
-    assert first_body["awards_paid"] == 1
-    assert first_body["awards_remaining"] == 1
     assert first_body["to_account"] == "github:alice"
     assert first_body["submission_url"] == "https://github.com/ramimbo/mergework/pull/283"
     assert first_body["proof_hash"]
@@ -562,9 +597,42 @@ def test_admin_payout_api_returns_existing_proof_for_duplicate_submission(
     )
 
     assert final.status_code == 200
-    assert final.json()["bounty_status"] == "paid"
-    assert final.json()["awards_paid"] == 2
-    assert final.json()["awards_remaining"] == 0
+    final_execution = _execute_treasury_proposal(client, sqlite_url, final.json()["id"])
+
+    assert final_execution.status_code == 200
+    final_body = final_execution.json()["result"]["payout"]
+    assert final_body["status"] == "paid"
+    assert final_body["bounty_status"] == "paid"
+    assert final_body["awards_paid"] == 2
+    assert final_body["awards_remaining"] == 0
+
+    paid_duplicate = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=headers,
+        json={
+            "to_account": "github:carol",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/284",
+            "accepted_by": "maintainer",
+        },
+    )
+
+    assert paid_duplicate.status_code == 409
+    assert paid_duplicate.json()["status"] == "already_paid"
+    assert paid_duplicate.json()["proof_hash"] == final_body["proof_hash"]
+    assert paid_duplicate.json()["ledger_sequence"] == final_body["ledger_sequence"]
+    assert paid_duplicate.json()["submission_id"] == final_body["submission_id"]
+    with session_scope(sqlite_url) as session:
+        bounty = session.get(Bounty, bounty_id)
+        payments = session.scalars(
+            select(LedgerEntry).where(LedgerEntry.entry_type == "bounty_payment")
+        ).all()
+        assert bounty is not None
+        assert bounty.status == "paid"
+        assert bounty.awards_paid == 2
+        assert bounty.max_awards - bounty.awards_paid == 0
+        assert len(payments) == 2
+        assert get_balance(session, "github:bob") == 15_000_000
+        assert get_balance(session, "github:carol") == 0
 
 
 def test_admin_payout_reconciliation_api_reports_missing_and_duplicate_evidence(
@@ -785,8 +853,14 @@ def test_admin_close_bounty_api_releases_remaining_reserve(
 
     assert unauthenticated.status_code == 401
     assert token_auth.status_code == 200
-    assert token_auth.json()["status"] == "closed"
-    assert token_auth.json()["released_mrwk"] == "50"
+    assert token_auth.json()["action"] == "close_bounty"
+    assert token_auth.json()["status"] == "pending"
+
+    executed = _execute_treasury_proposal(client, sqlite_url, token_auth.json()["id"])
+
+    assert executed.status_code == 200
+    assert executed.json()["result"]["close"]["status"] == "closed"
+    assert executed.json()["result"]["close"]["released_mrwk"] == "50"
 
 
 def test_admin_bounty_id_routes_reject_non_positive_ids(
@@ -841,10 +915,16 @@ def test_admin_bounty_api_accepts_multi_award_count(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["reward_mrwk"] == "25"
-    assert body["reserved_mrwk"] == "75"
-    assert body["max_awards"] == 3
-    assert body["awards_remaining"] == 3
+    assert body["action"] == "create_bounty"
+    assert body["status"] == "pending"
+    executed = _execute_treasury_proposal(client, sqlite_url, body["id"])
+
+    assert executed.status_code == 200
+    bounty = executed.json()["result"]["bounty"]
+    assert bounty["reward_mrwk"] == "25"
+    assert bounty["reserved_mrwk"] == "75"
+    assert bounty["max_awards"] == 3
+    assert bounty["awards_remaining"] == 3
 
 
 @pytest.mark.parametrize(
@@ -883,6 +963,12 @@ def test_amount_parser_rejects_non_decimal_notation() -> None:
     assert parse_mrwk_amount("1.5") == 1_500_000
     with pytest.raises(LedgerError, match="amount must be positive"):
         parse_mrwk_amount("-1")
+
+
+@pytest.mark.parametrize("amount", ("1.0000000", "0.0000010", "0.1000000"))
+def test_amount_parser_rejects_more_than_six_decimal_places(amount: str) -> None:
+    with pytest.raises(LedgerError, match="MRWK supports at most 6 decimal places"):
+        parse_mrwk_amount(amount)
 
 
 def test_amount_parser_rejects_values_above_fixed_supply() -> None:
@@ -1013,10 +1099,13 @@ def test_admin_payout_api_omits_blank_note_from_public_proof(
     )
 
     assert response.status_code == 200
+    executed = _execute_treasury_proposal(client, sqlite_url, response.json()["id"])
+
+    assert executed.status_code == 200
     with session_scope(sqlite_url) as session:
         proof = session.scalars(select(Proof)).one()
         verifier_result = json.loads(proof.public_json)["verifier_result"]
-        assert verifier_result == {"accepted_by": "maintainer", "source": "admin_api"}
+        assert verifier_result == {"accepted_by": "maintainer", "source": "treasury_proposal"}
         assert get_balance(session, "github:alice") == 25_000_000
 
 
@@ -1054,6 +1143,9 @@ def test_admin_payout_api_trims_note_in_public_proof(
     )
 
     assert response.status_code == 200
+    executed = _execute_treasury_proposal(client, sqlite_url, response.json()["id"])
+
+    assert executed.status_code == 200
     with session_scope(sqlite_url) as session:
         proof = session.scalars(select(Proof)).one()
         verifier_result = json.loads(proof.public_json)["verifier_result"]

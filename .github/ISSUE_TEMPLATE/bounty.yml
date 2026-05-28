@@ -1,8 +1,13 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the stable bounty shape from `docs/bounty-rules.md` so humans, GitHub search, API clients, and MCP agents can parse the reward, scope, evidence, and exclusions.
+        Keep public MRWK wording work-based: no price, investment, exchange, liquidity, bridge, cash-out, or fabricated payout claims.
   - type: textarea
     id: work
     attributes:
@@ -29,5 +34,37 @@ body:
     attributes:
       label: Acceptance criteria
       description: Explain what must be true before mrwk:accepted is applied.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or tests required
+      description: List the commands, URLs, screenshots, logs, reproduction steps, or checked surfaces needed for review.
+      placeholder: |
+        - Command or URL:
+        - Expected behavior:
+        - Observed behavior or required screenshot/GIF/video:
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: List duplicate, broad rewrite, typo-only, style-only, speculative tokenomics, private-security-detail, or unrelated work that does not qualify.
+      placeholder: |
+        - No broad rewrites.
+        - No speculative price, liquidity, bridge, exchange, cash-out, or payout claims.
+        - No private secrets or security exploit details in public artifacts.
+    validations:
+      required: true
+  - type: textarea
+    id: duplicate_stale_rules
+    attributes:
+      label: Duplicate and stale work rules
+      description: Explain how maintainers will treat overlapping claims, abandoned attempts, or submissions that no longer match current behavior.
+      placeholder: |
+        Duplicate work is judged by the first useful, reviewable submission that matches the bounty criteria.
+        Stale claims may be released or ignored when they lack reviewable evidence or no longer match current repository behavior.
     validations:
       required: true

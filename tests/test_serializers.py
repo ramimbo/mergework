@@ -9,6 +9,7 @@ from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
     activity_to_dict,
+    bounty_awards_to_dict,
     bounty_list_summary,
     bounty_to_dict,
     empty_accepted_summary,
@@ -136,6 +137,36 @@ def test_activity_serializers_skip_malformed_public_proofs(sqlite_url: str) -> N
     }
     assert summary == empty_accepted_summary()
     assert accepted_work == []
+
+
+def test_bounty_award_serializer_skips_malformed_public_proofs(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=321,
+            issue_url="https://github.com/ramimbo/mergework/issues/321",
+            title="Public bounty award history",
+            reward_mrwk="40",
+            acceptance="Malformed proof payloads should not break bounty award history.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:tatelyman",
+            submission_url="https://github.com/ramimbo/mergework/pull/321",
+            accepted_by="ramimbo",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        proof_row = session.get(Proof, proof.hash)
+        assert proof_row is not None
+        proof_row.public_json = "{"
+
+        awards = bounty_awards_to_dict(session, bounty.id)
+
+    assert awards == []
 
 
 def test_wallet_transfer_serializer_normalizes_aware_timestamp() -> None:

@@ -37,6 +37,7 @@ from app.path_params import (
 )
 from app.public_routes import register_public_routes
 from app.status import health_status, system_status
+from app.treasury_routes import register_treasury_routes
 from app.wallet_api import register_wallet_api_routes
 from app.webhooks.github import handle_github_webhook
 
@@ -270,6 +271,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         sqlite_integer_max=SQLITE_INTEGER_MAX,
     )
 
+    register_treasury_routes(
+        app,
+        db_url=db_url,
+        require_admin_token=auth.require_admin_token,
+        require_github_login=auth.require_github_login,
+        json_object=_json_object,
+    )
+
     register_account_routes(app, db_url=db_url, templates=templates)
 
     @app.get("/api/v1/auth/me")
@@ -310,7 +319,10 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             proof = session.get(Proof, proof_hash)
             if proof is None:
                 raise HTTPException(status_code=404, detail="proof not found")
-            data = json.loads(proof.public_json)
+            try:
+                data = json.loads(proof.public_json)
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise HTTPException(status_code=500, detail="invalid proof payload") from exc
             if not isinstance(data, dict):
                 raise HTTPException(status_code=500, detail="invalid proof payload")
             return data
