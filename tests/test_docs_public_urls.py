@@ -48,6 +48,51 @@ def test_paid_bounties_lists_recent_docs_payments() -> None:
     ) in paid
 
 
+def test_paid_bounties_lists_recent_governance_review_payments() -> None:
+    paid = Path("docs/paid-bounties.md").read_text(encoding="utf-8")
+    expected_rows = [
+        (
+            "[#512 detailed governance MVP PR review, part 2]"
+            "(https://github.com/ramimbo/mergework/issues/512)",
+            "[Review on PR #458]"
+            "(https://github.com/ramimbo/mergework/pull/458#pullrequestreview-4369643980)",
+            "`github:rebel117`",
+            "f86bf9a98d77f8b999d7bbb7e30ad02240abd10887b899727275e4262e8ac8ff",
+        ),
+        (
+            "[#512 detailed governance MVP PR review, part 2]"
+            "(https://github.com/ramimbo/mergework/issues/512)",
+            "[PR #458 comment](https://github.com/ramimbo/mergework/pull/458#issuecomment-4550896353)",
+            "`github:tinyopsstudio`",
+            "5b2b5ce0737d9aba85c388ba74d94ba7f61dec7fc7eccaeed6da3c7dde790136",
+        ),
+        (
+            "[#459 detailed governance MVP PR review](https://github.com/ramimbo/mergework/issues/459)",
+            "[PR #458 comment](https://github.com/ramimbo/mergework/pull/458#issuecomment-4549988144)",
+            "`github:jtc268`",
+            "6bd61458024a025863386bbd8f0efda678803fe46b60b5282f785ef8db00c70f",
+        ),
+        (
+            "[#459 detailed governance MVP PR review](https://github.com/ramimbo/mergework/issues/459)",
+            "[Review on PR #458]"
+            "(https://github.com/ramimbo/mergework/pull/458#pullrequestreview-4367438132)",
+            "`github:ghx5t-sol`",
+            "61db2b8050a39f681e930e07782024b37bbc96180055b19970af6f07dd68a1e3",
+        ),
+    ]
+
+    assert paid.count("[#512 detailed governance MVP PR review, part 2]") >= 7
+    assert paid.count("[#459 detailed governance MVP PR review]") >= 10
+    assert "[Review on PR #458]" in paid
+    assert "[PR #458 comment]" in paid
+    assert paid.count("| 80 MRWK |") >= 17
+    for bounty, accepted_work, recipient, proof in expected_rows:
+        assert (
+            f"| 2026-05-27 | {bounty} | {accepted_work} | {recipient} | 80 MRWK | "
+            f"[{proof[:8]}](https://mrwk.ltclab.site/proofs/{proof}) |"
+        ) in paid
+
+
 def test_api_examples_document_internal_bounty_ids() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
