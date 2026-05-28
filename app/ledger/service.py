@@ -201,11 +201,25 @@ def _clean_optional_account_id(value: str | None, field: str) -> str | None:
     return _clean_required_text(value, field, 128)
 
 
+def _reject_metadata_control_chars(value: Any, path: str) -> None:
+    if isinstance(value, str):
+        if CONTROL_CHAR_RE.search(value):
+            raise LedgerError(f"{path} must not contain control characters")
+        return
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if isinstance(key, str) and CONTROL_CHAR_RE.search(key):
+                raise LedgerError(f"{path} key must not contain control characters")
+            _reject_metadata_control_chars(child, f"{path}.{key}")
+        return
+    if isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_metadata_control_chars(child, f"{path}[{index}]")
+
+
 def _clean_proof_metadata(verifier_result: dict[str, Any]) -> dict[str, Any]:
     clean = dict(verifier_result)
-    for key, value in clean.items():
-        if isinstance(value, str) and CONTROL_CHAR_RE.search(value):
-            raise LedgerError(f"verifier_result.{key} must not contain control characters")
+    _reject_metadata_control_chars(clean, "verifier_result")
     try:
         canonical_json(clean)
     except (TypeError, ValueError) as exc:
