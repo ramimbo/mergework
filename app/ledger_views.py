@@ -41,12 +41,24 @@ def ledger_entry_to_dict(session: Session, sequence: int) -> dict[str, Any] | No
 
 
 def account_ledger_transactions(
-    session: Session, account: str, limit: int = 100
+    session: Session, account: str, limit: int = 100, entry_type: str | None = None
 ) -> list[dict[str, Any]]:
-    entries = session.scalars(
-        select(LedgerEntry)
-        .where(or_(LedgerEntry.from_account == account, LedgerEntry.to_account == account))
-        .order_by(LedgerEntry.sequence.desc())
-        .limit(limit)
-    ).all()
+    query = select(LedgerEntry).where(
+        or_(LedgerEntry.from_account == account, LedgerEntry.to_account == account)
+    )
+    if entry_type is not None:
+        query = query.where(LedgerEntry.entry_type == entry_type)
+    entries = session.scalars(query.order_by(LedgerEntry.sequence.desc()).limit(limit)).all()
     return ledger_entries_to_dicts(session, entries)
+
+
+def account_ledger_transaction_types(session: Session, account: str) -> list[str]:
+    return [
+        str(entry_type)
+        for entry_type in session.scalars(
+            select(LedgerEntry.entry_type)
+            .where(or_(LedgerEntry.from_account == account, LedgerEntry.to_account == account))
+            .distinct()
+            .order_by(LedgerEntry.entry_type.asc())
+        ).all()
+    ]

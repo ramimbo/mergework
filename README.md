@@ -6,6 +6,11 @@ MRWK for useful accepted work.
 MRWK is native to the MergeWork ledger. The ledger is the source of truth for
 current balances, transfers, and payout proofs.
 
+Normal admin treasury actions use public proposals with a 24-hour delay,
+reserve caps, and challenge logs before they mutate the ledger. This makes
+normal app-path movement visible and rule-checkable; it does not prevent direct
+server or database bypass by an operator with production access.
+
 ## How Earning Works
 
 1. A maintainer posts a bounty linked to a GitHub issue.
@@ -69,7 +74,8 @@ python3.12 -m venv .venv
 - API host: [https://api.mrwk.ltclab.site](https://api.mrwk.ltclab.site)
 - MCP host: [https://mcp.mrwk.ltclab.site](https://mcp.mrwk.ltclab.site)
 - Bounty rules: [docs/bounty-rules.md](docs/bounty-rules.md)
-- Paid bounty index: [docs/paid-bounties.md](docs/paid-bounties.md)
+- Accepted work activity: [https://mrwk.ltclab.site/activity](https://mrwk.ltclab.site/activity)
+- Payment proof guide: [docs/paid-bounties.md](docs/paid-bounties.md)
 - Paid bounty discussion: [GitHub Discussions #16](https://github.com/ramimbo/mergework/discussions/16)
 - Agent API and MCP usage: [docs/agent-guide.md](docs/agent-guide.md)
 - Public API examples: [docs/api-examples.md](docs/api-examples.md)

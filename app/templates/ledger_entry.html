@@ -6,6 +6,12 @@
   {% set type_class = entry.type | replace("_", "-") %}
   <h1>#{{ entry.sequence }} <span class="ledger-type ledger-type--{{ type_class }}">{{ entry.type | replace("_", " ") | title }}</span></h1>
   <p class="lead">{{ entry.amount_mrwk }} MRWK</p>
+  <nav class="actions detail-actions" aria-label="Ledger entry navigation">
+    <a href="/ledger">All ledger entries</a>
+    {% if previous_sequence %}<a href="/ledger/{{ previous_sequence }}">Previous entry</a>{% endif %}
+    {% if next_sequence %}<a href="/ledger/{{ next_sequence }}">Next entry</a>{% endif %}
+    <a href="/api/v1/ledger/{{ entry.sequence }}">Entry JSON</a>
+  </nav>
   <div class="meta-grid">
     {% if entry.type == "bounty_reserve" %}
     <article>
@@ -41,7 +47,7 @@
     <dd>{% if entry.to %}<a href="/accounts/{{ entry.to }}">{{ entry.to }}</a>{% else %}-{% endif %}</dd>
     <dt>Reference</dt>
     {% set reference_url = safe_public_url(entry.reference) %}
-    <dd>{% if reference_url %}<a href="{{ reference_url }}">{{ entry.reference }}</a>{% else %}{{ entry.reference }}{% endif %}</dd>
+    <dd>{% if reference_url %}<a href="{{ reference_url }}" rel="nofollow noopener">{{ entry.reference }}</a>{% elif entry.reference %}{{ entry.reference }}{% else %}-{% endif %}</dd>
     <dt>Previous hash</dt>
     <dd><code>{{ entry.previous_hash }}</code></dd>
     <dt>Entry hash</dt>

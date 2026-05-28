@@ -72,4 +72,25 @@ def test_system_status_counts_only_open_bounties(sqlite_url: str) -> None:
     assert status["ledger_height"] == expected_height
     assert status["active_bounties"] == 1
     assert status["treasury_balance_mrwk"] == expected_treasury_balance
+    assert status["current_transfer_paths"] == [
+        "github:* balance claims into a linked wallet",
+        "payouts to linked mrwk1 wallets",
+        "signed wallet-to-wallet transfers between registered wallets",
+    ]
+    assert status["unsupported_public_paths"] == [
+        "BTC",
+        "USDC",
+        "fiat",
+        "bridge",
+        "exchange",
+        "off-ramp",
+    ]
+    assert status["unsupported_public_paths_summary"] == (
+        "MergeWork does not currently operate a public BTC, USDC, fiat, bridge, "
+        "exchange, or off-ramp."
+    )
     assert status["future_path"] == "public snapshots, bridges, and onchain claims"
+    assert status["future_path_boundary"] == (
+        "Future public snapshots, bridges, and onchain claims require separate "
+        "maintainer/contributor discussion before implementation."
+    )

@@ -411,6 +411,15 @@ def test_duplicate_accepted_source_urls_groups_distinct_accepted_submissions(
             reward_mrwk="5",
             acceptance="Maintainer applies mrwk:accepted.",
         )
+        third_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=41,
+            issue_url="https://github.com/ramimbo/mergework/issues/41",
+            title="Third source URL bounty",
+            reward_mrwk="5",
+            acceptance="Maintainer applies mrwk:accepted.",
+        )
         source_url = "https://github.com/ramimbo/mergework/pull/281"
         session.add_all(
             [
@@ -431,6 +440,13 @@ def test_duplicate_accepted_source_urls_groups_distinct_accepted_submissions(
                     status="accepted",
                     verifier_result=canonical_json({"label": "mrwk:accepted"}),
                 ),
+                Submission(
+                    bounty_id=third_bounty.id,
+                    submitter_account="github:carol",
+                    url="http://github.com/Ramimbo/MergeWork/pull/281/commits?plain=1",
+                    status="accepted",
+                    verifier_result=canonical_json({"label": "mrwk:accepted"}),
+                ),
             ]
         )
         session.flush()
@@ -444,10 +460,11 @@ def test_duplicate_accepted_source_urls_groups_distinct_accepted_submissions(
         assert {ref.bounty_issue for ref in groups[0].submissions} == {
             "ramimbo/mergework#39",
             "ramimbo/mergework#40",
+            "ramimbo/mergework#41",
         }
         assert duplicate_source_summary(groups) == {
             "duplicate_source_urls": 1,
-            "duplicate_source_submissions": 2,
+            "duplicate_source_submissions": 3,
         }
         assert len(session.scalars(select(LedgerEntry)).all()) == ledger_entries_before
         assert len(session.scalars(select(Proof)).all()) == proofs_before
