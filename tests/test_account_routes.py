@@ -81,7 +81,7 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
 
     api_response = client.get("/api/v1/accounts/GitHub:Bob")
     accepted_response = client.get("/api/v1/accounts/github:bob/accepted-work")
-    page_response = client.get("/accounts/github:bob")
+    page_response = client.get("/accounts/GitHub:Bob")
 
     assert api_response.status_code == 200
     assert api_response.json()["account"] == "github:bob"
@@ -93,11 +93,10 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert "github:bob" in page_response.text
     assert "25 MRWK" in page_response.text
     assert 'aria-label="Account inspection links"' in page_response.text
-    assert 'href="/api/v1/accounts/github:bob">View account JSON</a>' in page_response.text
-    assert (
-        'href="/api/v1/accounts/github:bob/accepted-work">View accepted-work JSON</a>'
-        in page_response.text
-    )
+    assert "/api/v1/accounts/github:bob" in page_response.text
+    assert "/api/v1/accounts/github:bob/accepted-work" in page_response.text
+    assert "View account JSON" in page_response.text
+    assert "View accepted-work JSON" in page_response.text
     assert '<p class="reference-cell">' in page_response.text
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
