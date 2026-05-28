@@ -583,7 +583,7 @@ def test_execution_revalidates_stale_pay_proposal_after_close(
         f"/api/v1/treasury/proposals/{proposal['id']}/execute", headers=ADMIN_HEADERS
     )
 
-    assert executed.status_code == 400
+    assert executed.status_code == 409
     assert executed.json()["detail"] == "bounty is not open"
     with session_scope(sqlite_url) as session:
         assert get_balance(session, "github:bob") == 0

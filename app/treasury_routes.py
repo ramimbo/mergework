@@ -31,11 +31,20 @@ def _proposal_error(exc: LedgerError) -> HTTPException:
     if detail in {"proposal not found", "bounty not found"}:
         return HTTPException(status_code=404, detail=detail)
     if detail in {
+        "bounty has pending close proposal",
+        "bounty has pending payout proposals",
+        "bounty is not open",
+        "close_bounty proposal already pending",
+        "create_bounty proposal already pending",
+        "pay_bounty proposal already pending for submission",
+        "pending payout proposals exceed bounty remaining awards",
+        "pending payout proposals exceed bounty reserve",
         "proposal already executed",
+        "proposal delay has not elapsed",
         "proposal has blocking challenge",
         "proposal is not pending",
-        "proposal delay has not elapsed",
         "submission already paid",
+        "treasury epoch reserve cap exceeded",
     }:
         return HTTPException(status_code=409, detail=detail)
     return HTTPException(status_code=400, detail=detail)
