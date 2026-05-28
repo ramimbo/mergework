@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
+from pathlib import Path
+
+import pytest
 
 from scripts import submission_quality_gate
 from scripts.submission_quality_gate import evaluate_submission, main
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_path) -> None:
@@ -38,6 +44,19 @@ def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_pa
     input_path.write_text(json.dumps(fixture), encoding="utf-8")
     assert main(["--input", str(input_path), "--format", "json"]) == 0
     assert json.loads(capsys.readouterr().out)["status"] == "pass"
+
+
+def test_submission_quality_gate_script_entrypoint_loads_shared_parser() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/submission_quality_gate.py", "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "usage:" in result.stdout
 
 
 def test_submission_quality_gate_accepts_claim_command_reference() -> None:
@@ -101,6 +120,24 @@ def test_submission_quality_gate_accepts_full_github_issue_url_reference() -> No
             "url": "https://github.com/ramimbo/mergework/pull/12",
         }
     ]
+
+
+def test_submission_quality_gate_ignores_oversized_numeric_bounty_refs() -> None:
+    oversized_ref = "9" * 5000
+
+    result = evaluate_submission(
+        {
+            "submission_text": (
+                f"Summary: add validation\n\nRefs #{oversized_ref}\nRefs #319\n\n"
+                "Validation: pytest passed"
+            ),
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "pass"
+    assert result["bounty_reference"] == 319
     assert {
         "name": "bounty_reference",
         "status": "pass",
@@ -151,6 +188,62 @@ def test_submission_quality_gate_ignores_foreign_full_github_issue_url_reference
                 "Summary: add validation\n\n"
                 "https://github.com/other/project/issues/319\n\n"
                 "Validation: pytest passed"
+            ),
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert result["bounty_reference"] is None
+
+
+def test_submission_quality_gate_accepts_github_linking_keywords() -> None:
+    references = (
+        "Bounty #319",
+        "Claim #319",
+        "Claims #319",
+        "Ref #319",
+        "Refs #319",
+        "Reference #319",
+        "References #319",
+        "Fix #319",
+        "Fixes #319",
+        "Fixed #319",
+        "Close #319",
+        "Closes #319",
+        "Closed #319",
+        "Resolve #319",
+        "Resolves #319",
+        "Resolved #319",
+    )
+    for reference in references:
+        result = evaluate_submission(
+            {
+                "submission_text": f"""
+                Summary:
+                Harden the bounty reference parser.
+
+                {reference}
+
+                Validation:
+                - pytest passed.
+                """,
+                "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+                "pull_requests": [],
+            }
+        )
+
+        assert result["status"] == "pass", reference
+        assert result["bounty_reference"] == 319
+
+
+@pytest.mark.parametrize("reference", ("Fixes #319abc", "Fixes #319_abc", "Fixes #319-abc"))
+def test_submission_quality_gate_rejects_linking_keyword_issue_suffix(reference: str) -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": (
+                f"Summary: add validation\n\n{reference}\n\nValidation: pytest passed"
             ),
             "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
             "pull_requests": [],
@@ -389,6 +482,42 @@ def test_submission_quality_gate_warns_for_similar_open_pr() -> None:
     ]
 
 
+def test_submission_quality_gate_matches_similar_pr_when_title_starts_with_ref() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Refs #319: Add agent submission quality gate.
+
+            Validation: pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 12,
+                    "title": "Add agent submission quality gate",
+                    "body": "Refs #319",
+                    "state": "OPEN",
+                    "url": "https://github.com/ramimbo/mergework/pull/12",
+                }
+            ],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert {
+        "name": "similar_open_pr",
+        "status": "warn",
+        "message": "similar open PRs already reference this bounty",
+    } in result["checks"]
+    assert result["similar_open_prs"] == [
+        {
+            "number": 12,
+            "title": "Add agent submission quality gate",
+            "url": "https://github.com/ramimbo/mergework/pull/12",
+        }
+    ]
+
+
 def test_submission_quality_gate_warns_for_multiple_bounty_references() -> None:
     result = evaluate_submission(
         {
@@ -513,6 +642,60 @@ def test_submission_quality_gate_warns_when_activity_exceeds_threshold_by_second
     } in result["checks"]
 
 
+def test_submission_quality_gate_warns_for_malformed_maintainer_age_threshold() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": "Summary: add validation\n\nRefs #319\n\nValidation: pytest passed",
+            "now": "2026-05-26T12:00:00Z",
+            "bounties": [
+                {
+                    "number": 319,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "last_maintainer_activity_at": "2026-05-25T12:00:00Z",
+                    "maintainer_activity_verified": True,
+                    "max_maintainer_age_days": "not-a-number",
+                }
+            ],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert {
+        "name": "maintainer_activity",
+        "status": "warn",
+        "message": "recent maintainer activity for bounty #319 could not be verified",
+    } in result["checks"]
+
+
+def test_submission_quality_gate_warns_for_none_maintainer_age_threshold() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": "Summary: add validation\n\nRefs #319\n\nValidation: pytest passed",
+            "now": "2026-05-26T12:00:00Z",
+            "bounties": [
+                {
+                    "number": 319,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "last_maintainer_activity_at": "2026-05-25T12:00:00Z",
+                    "maintainer_activity_verified": True,
+                    "max_maintainer_age_days": None,
+                }
+            ],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "warn"
+    assert {
+        "name": "maintainer_activity",
+        "status": "warn",
+        "message": "recent maintainer activity for bounty #319 could not be verified",
+    } in result["checks"]
+
+
 def test_submission_quality_gate_cli_returns_failure_exit(capsys, tmp_path) -> None:
     fixture = {
         "submission_text": "Summary: missing reference\n\nValidation: pytest passed",
@@ -545,6 +728,96 @@ def test_submission_quality_gate_live_mode_warns_when_github_unavailable(
     output = json.loads(capsys.readouterr().out)
     assert output["status"] == "warn"
     assert "load_warning" in output
+
+
+def test_submission_quality_gate_warns_when_live_collections_hit_safety_caps(
+    monkeypatch,
+) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "number": number,
+                            "title": "Open PR",
+                            "body": "Refs #319",
+                            "state": "OPEN",
+                            "url": f"https://github.com/ramimbo/mergework/pull/{number}",
+                        }
+                        for number in range(1, submission_quality_gate.GH_PR_SAFETY_CAP + 1)
+                    ]
+                ),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "number": number,
+                            "title": f"MRWK bounty: cap test {number}",
+                            "state": "OPEN",
+                        }
+                        for number in range(
+                            319,
+                            319 + submission_quality_gate.GH_ISSUE_SAFETY_CAP,
+                        )
+                    ]
+                ),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "author": {"login": "ramimbo"},
+                        "createdAt": "2026-05-25T12:00:00Z",
+                        "comments": [],
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        submission_quality_gate,
+        "_load_api_bounties",
+        lambda repo, api_host: {
+            319: {"id": 66, "number": 319, "state": "open", "awards_remaining": 1}
+        },
+    )
+    monkeypatch.setattr(
+        submission_quality_gate, "_load_api_attempts", lambda api_host, bounty_id: []
+    )
+
+    data = submission_quality_gate._load_live_context(
+        "ramimbo/mergework",
+        "Summary: work\n\nRefs #319\n\nValidation: pytest passed",
+        "https://api.example.test",
+    )
+    result = evaluate_submission(data)
+
+    assert result["status"] == "warn"
+    assert (
+        f"gh pr list reached the {submission_quality_gate.GH_PR_SAFETY_CAP}" in data["load_warning"]
+    )
+    assert (
+        f"gh issue list reached the {submission_quality_gate.GH_ISSUE_SAFETY_CAP}"
+        in data["load_warning"]
+    )
+    assert {
+        "name": "source_completeness",
+        "status": "warn",
+        "message": data["load_warning"],
+    } in result["checks"]
 
 
 def test_submission_quality_gate_live_bounties_use_api_award_capacity(monkeypatch) -> None:

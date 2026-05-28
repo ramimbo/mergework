@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
 from scripts import pr_queue_health
 from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
@@ -84,6 +88,19 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
     assert output["summary"]["pull_requests"] == 4
 
 
+def test_pr_queue_health_script_entrypoint_loads_shared_parser() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/pr_queue_health.py", "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "usage:" in result.stdout
+
+
 def test_pr_queue_health_text_report_is_pasteable() -> None:
     report = analyze_queue(
         {
@@ -155,6 +172,89 @@ def test_pr_queue_health_accepts_full_github_issue_url_reference() -> None:
     assert report["missing_bounty_references"][0]["pull_request"] == 9
 
 
+def test_pr_queue_health_accepts_github_linking_keywords() -> None:
+    references = (
+        "Bounty #310",
+        "Claim #310",
+        "Claims #310",
+        "Ref #310",
+        "Refs #310",
+        "Reference #310",
+        "References #310",
+        "Fix #310",
+        "Fixes #310",
+        "Fixed #310",
+        "Close #310",
+        "Closes #310",
+        "Closed #310",
+        "Resolve #310",
+        "Resolves #310",
+        "Resolved #310",
+        "Refs `#310`",
+        "/claim `#310`",
+    )
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": index,
+                    "title": f"Harden bounty queue checks {index}",
+                    "body": reference,
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+                for index, reference in enumerate(references, start=1)
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["missing_bounty_references"] == []
+
+
+@pytest.mark.parametrize("reference", ("Fixes #310abc", "Fixes #310_abc", "Fixes #310-abc"))
+def test_pr_queue_health_rejects_linking_keyword_issue_suffix(reference: str) -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Harden bounty queue checks",
+                    "body": reference,
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 1
+    assert report["missing_bounty_references"][0]["pull_request"] == 8
+
+
+def test_pr_queue_health_ignores_oversized_numeric_bounty_refs() -> None:
+    oversized_ref = "9" * 5000
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 406, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 41,
+                    "title": "Bound bounty references",
+                    "body": f"Refs #{oversized_ref}\nRefs #406",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["summary"]["closed_bounty_references"] == 0
+
+
 def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     report = analyze_queue(
         {
@@ -211,8 +311,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "### Missing bounty references" in markdown
     assert (
         "- [PR #2](https://github.com/ramimbo/mergework/pull/2): "
-        "Improve bounty filters (No Bounty #<issue>, Refs #<issue>, /claim #<issue>, "
-        "or GitHub issue URL found)"
+        "Improve bounty filters (No bounty reference such as Bounty #<issue>, "
+        "Refs #<issue>, Fixes #<issue>, /claim #<issue>, or a GitHub issue URL found)"
     ) in markdown
     assert "### Dirty or unstable merge state" in markdown
     assert "Merge state is dirty" in markdown

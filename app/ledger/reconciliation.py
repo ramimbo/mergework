@@ -159,6 +159,7 @@ def _canonical_source_url(url: str) -> str:
             )
             query = ""
             fragment = ""
+            return urlunsplit(("https", netloc, path, query, fragment))
     return urlunsplit((parsed.scheme.lower(), netloc, path, query, fragment))
 
 

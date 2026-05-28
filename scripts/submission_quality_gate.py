@@ -7,20 +7,16 @@ import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
-BOUNTY_REF_RE = re.compile(
-    rf"\b(?:bounty|refs?|fixes|closes|claims?)\s+#(\d+){ISSUE_NUMBER_BOUNDARY}",
-    re.IGNORECASE,
-)
-GITHUB_ISSUE_URL_RE = re.compile(
-    rf"https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/"
-    rf"(?P<number>\d+){ISSUE_NUMBER_BOUNDARY}",
-    re.IGNORECASE,
-)
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_ISSUE_URL_RE, LEADING_BOUNTY_REF_RE
+
 EVIDENCE_RE = re.compile(
     r"\b(pytest|ruff|mypy|validation|verified|test evidence|checks? passed)\b",
     re.IGNORECASE,
@@ -29,7 +25,10 @@ SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
 GH_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
+GH_PR_SAFETY_CAP = 101
+GH_ISSUE_SAFETY_CAP = 201
 MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
+MAX_BOUNTY_REF = 2**63 - 1
 
 
 def _check(name: str, status: str, message: str) -> dict[str, str]:
@@ -40,7 +39,12 @@ def _bounty_refs(text: str, repo: str | None = None) -> list[int]:
     refs: list[int] = []
     seen: set[int] = set()
     for match in BOUNTY_REF_RE.findall(text):
-        ref = int(match)
+        try:
+            ref = int(match)
+        except ValueError:
+            continue
+        if ref > MAX_BOUNTY_REF:
+            continue
         if ref in seen:
             continue
         seen.add(ref)
@@ -147,7 +151,14 @@ def _maintainer_activity_check(
             "warn",
             f"recent maintainer activity for bounty #{bounty_ref} could not be verified",
         )
-    max_age_days = int(bounty.get("max_maintainer_age_days", DEFAULT_MAX_MAINTAINER_AGE_DAYS))
+    try:
+        max_age_days = int(bounty.get("max_maintainer_age_days", DEFAULT_MAX_MAINTAINER_AGE_DAYS))
+    except (TypeError, ValueError):
+        return _check(
+            "maintainer_activity",
+            "warn",
+            f"recent maintainer activity for bounty #{bounty_ref} could not be verified",
+        )
     delta = now - last_activity
     age_days = max(0, int(delta.total_seconds() // 86400))
     if delta > timedelta(days=max_age_days):
@@ -166,6 +177,9 @@ def _maintainer_activity_check(
 def _title_from_submission(text: str) -> str:
     for line in text.splitlines():
         clean = line.strip(" -:\t")
+        if not clean:
+            continue
+        clean = LEADING_BOUNTY_REF_RE.sub("", clean).strip(" -:\t")
         if not clean:
             continue
         if SUMMARY_RE.search(clean) and len(clean.split()) <= 4:
@@ -238,6 +252,9 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
     }
     pull_requests = [item for item in data.get("pull_requests", []) if isinstance(item, dict)]
     checks: list[dict[str, str]] = []
+    load_warning = str(data.get("load_warning") or "").strip()
+    if load_warning:
+        checks.append(_check("source_completeness", "warn", load_warning))
     refs = _bounty_refs(text, repo)
     bounty_ref = refs[0] if refs else None
     if bounty_ref is None:
@@ -491,7 +508,7 @@ def _load_live_context(
                 "--state",
                 "open",
                 "--limit",
-                "100",
+                str(GH_PR_SAFETY_CAP),
                 "--json",
                 "number,title,url,body,state",
             ]
@@ -506,7 +523,7 @@ def _load_live_context(
                 "--state",
                 "all",
                 "--limit",
-                "200",
+                str(GH_ISSUE_SAFETY_CAP),
                 "--json",
                 "number,title,state",
             ]
@@ -519,6 +536,16 @@ def _load_live_context(
             "pull_requests": [],
             "load_warning": f"live GitHub data unavailable: {exc}",
         }
+    if len(prs) >= GH_PR_SAFETY_CAP:
+        load_warnings.append(
+            f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
+            "similar-open-PR checks may be incomplete"
+        )
+    if len(issues) >= GH_ISSUE_SAFETY_CAP:
+        load_warnings.append(
+            f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
+            "bounty discovery may be incomplete"
+        )
     try:
         api_bounties = _load_api_bounties(repo, api_host)
     except RuntimeError as exc:
