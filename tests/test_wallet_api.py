@@ -543,6 +543,27 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Link a wallet" in me
 
 
+def test_account_page_links_github_balance_to_claim_flow(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        add_ledger_entry(
+            session,
+            entry_type="test_github_balance",
+            from_account=TREASURY_ACCOUNT,
+            to_account="github:alice",
+            amount_microunits=7_000_000,
+            reference="test-github-claim-cta",
+        )
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    account_page = client.get("/accounts/github:alice")
+
+    assert account_page.status_code == 200
+    assert "This GitHub account has MRWK available" in account_page.text
+    assert 'href="/me">sign in to link a wallet and claim the balance</a>' in account_page.text
+
+
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
     create_schema(sqlite_url)

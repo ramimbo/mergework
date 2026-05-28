@@ -6,6 +6,11 @@
   <h1><code>{{ account.account }}</code></h1>
   <p class="lead">{{ account.balance_mrwk }} MRWK</p>
   <p>{% if account.exists %}This account exists on the ledger.{% else %}This account has no ledger activity yet.{% endif %}</p>
+  {% if account.github_login and account.balance_mrwk != "0" %}
+  <p class="notice">
+    This GitHub account has MRWK available. If this is you, <a href="/me">sign in to link a wallet and claim the balance</a>.
+  </p>
+  {% endif %}
   <dl>
     <dt>Ledger address</dt>
     <dd><code>{{ account.ledger_address }}</code></dd>
