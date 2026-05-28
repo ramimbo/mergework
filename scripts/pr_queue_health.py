@@ -51,15 +51,15 @@ def _scope_key(raw: dict[str, Any]) -> str:
 def _bounty_refs(raw: dict[str, Any]) -> list[int]:
     explicit = raw.get("bounty_refs")
     if isinstance(explicit, list):
-        refs = [item for item in explicit if isinstance(item, int)]
-        if refs:
-            return sorted(set(refs))
+        explicit_refs = [item for item in explicit if isinstance(item, int)]
+        if explicit_refs:
+            return sorted(set(explicit_refs))
     text = "\n".join(
         str(raw.get(key) or "")
         for key in ("title", "body", "description")
         if raw.get(key) is not None
     )
-    refs = set()
+    refs: set[int] = set()
     for match in BOUNTY_REF_RE.finditer(text):
         if match.group("native_prefix") and match.group("keyword").lower() == "bounty":
             continue
