@@ -16,17 +16,37 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+function asciiJson(value) {
+  return JSON.stringify(value).replace(/[\u0080-\uFFFF]/g, (char) => {
+    return `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  });
+}
+
+function compareCodePoints(left, right) {
+  const leftPoints = Array.from(left);
+  const rightPoints = Array.from(right);
+  const limit = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < limit; index += 1) {
+    const leftPoint = leftPoints[index].codePointAt(0);
+    const rightPoint = rightPoints[index].codePointAt(0);
+    if (leftPoint !== rightPoint) {
+      return leftPoint - rightPoint;
+    }
+  }
+  return leftPoints.length - rightPoints.length;
+}
+
 function stableJson(value) {
   if (Array.isArray(value)) {
     return `[${value.map(stableJson).join(",")}]`;
   }
   if (value && typeof value === "object") {
     return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .sort(compareCodePoints)
+      .map((key) => `${asciiJson(key)}:${stableJson(value[key])}`)
       .join(",")}}`;
   }
-  return JSON.stringify(value);
+  return asciiJson(value);
 }
 
 async function sha256Hex(bytes) {
