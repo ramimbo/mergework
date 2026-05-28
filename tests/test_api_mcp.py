@@ -270,6 +270,37 @@ def test_mcp_initialize_defaults_protocol_version(
     assert response.json()["result"]["protocolVersion"] == expected_version
 
 
+@pytest.mark.parametrize("protocol_version", ["1900-01-01", "not-a-version"])
+def test_mcp_initialize_rejects_unsupported_protocol_version(
+    sqlite_url: str, protocol_version: str
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "initialize",
+            "params": {"protocolVersion": protocol_version},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 42,
+        "error": {
+            "code": -32602,
+            "message": "Unsupported protocol version",
+            "data": {
+                "supported": ["2025-06-18"],
+                "requested": protocol_version,
+            },
+        },
+    }
+
+
 def test_mcp_initialize_rejects_invalid_params(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 

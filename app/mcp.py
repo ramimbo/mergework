@@ -11,6 +11,7 @@ from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
+SUPPORTED_PROTOCOL_VERSIONS = {DEFAULT_PROTOCOL_VERSION}
 SERVER_INFO = {"name": "MergeWork MCP", "version": "0.1.0"}
 
 MCP_TOOLS: list[dict[str, Any]] = [
@@ -118,9 +119,17 @@ async def handle_mcp_request(
         if not isinstance(params, dict):
             return _jsonrpc_error(response_id, -32602, "invalid params")
         requested_version = params.get("protocolVersion")
-        protocol_version = (
-            requested_version if isinstance(requested_version, str) else DEFAULT_PROTOCOL_VERSION
-        )
+        if (
+            isinstance(requested_version, str)
+            and requested_version not in SUPPORTED_PROTOCOL_VERSIONS
+        ):
+            error = _jsonrpc_error(response_id, -32602, "Unsupported protocol version")
+            error["error"]["data"] = {
+                "supported": sorted(SUPPORTED_PROTOCOL_VERSIONS),
+                "requested": requested_version,
+            }
+            return error
+        protocol_version = DEFAULT_PROTOCOL_VERSION
         return {
             "jsonrpc": "2.0",
             "id": response_id,
