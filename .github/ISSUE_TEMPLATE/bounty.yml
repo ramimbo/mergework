@@ -1,8 +1,24 @@
 name: MRWK bounty
 description: Propose work that may receive an MRWK bounty.
-title: "[bounty] "
+title: "MRWK bounty: <amount> MRWK - <short scope>"
 labels: ["mrwk:bounty"]
 body:
+  - type: input
+    id: reward
+    attributes:
+      label: Reward per accepted award
+      description: Repeat the issue-title amount so humans, agents, API clients, and MCP tools can parse it.
+      placeholder: "150 MRWK"
+    validations:
+      required: true
+  - type: input
+    id: max_awards
+    attributes:
+      label: Max awards
+      description: Number of separate accepted submissions that may be paid.
+      placeholder: "1"
+    validations:
+      required: true
   - type: textarea
     id: work
     attributes:
@@ -10,24 +26,33 @@ body:
       description: Describe the useful accepted work.
     validations:
       required: true
-  - type: input
-    id: reward
-    attributes:
-      label: Proposed MRWK per award
-      placeholder: "250"
-    validations:
-      required: true
-  - type: input
-    id: max_awards
-    attributes:
-      label: Max awards
-      placeholder: "1"
-    validations:
-      required: true
   - type: textarea
     id: acceptance
     attributes:
       label: Acceptance criteria
       description: Explain what must be true before mrwk:accepted is applied.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or tests
+      description: List the proof, screenshots, commands, test output, or review notes a submitter should provide.
+      placeholder: "Run scripts/docs_smoke.py and paste the output. Link the PR or public artifact."
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: State what should not be changed or claimed for this bounty.
+    validations:
+      required: true
+  - type: textarea
+    id: duplicate_stale_rules
+    attributes:
+      label: Duplicate-work and stale-work rules
+      description: Explain how overlapping submissions are handled and when a claim is considered stale.
+      placeholder: "First accepted submission wins for single-award bounties. Rebase stale PRs before review."
     validations:
       required: true

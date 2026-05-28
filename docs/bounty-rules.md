@@ -56,6 +56,62 @@ After accepted work is paid, MergeWork records a public ledger proof. Public
 payment updates should point to those proofs and keep any private security or
 operational details out of public metadata.
 
+
+## Agent-Friendly Bounty Post Template
+
+Maintainers should use this short, copy-pasteable shape for public MRWK bounty
+issues. Stable headings let humans, GitHub search, API clients, and MCP tools
+parse the reward, available award slots, work scope, acceptance gate, and review
+evidence without guessing.
+
+```text
+Title: MRWK bounty: <amount> MRWK - <short scope>
+
+## MRWK Bounty
+
+Reward: `<amount> MRWK per accepted award`
+Max awards: `<number>`
+
+## Work Needed
+
+<Specific useful work. Link affected files, docs, API routes, UI screens, or
+issues. Keep the scope narrow enough for one focused PR or public artifact.>
+
+## Acceptance Criteria
+
+- <Observable condition required before `mrwk:accepted` is applied.>
+- <Required docs, tests, screenshots, review notes, or reproduction evidence.>
+- <Required comparison against current behavior or related docs when relevant.>
+
+## How To Submit
+
+Open a PR, issue comment, or linked public artifact that includes
+`Bounty #<issue number>` or `Refs #<issue number>`. Use a closing reference only
+when the bounty should close after the submission is accepted.
+
+## Evidence Or Tests
+
+- <Commands to run and paste output for.>
+- <Screenshots, API responses, ledger proof, review checklist, or reproduction
+steps maintainers need to verify the work.>
+
+## Out Of Scope
+
+- <Changes that should not be made.>
+- <Claims that should not be made publicly.>
+
+## Duplicate-Work And Stale-Work Rules
+
+Single-award bounties pay the first accepted submission only. Multi-award
+bounties pay at most `Max awards` accepted submissions. Before submitting, check
+open linked PRs, comments, and attempt reservations. Rebase or refresh stale
+work before review if the target files, APIs, or bounty text changed.
+```
+
+Public MRWK bounty text must avoid investment claims, price claims, fabricated
+payout claims, liquidity claims, exchange claims, or bridge promises. State only
+the work reward, acceptance conditions, and public proof that already exists.
+
 ## Submission Evidence Templates
 
 Use the smallest template that makes the claim reviewable. Delete fields that do
