@@ -318,6 +318,7 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
 
     assert client.get("/api/v1/bounties?limit=0").status_code == 422
     assert client.get("/api/v1/bounties?limit=201").status_code == 422
+    assert client.get("/api/v1/bounties?offset=9223372036854775807").status_code == 200
     assert client.get("/api/v1/bounties?offset=-1").status_code == 422
     assert (
         client.get("/api/v1/bounties?offset=9999999999999999999999999999999999999999").status_code
@@ -325,6 +326,7 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
     )
     assert client.get("/api/v1/bounties/summary?limit=0").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=201").status_code == 422
+    assert client.get("/api/v1/bounties/summary?offset=9223372036854775807").status_code == 200
     assert client.get("/api/v1/bounties/summary?offset=-1").status_code == 422
     assert (
         client.get(

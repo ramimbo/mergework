@@ -78,6 +78,7 @@ def test_ledger_api_honors_offset(sqlite_url: str) -> None:
     newest = client.get("/api/v1/ledger?limit=1")
     shifted = client.get("/api/v1/ledger?limit=1&offset=1")
     exhausted = client.get("/api/v1/ledger?limit=1&offset=99")
+    max_valid = client.get("/api/v1/ledger?offset=9223372036854775807")
     invalid = client.get("/api/v1/ledger?offset=-1")
     oversized = client.get("/api/v1/ledger?offset=9999999999999999999999999999999999999999")
 
@@ -86,6 +87,8 @@ def test_ledger_api_honors_offset(sqlite_url: str) -> None:
     assert [entry["reference"] for entry in newest.json()] == [second.issue_url]
     assert [entry["reference"] for entry in shifted.json()] == [first.issue_url]
     assert exhausted.json() == []
+    assert max_valid.status_code == 200
+    assert max_valid.json() == []
     assert invalid.status_code == 422
     assert oversized.status_code == 422
 
