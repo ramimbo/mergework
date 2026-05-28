@@ -175,6 +175,47 @@ def test_pr_queue_health_ignores_native_bounty_ids_when_issue_ref_is_present() -
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_does_not_accept_native_only_bounty_id() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 406, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 530,
+                    "title": "Fix edge case",
+                    "body": "Evidence: live  bounty #66 preflight check passed.",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 1
+    assert report["missing_bounty_references"][0]["reason"] == "missing_bounty_reference"
+    assert report["closed_bounty_references"] == []
+
+
+def test_pr_queue_health_keeps_non_native_bounty_words() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 66, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 531,
+                    "title": "Fix relive wording",
+                    "body": "Evidence: relive bounty #66 still names a GitHub bounty issue.",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["summary"]["closed_bounty_references"] == 0
+
+
 def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     report = analyze_queue(
         {
