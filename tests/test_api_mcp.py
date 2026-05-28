@@ -235,6 +235,57 @@ def test_mcp_initialize_advertises_tool_capability(sqlite_url: str) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_version"),
+    [
+        ({"jsonrpc": "2.0", "id": 42, "method": "initialize"}, "2025-06-18"),
+        (
+            {
+                "jsonrpc": "2.0",
+                "id": 42,
+                "method": "initialize",
+                "params": {"capabilities": {}},
+            },
+            "2025-06-18",
+        ),
+        (
+            {
+                "jsonrpc": "2.0",
+                "id": 42,
+                "method": "initialize",
+                "params": {"protocolVersion": 20250618},
+            },
+            "2025-06-18",
+        ),
+    ],
+)
+def test_mcp_initialize_defaults_protocol_version(
+    sqlite_url: str, payload: dict[str, object], expected_version: str
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post("/mcp", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["result"]["protocolVersion"] == expected_version
+
+
+def test_mcp_initialize_rejects_invalid_params(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 42, "method": "initialize", "params": []},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 42,
+        "error": {"code": -32602, "message": "invalid params"},
+    }
+
+
 def test_mcp_initialized_notification_returns_accepted(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -245,6 +296,22 @@ def test_mcp_initialized_notification_returns_accepted(sqlite_url: str) -> None:
 
     assert response.status_code == 202
     assert response.content == b""
+
+
+def test_mcp_initialized_request_returns_jsonrpc_error(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 44, "method": "notifications/initialized"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 44,
+        "error": {"code": -32600, "message": "invalid request"},
+    }
 
 
 def test_mcp_ping_returns_empty_result(sqlite_url: str) -> None:

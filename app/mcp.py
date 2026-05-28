@@ -131,6 +131,8 @@ async def handle_mcp_request(
             },
         }
     if method == "notifications/initialized":
+        if response_id is not None:
+            return _jsonrpc_error(response_id, -32600, "invalid request")
         return Response(status_code=202)
     if method == "ping":
         return {"jsonrpc": "2.0", "id": response_id, "result": {}}
