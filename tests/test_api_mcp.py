@@ -79,6 +79,7 @@ def test_ledger_api_honors_offset(sqlite_url: str) -> None:
     shifted = client.get("/api/v1/ledger?limit=1&offset=1")
     exhausted = client.get("/api/v1/ledger?limit=1&offset=99")
     invalid = client.get("/api/v1/ledger?offset=-1")
+    oversized = client.get("/api/v1/ledger?offset=9999999999999999999999999999999999999999")
 
     assert newest.status_code == 200
     assert shifted.status_code == 200
@@ -86,6 +87,7 @@ def test_ledger_api_honors_offset(sqlite_url: str) -> None:
     assert [entry["reference"] for entry in shifted.json()] == [first.issue_url]
     assert exhausted.json() == []
     assert invalid.status_code == 422
+    assert oversized.status_code == 422
 
 
 def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:

@@ -292,7 +292,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     @app.get("/api/v1/ledger")
     def api_ledger(
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
-        offset: Annotated[int, Query(ge=0)] = 0,
+        offset: Annotated[int, Query(ge=0, le=SQLITE_INTEGER_MAX)] = 0,
     ) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
             return recent_ledger_entries(session, limit, offset)

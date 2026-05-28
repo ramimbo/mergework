@@ -51,8 +51,8 @@ available slot counts.
 Use `sort` to choose the bounty order: `newest` is the default, `reward` sorts
 by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
 sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
-rows after filtering and sorting. Use `offset` from `0` upward to skip rows
-after the same filtering and sorting step.
+rows after filtering and sorting. Use `offset` from `0` through SQLite's signed
+integer maximum to skip rows after the same filtering and sorting step.
 
 Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
 `limit` and `offset` filters when an agent only needs capacity totals instead
@@ -187,7 +187,8 @@ curl -s "$API_HOST/api/v1/ledger/<sequence>"
 
 Ledger entries use the internal immutable sequence number as the API path key.
 Recent-list queries accept `limit` from `1` to `200` and `offset` from `0`
-upward. Recent-list and single-entry responses share the same shape:
+through SQLite's signed integer maximum. Recent-list and single-entry responses
+share the same shape:
 
 ```json
 {
