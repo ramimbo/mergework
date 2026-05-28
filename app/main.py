@@ -337,7 +337,8 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/robots.txt", include_in_schema=False)
     def robots_txt() -> Response:
-        sitemap_url = f"{settings.public_base_url}/sitemap.xml"
+        base_url = settings.public_base_url.rstrip("/")
+        sitemap_url = f"{base_url}/sitemap.xml"
         body = f"User-agent: *\nAllow: /\nSitemap: {sitemap_url}\n"
         return Response(body, media_type="text/plain; charset=utf-8")
 

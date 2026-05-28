@@ -113,6 +113,25 @@ def test_public_discovery_routes_are_bounded_and_use_public_origin(sqlite_url: s
     assert client.head("/favicon.ico").content == b""
 
 
+def test_public_discovery_routes_normalize_public_base_url(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test/")
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    robots = client.get("/robots.txt")
+    assert "Sitemap: https://mrwk.example.test/sitemap.xml\n" in robots.text
+    assert "https://mrwk.example.test//sitemap.xml" not in robots.text
+
+    sitemap = client.get("/sitemap.xml")
+    assert "<loc>https://mrwk.example.test/</loc>" in sitemap.text
+    assert "<loc>https://mrwk.example.test//docs</loc>" not in sitemap.text
+
+
 def test_trailing_slash_redirects_keep_forwarded_https_scheme(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
