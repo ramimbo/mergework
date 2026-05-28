@@ -61,6 +61,18 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert "public_key_hex" in examples
 
 
+def test_api_examples_document_health_response_shape() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert 'curl -s "$API_HOST/health"' in examples
+    assert '"ok": true' in examples
+    assert '"service": "mergework"' in examples
+    assert '"ticker": "MRWK"' in examples
+    assert '"ledger_height": 792' in examples
+    assert "liveness and ledger-height check" in examples
+    assert "without downloading bounty rows" in examples
+
+
 def test_api_examples_document_mcp_get_proof_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 

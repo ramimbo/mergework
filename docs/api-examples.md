@@ -7,9 +7,27 @@ API_HOST=https://api.mrwk.ltclab.site
 MCP_HOST=https://mcp.mrwk.ltclab.site
 ```
 
-## Status And Bounties
+## Health, Status, And Bounties
 
-Check service status and list bounties:
+Use `/health` for a small liveness and ledger-height check. It returns only the
+service identity, ticker, current ledger height, and `ok` flag, so monitors can
+poll it without downloading bounty rows:
+
+```bash
+curl -s "$API_HOST/health"
+```
+
+```json
+{
+  "ok": true,
+  "service": "mergework",
+  "ticker": "MRWK",
+  "ledger_height": 792
+}
+```
+
+Use `/api/v1/status` when an agent needs the public system counters and
+treasury snapshot, then list bounties:
 
 ```bash
 curl -s "$API_HOST/api/v1/status"
