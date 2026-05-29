@@ -80,9 +80,10 @@
     </article>
   </div>
   {% endif %}
-  <details class="raw-proof">
+<details class="raw-proof">
     <summary>Raw proof JSON</summary>
     <pre>{{ proof | tojson(indent=2) }}</pre>
   </details>
+<pre>{{ proof | tojson(indent=2) }}</pre>
 </section>
 {% endblock %}

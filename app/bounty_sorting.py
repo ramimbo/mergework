@@ -16,7 +16,9 @@ BOUNTY_SORT_ERROR = f"sort must be one of: {', '.join(BOUNTY_SORT_OPTIONS)}"
 
 
 def normalize_bounty_sort(sort: str | None) -> str:
-    normalized_sort = (sort or "newest").strip().lower()
+    normalized_sort = (sort or "").strip().lower()
+    if not normalized_sort:
+        return "newest"
     if normalized_sort not in BOUNTY_SORT_OPTIONS:
         raise ValueError(BOUNTY_SORT_ERROR)
     return normalized_sort

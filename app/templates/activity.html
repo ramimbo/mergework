@@ -12,6 +12,12 @@
     {% if query %}<a href="/activity">Clear</a>{% endif %}
   </div>
 </form>
+{% if query %}
+<p class="notice">Showing accepted work matching “{{ query }}”.</p>
+{% endif %}
+<nav class="actions detail-actions" aria-label="Activity inspection links">
+  <a href="/api/v1/activity{% if query %}?q={{ query | urlencode }}{% endif %}">View JSON activity</a>
+</nav>
 
 <section class="grid">
   <article><strong>{{ totals.accepted_awards }}</strong><span>accepted awards</span></article>
@@ -54,7 +60,11 @@
     {% endfor %}
   </div>
   {% else %}
+  {% if query %}
+  <p>No contributors match this search.</p>
+  {% else %}
   <p>No accepted bounty payments yet.</p>
+  {% endif %}
   {% endif %}
 </section>
 
@@ -101,7 +111,12 @@
     {% endfor %}
   </div>
   {% else %}
+  {% if query %}
+  <p>No accepted work matches this search.</p>
+  <p><a href="/activity">Clear search</a></p>
+  {% else %}
   <p>No proof-backed accepted work rows yet.</p>
+  {% endif %}
   {% endif %}
 </section>
 {% endblock %}

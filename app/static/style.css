@@ -203,7 +203,8 @@ code.hash { overflow-wrap: anywhere; }
   margin: 28px 0;
 }
 .bounty-summary article,
-.acceptance-card {
+.acceptance-card,
+.next-steps-card {
   border: 1px solid var(--line);
   background: var(--panel);
   border-radius: 8px;
@@ -260,6 +261,30 @@ code.hash { overflow-wrap: anywhere; }
 }
 .acceptance-card h2 {
   margin: 0 0 10px;
+}
+.next-steps-card {
+  margin-top: 16px;
+}
+.next-steps-card h2 {
+  margin: 0 0 10px;
+}
+.next-steps-card ol {
+  margin: 0;
+  padding-left: 22px;
+}
+.next-steps-card li + li {
+  margin-top: 8px;
+}
+.next-steps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.next-steps-actions a {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
 }
 .acceptance-card p:last-child {
   margin-bottom: 0;
@@ -372,4 +397,67 @@ button { cursor: pointer; color: white; background: var(--accent); border-color:
     font-size: .82rem;
     font-weight: 700;
   }
+}
+
+/* Bounty card status improvements */
+.bounty-card {
+  position: relative;
+}
+.bounty-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.bounty-card-head h2 {
+  margin: 0;
+  min-width: 0;
+}
+.status-open {
+  border-color: #86efac;
+  color: #166534;
+}
+.status-paid {
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+.status-closed {
+  border-color: var(--line);
+  color: var(--muted);
+}
+.bounty-card--open {
+  border-left: 4px solid #22c55e;
+}
+.bounty-card--paid {
+  border-left: 4px solid #3b82f6;
+}
+.bounty-card--closed {
+  border-left: 4px solid var(--line);
+}
+.bounty-card-meta strong {
+  color: var(--accent);
+}
+@media (prefers-color-scheme: dark) {
+  .status-open {
+    border-color: #166534;
+    color: #86efac;
+  }
+  .status-paid {
+    border-color: #1e40af;
+    color: #93c5fd;
+  }
+  .status-closed {
+    border-color: var(--line);
+    color: var(--muted);
+  }
+}
+.back-nav {
+  margin-bottom: 20px;
+}
+.back-nav a {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 8px 14px;
+  display: inline-block;
 }

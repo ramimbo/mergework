@@ -12,14 +12,21 @@
     <option value="{{ sort_value }}"{% if selected_sort == sort_value %} selected{% endif %}>{{ sort_label }}</option>
     {% endfor %}
   </select>
+  <label for="bounty-limit">Rows</label>
+  <select id="bounty-limit" name="limit">
+    <option value=""{% if not selected_limit %} selected{% endif %}>All</option>
+    {% for limit_option in limit_options %}
+    <option value="{{ limit_option }}"{% if selected_limit == limit_option %} selected{% endif %}>{{ limit_option }}</option>
+    {% endfor %}
+  </select>
   <button type="submit">Search</button>
-  {% if query_text %}<a href="/bounties{% if selected_status or selected_sort != "newest" %}?{% if selected_status %}status={{ selected_status }}{% endif %}{% if selected_status and selected_sort != "newest" %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% endif %}">Clear search</a>{% endif %}
+  {% if query_text %}<a href="/bounties{% if selected_status or selected_sort != "newest" or selected_limit %}?{% if selected_status %}status={{ selected_status }}{% endif %}{% if selected_status and (selected_sort != "newest" or selected_limit) %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% if selected_sort != "newest" and selected_limit %}&{% endif %}{% if selected_limit %}limit={{ selected_limit }}{% endif %}{% endif %}">Clear search</a>{% endif %}
 </form>
 <nav aria-label="Bounty status filters">
-  <a href="/bounties{% if query_text or selected_sort != "newest" %}?{% if query_text %}q={{ query_text | urlencode }}{% endif %}{% if query_text and selected_sort != "newest" %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% endif %}"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
-  <a href="/bounties?status=open{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
-  <a href="/bounties?status=paid{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
-  <a href="/bounties?status=closed{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
+  <a href="/bounties{% if query_text or selected_sort != "newest" or selected_limit %}?{% if query_text %}q={{ query_text | urlencode }}{% endif %}{% if query_text and (selected_sort != "newest" or selected_limit) %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% if selected_sort != "newest" and selected_limit %}&{% endif %}{% if selected_limit %}limit={{ selected_limit }}{% endif %}{% endif %}"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
+  <a href="/bounties?status=open{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
+  <a href="/bounties?status=paid{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
+  <a href="/bounties?status=closed{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
 </nav>
 {% if query_text %}<p>Showing matches for “{{ query_text }}”.</p>{% endif %}
 <section class="bounty-list-summary" aria-label="Bounty list summary">
@@ -36,21 +43,26 @@
     <strong>{{ summary.open_pool_mrwk }} MRWK</strong>
   </article>
 </section>
+<p class="notice">
+  <a href="{{ api_results_url }}">View JSON results</a>
+</p>
 <div class="list">
   {% for bounty in bounties %}
-  <article>
-    <h2><a href="/bounties/{{ bounty.id }}">{{ bounty.title }}</a></h2>
-    <p>
+  <article class="bounty-card bounty-card--{{ bounty.status }}">
+    <div class="bounty-card-head">
+      <h2><a href="/bounties/{{ bounty.id }}">{{ bounty.title }}</a></h2>
+      <span class="status-pill status-{{ bounty.status }}">{{ bounty.status }}</span>
+    </div>
+    <p class="bounty-card-meta">
       {% set issue_url = safe_public_url(bounty.issue_url) %}
       {% if issue_url %}
       <a href="{{ issue_url }}" rel="nofollow noopener">{{ bounty.repo }} #{{ bounty.issue_number }}</a> ·
       {% else %}
       {{ bounty.repo }} #{{ bounty.issue_number }} ·
       {% endif %}
-      {{ bounty.reward_mrwk }} MRWK per award ·
+      <strong>{{ bounty.reward_mrwk }} MRWK</strong> per award ·
       {{ bounty.available_mrwk }} MRWK still available ·
-      {{ bounty.awards_remaining }}/{{ bounty.max_awards }} awards open ·
-      {{ bounty.status }}
+      {{ bounty.awards_remaining }}/{{ bounty.max_awards }} awards open
     </p>
     <p>{{ bounty.acceptance }}</p>
   </article>

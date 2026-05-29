@@ -5,6 +5,9 @@
   <p class="eyebrow">Admin</p>
   <h1>Post a bounty</h1>
   <p class="lead">Signed in as {{ login }}.</p>
+  {% if proposal_id %}
+  <p>Created treasury proposal <a href="/api/v1/treasury/proposals/{{ proposal_id }}">#{{ proposal_id }}</a>.</p>
+  {% endif %}
   <form method="post" action="/admin/bounties">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Repository <input name="repo" placeholder="ramimbo/mergework" required></label>
@@ -14,7 +17,7 @@
     <label>Reward per award MRWK <input name="reward_mrwk" inputmode="decimal" placeholder="250" required></label>
     <label>Max awards <input name="max_awards" type="number" min="1" value="1" required></label>
     <label>Acceptance text <textarea name="acceptance" rows="4" required></textarea></label>
-    <button type="submit">Create bounty</button>
+    <button type="submit">Propose bounty</button>
   </form>
 </section>
 

@@ -15,7 +15,9 @@ Check service status and list bounties:
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
+curl -s "$API_HOST/api/v1/bounties?status=open&sort=available&limit=5"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
+curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
 ```
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
@@ -45,8 +47,14 @@ linking back to the source GitHub issue. Award counters can change as accepted
 work is paid; refresh concrete examples against the live API before relying on
 available slot counts.
 
-Use `/api/v1/bounties/summary` with the same optional `status` and `q`
-filters when an agent only needs capacity totals instead of full bounty rows:
+Use `sort` to choose the bounty order: `newest` is the default, `reward` sorts
+by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
+sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
+rows after filtering and sorting.
+
+Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
+`limit` filters when an agent only needs capacity totals instead of full bounty
+rows:
 
 ```json
 {
@@ -65,6 +73,52 @@ curl -s "$API_HOST/api/v1/bounties/<bounty_id>"
 The `<bounty_id>` value is the MergeWork bounty `id`, not the GitHub issue
 number. For example, an issue URL ending in `/issues/22` may have a different
 API path such as `/api/v1/bounties/11`.
+
+## Treasury Proposals
+
+Admin bounty creation, manual bounty payout, and bounty close/release create
+public treasury proposals before ledger mutation. Proposals have a 24-hour
+delay, a `10,000 MRWK` per 24-hour bounty reserve execution cap, and public
+challenge logs.
+
+Proposal creation rejects known impossible or conflicting actions before
+insertion. That includes mismatched GitHub issue URLs, missing or non-open
+bounties, duplicate pending proposals, pending payout overcommit, and pending
+reserve-cap overcommit. Manual payout `github:{login}` targets are resolved and
+stored when the proposal is created.
+
+Read proposals:
+
+```bash
+curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
+```
+
+Create or execute proposals with an admin token:
+
+```bash
+curl -s -X POST "$API_HOST/api/v1/treasury/proposals" \
+  -H "Content-Type: application/json" \
+  -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN" \
+  -d '{"action":"create_bounty","payload":{"repo":"ramimbo/mergework","issue_number":123,"issue_url":"https://github.com/ramimbo/mergework/issues/123","title":"Example bounty","reward_mrwk":"25","max_awards":1,"acceptance":"Accepted work with test evidence."}}'
+
+curl -s -X POST "$API_HOST/api/v1/treasury/proposals/<proposal_id>/execute" \
+  -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN"
+```
+
+GitHub-authenticated users with at least one accepted MRWK award can submit
+challenges:
+
+```bash
+curl -s -X POST "$API_HOST/api/v1/treasury/proposals/<proposal_id>/challenges" \
+  -b "mrwk_user=<session-cookie>" \
+  -H "Content-Type: application/json" \
+  -d '{"challenge_type":"subjective_note","reason":"This needs clearer acceptance text."}'
+```
+
+Machine-checkable valid challenges block execution. Subjective notes are public
+but non-blocking. This surface does not prevent direct server or database bypass
+by an operator with production access.
 
 ## Advisory Attempt Reservations
 
@@ -303,6 +357,37 @@ move funds directly:
 For `treasury:` and `reserve:` accounts, `github_login` is `null` and
 `transfer_status` explains that direct MRWK wallet transfers are only available
 for registered `mrwk1` addresses.
+
+Internal ledger accounts use the same account response shape. The treasury
+account is useful when checking public reserve movements, but it is not a
+wallet account:
+
+```bash
+curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
+```
+
+```json
+{
+  "account": "treasury:mrwk",
+  "ledger_address": "treasury:mrwk",
+  "github_login": null,
+  "exists": true,
+  "balance_mrwk": "99959140",
+  "transfer_status": "Internal ledger account. MRWK wallet transfers are only available for registered mrwk1 addresses.",
+  "accepted_work": {
+    "accepted_awards": 0,
+    "accepted_mrwk": "0",
+    "latest_ledger_sequence": null,
+    "latest_submission_url": null,
+    "latest_proof_hash": null,
+    "latest_proof_url": null
+  }
+}
+```
+
+Treasury and reserve balances change as bounties are reserved, paid, and
+released. Treat the `balance_mrwk` value as a live snapshot, not a fixed
+account invariant.
 
 Read the proof-backed accepted-work list for a single account:
 

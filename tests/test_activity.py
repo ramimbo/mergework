@@ -147,7 +147,12 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     by_account = client.get("/api/v1/activity?q=ALICE").json()
     by_repo = client.get("/api/v1/activity?q=ramimbo%2Fmergework").json()
     by_proof = client.get(f"/api/v1/activity?q={alice_proof.hash[:12]}").json()
+    by_issue_ref = client.get("/api/v1/activity?q=%23164").json()
     no_match = client.get("/api/v1/activity?q=carol").json()
+    invalid_hash_queries = [
+        client.get("/api/v1/activity", params={"q": query}).json()
+        for query in ("#", "#abc", "#123abc")
+    ]
 
     assert by_account["query"] == "alice"
     assert by_account["totals"] == {
@@ -157,6 +162,13 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     }
     assert by_account["contributors"][0]["account"] == "github:alice"
     assert by_account["recent"][0]["submission_url"].endswith("/pull/164")
+    assert by_issue_ref["query"] == "#164"
+    assert by_issue_ref["totals"] == {
+        "accepted_awards": 2,
+        "accepted_mrwk": "200",
+        "contributors": 2,
+    }
+    assert {row["bounty_issue_number"] for row in by_issue_ref["recent"]} == {164}
     assert by_repo["totals"] == {
         "accepted_awards": 2,
         "accepted_mrwk": "200",
@@ -170,6 +182,14 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     }
     assert no_match["contributors"] == []
     assert no_match["recent"] == []
+    for invalid_hash_query in invalid_hash_queries:
+        assert invalid_hash_query["totals"] == {
+            "accepted_awards": 0,
+            "accepted_mrwk": "0",
+            "contributors": 0,
+        }
+        assert invalid_hash_query["contributors"] == []
+        assert invalid_hash_query["recent"] == []
 
 
 def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
@@ -207,6 +227,8 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "github:bob" in paid.text
     assert "75 MRWK" in paid.text
     assert 'role="search"' in paid.text
+    assert 'aria-label="Activity inspection links"' in paid.text
+    assert 'href="/api/v1/activity">View JSON activity</a>' in paid.text
     assert 'name="q"' in paid.text
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in paid.text
     assert "Latest bounty" in paid.text
@@ -216,7 +238,28 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "/accounts/github:bob" in paid.text
 
     filtered = client.get("/activity?q=bob")
+    issue_ref = client.get("/activity?q=%2312")
 
     assert filtered.status_code == 200
     assert 'value="bob"' in filtered.text
+    assert "Showing accepted work matching “bob”." in filtered.text
+    assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
     assert 'href="/activity">Clear</a>' in filtered.text
+    assert "No contributors match this search." not in filtered.text
+    assert "No accepted work matches this search." not in filtered.text
+    assert issue_ref.status_code == 200
+    assert 'value="#12"' in issue_ref.text
+    assert "Showing accepted work matching “#12”." in issue_ref.text
+    assert 'href="/api/v1/activity?q=%2312">View JSON activity</a>' in issue_ref.text
+    assert "github:bob" in issue_ref.text
+
+    no_match = client.get("/activity?q=alice")
+
+    assert no_match.status_code == 200
+    assert 'value="alice"' in no_match.text
+    assert "Showing accepted work matching “alice”." in no_match.text
+    assert "No contributors match this search." in no_match.text
+    assert "No accepted work matches this search." in no_match.text
+    assert "No accepted bounty payments yet." not in no_match.text
+    assert "No proof-backed accepted work rows yet." not in no_match.text
+    assert 'href="/activity">Clear search</a>' in no_match.text
