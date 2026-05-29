@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.accounts import normalized_wallet_address
-from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort
+from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort, normalize_bounty_status
 from app.db import session_scope
 from app.ledger_views import account_ledger_transaction_types, account_ledger_transactions
 from app.models import Wallet
@@ -46,7 +46,7 @@ def public_bounties_context(
     sort: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    selected_status = status.strip().lower() if status is not None else None
+    selected_status = normalize_bounty_status(status)
     query_text = q.strip() if q is not None else ""
     selected_sort = normalize_bounty_sort(sort)
     limit_options: tuple[int, ...] = (10, 25, 50, 100, 200)

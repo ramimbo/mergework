@@ -313,3 +313,34 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
     assert client.get("/api/v1/bounties?limit=201").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=0").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=201").status_code == 422
+
+
+def test_bounty_api_rejects_status_and_sort_control_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=53,
+            issue_url="https://github.com/ramimbo/mergework/issues/53",
+            title="Control character bounty",
+            reward_mrwk="5",
+            acceptance="Control characters should fail closed.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    status_response = client.get("/api/v1/bounties?status=%09open")
+    status_summary = client.get("/api/v1/bounties/summary?status=%09open")
+    sort_response = client.get("/api/v1/bounties?sort=%09reward")
+    sort_summary = client.get("/api/v1/bounties/summary?sort=%09reward")
+
+    assert status_response.status_code == 400
+    assert status_response.json()["detail"] == "status must not contain control characters"
+    assert status_summary.status_code == 400
+    assert status_summary.json()["detail"] == "status must not contain control characters"
+    assert sort_response.status_code == 400
+    assert sort_response.json()["detail"] == "sort must not contain control characters"
+    assert sort_summary.status_code == 400
+    assert sort_summary.json()["detail"] == "sort must not contain control characters"

@@ -78,6 +78,31 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
 
 
+def test_bounties_page_rejects_status_and_sort_control_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=52,
+            issue_url="https://github.com/ramimbo/mergework/issues/52",
+            title="Control public bounty",
+            reward_mrwk="50",
+            acceptance="Control-character filters should fail closed.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    status_page = client.get("/bounties?status=%09open")
+    sort_page = client.get("/bounties?sort=%09reward")
+
+    assert status_page.status_code == 400
+    assert "status must not contain control characters" in status_page.text
+    assert sort_page.status_code == 400
+    assert "sort must not contain control characters" in sort_page.text
+
+
 def test_bounties_summary_api_matches_public_list_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
