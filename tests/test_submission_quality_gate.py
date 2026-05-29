@@ -146,7 +146,7 @@ def test_submission_quality_gate_ignores_oversized_numeric_bounty_refs() -> None
 
 
 def test_submission_quality_gate_ignores_oversized_full_github_issue_url_reference() -> None:
-    oversized_ref = submission_quality_gate.MAX_BOUNTY_REF + 1
+    oversized_ref = "9" * 5000
 
     result = evaluate_submission(
         {

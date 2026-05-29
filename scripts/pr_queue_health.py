@@ -75,7 +75,10 @@ def _bounty_refs(raw: dict[str, Any], repo: str | None = None) -> list[int]:
             continue
         if match.group("repo").lower() != normalized_repo:
             continue
-        ref = int(match.group("number"))
+        try:
+            ref = int(match.group("number"))
+        except ValueError:
+            continue
         if ref <= MAX_BOUNTY_REF:
             found_refs.add(ref)
     return sorted(found_refs)

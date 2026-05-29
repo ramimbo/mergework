@@ -53,7 +53,10 @@ def _bounty_refs(text: str, repo: str | None = None) -> list[int]:
     for match in GITHUB_ISSUE_URL_RE.finditer(text):
         if normalized_repo is not None and match.group("repo").lower() != normalized_repo:
             continue
-        ref = int(match.group("number"))
+        try:
+            ref = int(match.group("number"))
+        except ValueError:
+            continue
         if ref > MAX_BOUNTY_REF:
             continue
         if ref in seen:

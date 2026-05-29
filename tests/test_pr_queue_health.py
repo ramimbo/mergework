@@ -192,6 +192,29 @@ def test_pr_queue_health_rejects_full_github_issue_url_without_repo_context() ->
     assert report["missing_bounty_references"][0]["pull_request"] == 8
 
 
+def test_pr_queue_health_ignores_huge_full_github_issue_url_reference() -> None:
+    huge_ref = "9" * 5000
+
+    report = analyze_queue(
+        {
+            "repo": "ramimbo/mergework",
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Harden bounty submission checks",
+                    "body": f"https://github.com/ramimbo/mergework/issues/{huge_ref}\nRefs #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["missing_bounty_references"] == 0
+    assert report["missing_bounty_references"] == []
+
+
 def test_pr_queue_health_accepts_github_linking_keywords() -> None:
     references = (
         "Bounty #310",
