@@ -663,12 +663,24 @@ def test_transfer_action_clears_private_key_after_submit_attempt() -> None:
     transfer_start = wallet_js.find("function setupTransfer()")
     github_actions_start = wallet_js.find("function setupGithubActions()")
     transfer_block = wallet_js[transfer_start:github_actions_start]
+    set_result = 'setText("[data-transfer-result]", transfer);'
+    set_error = 'setText("[data-transfer-result]", error.message);'
+    finally_block = "} finally {"
+    clear_private_key = "clearPrivateKeyField(form);"
 
     assert 'form[data-action="submit-transfer"]' in transfer_block
-    assert 'setText("[data-transfer-result]", transfer);' in transfer_block
-    assert 'setText("[data-transfer-result]", error.message);' in transfer_block
-    assert "} finally {" in transfer_block
-    assert "clearPrivateKeyField(form);" in transfer_block
+    idx_set_result = transfer_block.find(set_result)
+    idx_set_error = transfer_block.find(set_error, idx_set_result)
+    idx_finally = transfer_block.find(finally_block, idx_set_error)
+    idx_clear_private_key = transfer_block.find(clear_private_key, idx_finally)
+
+    assert -1 not in {
+        idx_set_result,
+        idx_set_error,
+        idx_finally,
+        idx_clear_private_key,
+    }
+    assert idx_set_result < idx_set_error < idx_finally < idx_clear_private_key
 
 
 def test_wallet_js_canonicalizes_unicode_like_server() -> None:
