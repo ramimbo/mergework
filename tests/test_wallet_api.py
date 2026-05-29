@@ -539,6 +539,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     funded_detail = client.get(f"/wallets/{funded_address}").text
     funded_type_filter = client.get(f"/wallets/{funded_address}?type=test_funding").text
     funded_missing_type = client.get(f"/wallets/{funded_address}?type=bounty_payment").text
+    funded_control_type = client.get(f"/wallets/{funded_address}?type=%09")
     transfer = client.get("/transfer").text
     me = client.get("/me").text
 
@@ -574,6 +575,8 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert 'value="test_funding" selected' in funded_type_filter
     assert "Showing test_funding transactions." in funded_type_filter
     assert "No wallet transactions match this type." in funded_missing_type
+    assert funded_control_type.status_code == 400
+    assert "transaction type must not contain control characters" in funded_control_type.text
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer

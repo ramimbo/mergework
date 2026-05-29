@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.accounts import normalized_wallet_address
 from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort
 from app.db import session_scope
+from app.ledger.service import CONTROL_CHAR_RE
 from app.ledger_views import account_ledger_transaction_types, account_ledger_transactions
 from app.models import Wallet
 from app.path_params import proof_hash_from_path
@@ -94,6 +95,10 @@ def wallet_page_context(
     wallet = session.get(Wallet, normalized_address)
     if wallet is None:
         raise HTTPException(status_code=404, detail="wallet not found")
+    if transaction_type is not None and CONTROL_CHAR_RE.search(transaction_type):
+        raise HTTPException(
+            status_code=400, detail="transaction type must not contain control characters"
+        )
     selected_transaction_type = transaction_type.strip() if transaction_type is not None else ""
     return {
         "wallet": wallet_to_dict(session, wallet),
