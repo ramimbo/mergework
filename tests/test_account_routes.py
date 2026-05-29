@@ -140,6 +140,7 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     payments = client.get("/accounts/github:alice?tx_type=bounty_payment")
     claims = client.get("/accounts/github:alice?tx_type=github_claim")
     invalid = client.get("/accounts/github:alice?tx_type=bogus")
+    control_char = client.get("/accounts/github:alice?tx_type=%09")
 
     assert all_rows.status_code == 200
     assert "Transaction type filters" in all_rows.text
@@ -159,6 +160,9 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
 
     assert invalid.status_code == 400
     assert "transaction type must be one of" in invalid.text
+
+    assert control_char.status_code == 400
+    assert "transaction type must not contain control characters" in control_char.text
 
 
 def test_normalized_account_keeps_existing_account_validation_boundaries() -> None:
