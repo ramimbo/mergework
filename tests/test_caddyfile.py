@@ -30,13 +30,17 @@ def test_caddyfile_has_expected_site_block() -> None:
 def test_caddy_all_security_headers_use_question_mark_prefix() -> None:
     caddyfile = Path("Caddyfile").read_text(encoding="utf-8")
     in_header_block = False
+    headers_checked = 0
     for line in caddyfile.splitlines():
         if "header {" in line:
             in_header_block = True
             continue
         if in_header_block:
             if line.strip() == "}":
-                break
+                in_header_block = False
+                continue
             if line.strip().startswith("#") or not line.strip():
                 continue
             assert line.strip().startswith("?"), f"Header missing ? prefix: {line.strip()}"
+            headers_checked += 1
+    assert headers_checked > 0, "No header blocks were validated"
