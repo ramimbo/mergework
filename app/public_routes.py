@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
@@ -22,6 +23,8 @@ from app.status import (
     FUTURE_PATH_BOUNDARY,
     UNSUPPORTED_PUBLIC_PATHS_SUMMARY,
 )
+
+CONTROL_CHARACTER_RE = r"[\x00-\x1f\x7f]"
 
 
 def _bounties_api_url(
@@ -66,6 +69,8 @@ def public_bounties_context(
 
 
 def wallets_page_context(session: Session, q: str | None = None) -> dict[str, Any]:
+    if q is not None and re.search(CONTROL_CHARACTER_RE, q):
+        raise HTTPException(status_code=400, detail="q must not contain control characters")
     query_text = q.strip() if q is not None else ""
     query = select(Wallet)
     if query_text:

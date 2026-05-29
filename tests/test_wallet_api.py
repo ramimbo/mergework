@@ -580,6 +580,16 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Link a wallet" in me
 
 
+def test_wallet_search_rejects_control_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/wallets", params={"q": "\t"})
+
+    assert response.status_code == 400
+    assert "q must not contain control characters" in response.text
+
+
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
     create_schema(sqlite_url)
