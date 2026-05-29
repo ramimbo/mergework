@@ -35,11 +35,18 @@ DNS_LABEL_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 IPV4_DOTTED_QUAD_RE = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
 
 
+def _contains_control_character(value: str) -> bool:
+    return any(ord(char) < 32 or 127 <= ord(char) < 160 for char in value)
+
+
 def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
     raw_value = os.environ.get(name, default)
     if not raw_value.strip():
         return ()
-    return tuple(item.strip().lower() for item in raw_value.split(","))
+    return tuple(
+        item.lower() if _contains_control_character(item) else item.strip().lower()
+        for item in raw_value.split(",")
+    )
 
 
 def _secret_errors(name: str, value: str) -> list[str]:
