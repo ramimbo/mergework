@@ -32,6 +32,8 @@ def test_caddy_all_security_headers_use_question_mark_prefix() -> None:
     in_header_block = False
     headers_checked = 0
     for line in caddyfile.splitlines():
+        if line.strip().startswith("#"):
+            continue
         if "header {" in line:
             in_header_block = True
             continue
