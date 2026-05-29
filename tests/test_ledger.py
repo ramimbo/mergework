@@ -126,7 +126,7 @@ def test_add_ledger_entry_rejects_non_integer_amounts(
                 entry_type="bad_amount",
                 from_account=TREASURY_ACCOUNT,
                 to_account="github:alice",
-                amount_microunits=amount_microunits,  # type: ignore[arg-type]
+                amount_microunits=amount_microunits,
                 reference="test-bad-amount",
             )
 

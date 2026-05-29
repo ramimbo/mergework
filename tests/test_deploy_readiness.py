@@ -20,7 +20,7 @@ def _settings(**overrides: object) -> Settings:
         "github_accepted_labelers": ("alice",),
     }
     values.update(overrides)
-    return Settings(**values)  # type: ignore[arg-type]
+    return Settings(**values)
 
 
 def test_deploy_readiness_accepts_strong_configuration() -> None:
