@@ -29,6 +29,17 @@
     <h2>Registered wallets</h2>
     <p>Public addresses known to this ledger.</p>
   </div>
+  <form class="search-form" method="get" action="/wallets" role="search">
+    <label for="wallet-search">Search wallets</label>
+    <div class="search-row">
+      <input id="wallet-search" name="q" type="search" value="{{ query_text }}" placeholder="address, label, or GitHub login">
+      <button type="submit">Search</button>
+      {% if query_text %}<a href="/wallets">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% if query_text %}
+  <p class="notice">Showing wallets matching “{{ query_text }}”.</p>
+  {% endif %}
   <section class="bounty-list-summary" aria-label="Wallet list summary">
     <article>
       <span>Wallets shown</span>
@@ -51,11 +62,17 @@
         <td><a href="/wallets/{{ wallet.address }}"><code>{{ wallet.address }}</code></a></td>
         <td>{{ wallet.label or "-" }}</td>
         <td>{{ wallet.balance_mrwk }} MRWK</td>
-        <td>{{ wallet.github_login or "-" }}</td>
+        <td>
+          {% if wallet.github_login %}<a href="/accounts/github:{{ wallet.github_login }}">{{ wallet.github_login }}</a>{% else %}-{% endif %}
+        </td>
         <td>{{ wallet.nonce }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="5">No registered wallets yet.</td></tr>
+      <tr>
+        <td colspan="5">
+          {% if query_text %}No registered wallets match this search.{% else %}No registered wallets yet.{% endif %}
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
