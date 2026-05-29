@@ -362,9 +362,7 @@ def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int,
                 f"MergeWork API bounty row {index} missing awards_remaining"
             ) from exc
         if normalized_awards_remaining < 0:
-            raise RuntimeError(
-                f"MergeWork API bounty row {index} has invalid awards_remaining"
-            )
+            raise RuntimeError(f"MergeWork API bounty row {index} has invalid awards_remaining")
         bounties[issue_number] = {
             "number": issue_number,
             "title": item.get("title"),
