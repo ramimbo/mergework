@@ -85,6 +85,28 @@ def test_deploy_readiness_rejects_secret_whitespace_and_control_characters() -> 
     assert "MERGEWORK_COOKIE_SECRET must not include control characters" in errors
 
 
+def test_deploy_readiness_rejects_c1_control_characters() -> None:
+    errors = validate_deploy_settings(
+        _settings(
+            database_url="postgresql://mergework:password@db.example.test/merge\x85work",
+            public_base_url="https://staging\x85.mrwk.example.test",
+            github_webhook_secret="webhook-8efc3925bb8746b8a8fd3392c4c\x858e32",
+            github_oauth_client_id="client\x85id",
+            github_oauth_client_secret="oauth-7818e79f9d3a4a1d82ff0e1b9f0\x85b8e42",
+            admin_token="admin-14dcaab83bb245f2bfb5d5c21a9b\x85b55b",
+            cookie_secret="cookie-27fd1c41324a4bdcb2e4014adc3\x85a6108",
+        )
+    )
+
+    assert "MERGEWORK_DATABASE_URL must not include control characters" in errors
+    assert "MERGEWORK_PUBLIC_BASE_URL must not include control characters" in errors
+    assert "MERGEWORK_GITHUB_WEBHOOK_SECRET must not include control characters" in errors
+    assert "MERGEWORK_GITHUB_OAUTH_CLIENT_ID must not include control characters" in errors
+    assert "MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET must not include control characters" in errors
+    assert "MERGEWORK_ADMIN_TOKEN must not include control characters" in errors
+    assert "MERGEWORK_COOKIE_SECRET must not include control characters" in errors
+
+
 def test_deploy_readiness_rejects_non_persistent_sqlite_database_urls() -> None:
     memory_errors = validate_deploy_settings(_settings(database_url="sqlite:///:memory:"))
     driver_memory_errors = validate_deploy_settings(

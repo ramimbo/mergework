@@ -35,6 +35,10 @@ DNS_LABEL_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 IPV4_DOTTED_QUAD_RE = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
 
 
+def _contains_control_character(value: str) -> bool:
+    return any(ord(char) < 32 or 127 <= ord(char) < 160 for char in value)
+
+
 def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
     raw_value = os.environ.get(name, default)
     if not raw_value.strip():
@@ -47,7 +51,7 @@ def _secret_errors(name: str, value: str) -> list[str]:
         return [f"{name} is required"]
     if value != value.strip():
         return [f"{name} must not include leading or trailing whitespace"]
-    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+    if _contains_control_character(value):
         return [f"{name} must not include control characters"]
     if len(value) < 32 or value.strip().lower() in WEAK_SECRET_VALUES:
         return [f"{name} must be at least 32 characters"]
@@ -62,7 +66,7 @@ def _required_env_value_errors(name: str, value: str) -> list[str]:
     errors = []
     if value != value.strip():
         errors.append(f"{name} must not include leading or trailing whitespace")
-    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+    if _contains_control_character(value):
         errors.append(f"{name} must not include control characters")
     return errors
 
