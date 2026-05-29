@@ -370,8 +370,9 @@ def safe_accepted_work_for_account(session: Session, account: str) -> list[dict[
 
 
 def _wallet_timestamp(value: datetime) -> str:
-    if value.tzinfo is not None:
-        value = value.astimezone(UTC).replace(tzinfo=None)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    value = value.astimezone(UTC)
     return value.isoformat()
 
 
