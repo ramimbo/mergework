@@ -345,6 +345,8 @@ def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int,
         issue_number = item.get("issue_number")
         if isinstance(issue_number, bool) or not isinstance(issue_number, int):
             raise RuntimeError(f"MergeWork API bounty row {index} has invalid issue_number")
+        if issue_number <= 0:
+            raise RuntimeError(f"MergeWork API bounty row {index} has invalid issue_number")
         status = item.get("status")
         if not isinstance(status, str) or not status.strip():
             raise RuntimeError(f"MergeWork API bounty row {index} missing status")
@@ -359,6 +361,10 @@ def _load_api_bounties(repo: str, api_host: str = DEFAULT_API_HOST) -> dict[int,
             raise RuntimeError(
                 f"MergeWork API bounty row {index} missing awards_remaining"
             ) from exc
+        if normalized_awards_remaining < 0:
+            raise RuntimeError(
+                f"MergeWork API bounty row {index} has invalid awards_remaining"
+            )
         bounties[issue_number] = {
             "number": issue_number,
             "title": item.get("title"),

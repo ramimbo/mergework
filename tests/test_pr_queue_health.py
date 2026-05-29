@@ -535,6 +535,26 @@ def test_pr_queue_health_live_mode_falls_back_on_bad_api_utf8(monkeypatch) -> No
             },
             "missing awards_remaining",
         ),
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 0,
+                "title": "MRWK bounty: useful bug reports",
+                "status": "open",
+                "awards_remaining": 3,
+            },
+            "invalid issue_number",
+        ),
+        (
+            {
+                "repo": "ramimbo/mergework",
+                "issue_number": 406,
+                "title": "MRWK bounty: useful bug reports",
+                "status": "open",
+                "awards_remaining": -1,
+            },
+            "invalid awards_remaining",
+        ),
     ],
 )
 def test_pr_queue_health_live_mode_falls_back_on_malformed_api_fields(
