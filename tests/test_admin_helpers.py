@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select
 
 from app.admin import (
     ADMIN_WEBHOOK_LIMIT_OPTIONS,
@@ -12,7 +15,7 @@ from app.admin import (
     webhook_status_summary,
 )
 from app.db import create_schema, session_scope
-from app.models import Bounty, WebhookEvent
+from app.models import Bounty, TreasuryProposal, WebhookEvent
 
 
 def _event(
@@ -126,11 +129,11 @@ def test_admin_page_context_builds_webhook_dashboard_context(sqlite_url: str) ->
     ]
 
 
-def test_create_admin_bounty_from_form_returns_created_bounty_id(sqlite_url: str) -> None:
+def test_create_admin_bounty_from_form_returns_created_proposal_id(sqlite_url: str) -> None:
     create_schema(sqlite_url)
 
     with session_scope(sqlite_url) as session:
-        bounty_id = create_admin_bounty_from_form(
+        proposal_id = create_admin_bounty_from_form(
             session,
             repo="RAmimbo/MergeWork",
             issue_number=321,
@@ -139,10 +142,22 @@ def test_create_admin_bounty_from_form_returns_created_bounty_id(sqlite_url: str
             reward_mrwk="25",
             max_awards=2,
             acceptance="Admin page form creates this bounty.",
+            proposed_by="maintainer",
         )
-        bounty = session.get(Bounty, bounty_id)
+        proposal = session.get(TreasuryProposal, proposal_id)
+        bounty_count = session.scalar(select(func.count(Bounty.id)))
 
-    assert bounty is not None
-    assert bounty.repo == "ramimbo/mergework"
-    assert bounty.issue_number == 321
-    assert bounty.max_awards == 2
+    assert proposal is not None
+    assert proposal.action == "create_bounty"
+    assert proposal.status == "pending"
+    assert proposal.proposed_by == "maintainer"
+    assert json.loads(proposal.payload_json) == {
+        "acceptance": "Admin page form creates this bounty.",
+        "issue_number": 321,
+        "issue_url": "https://github.com/ramimbo/mergework/issues/321",
+        "max_awards": 2,
+        "repo": "ramimbo/mergework",
+        "reward_mrwk": "25",
+        "title": "Admin helper bounty",
+    }
+    assert bounty_count == 0

@@ -20,8 +20,15 @@
   <article><strong>{{ status.treasury_balance_mrwk }}</strong><span>treasury MRWK</span></article>
 </section>
 <section>
-  <h2>Future path</h2>
-  <p>MRWK starts as a native project coin on the MergeWork ledger. The ledger is designed for future public snapshots, bridges, and onchain claims.</p>
+  <h2>Current transfer paths</h2>
+  <p>MRWK starts as a native project coin on the MergeWork ledger. Supported paths today are:</p>
+  <ul>
+    {% for path in status.current_transfer_paths %}
+    <li>{{ path }}</li>
+    {% endfor %}
+  </ul>
+  <p>{{ status.unsupported_public_paths_summary }}</p>
+  <p>{{ status.future_path_boundary }}</p>
 </section>
 <section>
   <h2>Accounts and payouts</h2>

@@ -41,6 +41,7 @@ GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 MRWK_AMOUNT_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
 PUBLIC_DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.I)
+IPV4_DOTTED_QUAD_RE = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 
 
 class LedgerError(RuntimeError):
@@ -51,6 +52,8 @@ def parse_mrwk_amount(amount: str | int | Decimal) -> int:
     amount_text = str(amount).strip()
     if not MRWK_AMOUNT_RE.fullmatch(amount_text):
         raise LedgerError("invalid MRWK amount")
+    if "." in amount_text and len(amount_text.rsplit(".", 1)[1]) > 6:
+        raise LedgerError("MRWK supports at most 6 decimal places")
     try:
         value = Decimal(amount_text)
     except (InvalidOperation, ValueError) as exc:
@@ -109,16 +112,21 @@ def validate_public_url(url: str) -> str:
     try:
         ip = ipaddress.ip_address(hostname)
     except ValueError:
+        if IPV4_DOTTED_QUAD_RE.fullmatch(hostname):
+            raise LedgerError("URL must include a valid host") from None
         try:
             ascii_hostname = hostname.encode("idna").decode("ascii").rstrip(".")
         except UnicodeError as exc:
             raise LedgerError("URL must include a valid host") from exc
+        labels = ascii_hostname.split(".")
         if (
             not ascii_hostname
             or len(ascii_hostname) > 253
-            or not all(PUBLIC_DNS_LABEL_RE.fullmatch(label) for label in ascii_hostname.split("."))
+            or not all(PUBLIC_DNS_LABEL_RE.fullmatch(label) for label in labels)
         ):
             raise LedgerError("URL must include a valid host") from None
+        if len(labels) < 2:
+            raise LedgerError("URL must use a public host") from None
     else:
         if ip.is_multicast or not ip.is_global:
             raise LedgerError("URL must use a public host")
@@ -647,6 +655,14 @@ def pay_bounty(
     bounty = session.get(Bounty, bounty_id)
     if bounty is None:
         raise LedgerError("bounty not found")
+    clean_submission_url = validate_public_url(submission_url)
+    existing_submission = session.scalar(
+        select(Submission)
+        .where(Submission.bounty_id == bounty.id, Submission.url == clean_submission_url)
+        .limit(1)
+    )
+    if existing_submission is not None:
+        raise LedgerError("submission already paid")
     if bounty.awards_paid >= bounty.max_awards:
         raise LedgerError("bounty already paid")
     if bounty.status != "open":
@@ -656,14 +672,6 @@ def pay_bounty(
     if "accepted_by" in clean_verifier_result:
         clean_verifier_result["accepted_by"] = clean_accepted_by
     clean_to_account = _clean_required_text(to_account, "to_account", 128)
-    clean_submission_url = validate_public_url(submission_url)
-    existing_submission = session.scalar(
-        select(Submission)
-        .where(Submission.bounty_id == bounty.id, Submission.url == clean_submission_url)
-        .limit(1)
-    )
-    if existing_submission is not None:
-        raise LedgerError("submission already paid")
     reserve_account = reserve_account_for_bounty(bounty.id)
     if get_balance(session, reserve_account) < bounty.reward_microunits:
         raise LedgerError("bounty reserve balance too low")
