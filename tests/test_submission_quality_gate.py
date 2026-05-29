@@ -145,6 +145,32 @@ def test_submission_quality_gate_ignores_oversized_numeric_bounty_refs() -> None
     } in result["checks"]
 
 
+def test_submission_quality_gate_ignores_oversized_full_github_issue_url_reference() -> None:
+    oversized_ref = submission_quality_gate.MAX_BOUNTY_REF + 1
+
+    result = evaluate_submission(
+        {
+            "repo": "ramimbo/mergework",
+            "submission_text": (
+                "Summary: add validation\n\n"
+                f"https://github.com/ramimbo/mergework/issues/{oversized_ref}\n"
+                "Refs #319\n\n"
+                "Validation: pytest passed"
+            ),
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "pass"
+    assert result["bounty_reference"] == 319
+    assert {
+        "name": "bounty_reference",
+        "status": "pass",
+        "message": "found bounty reference #319",
+    } in result["checks"]
+
+
 def test_submission_quality_gate_uses_title_after_full_issue_url_reference() -> None:
     result = evaluate_submission(
         {
