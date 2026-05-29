@@ -333,6 +333,8 @@ def test_bounty_api_rejects_control_character_search_queries(sqlite_url: str) ->
 
     list_response = client.get("/api/v1/bounties?q=%00")
     summary_response = client.get("/api/v1/bounties/summary?q=%00")
+    del_list_response = client.get("/api/v1/bounties", params={"q": "\x7f"})
+    del_summary_response = client.get("/api/v1/bounties/summary", params={"q": "\x7f"})
     leading_tab_response = client.get("/api/v1/bounties", params={"q": "\tControl"})
     trailing_newline_response = client.get("/api/v1/bounties/summary", params={"q": "Control\n"})
 
@@ -340,6 +342,10 @@ def test_bounty_api_rejects_control_character_search_queries(sqlite_url: str) ->
     assert list_response.json()["detail"] == "q must not contain control characters"
     assert summary_response.status_code == 400
     assert summary_response.json()["detail"] == "q must not contain control characters"
+    assert del_list_response.status_code == 400
+    assert del_list_response.json()["detail"] == "q must not contain control characters"
+    assert del_summary_response.status_code == 400
+    assert del_summary_response.json()["detail"] == "q must not contain control characters"
     assert leading_tab_response.status_code == 400
     assert leading_tab_response.json()["detail"] == "q must not contain control characters"
     assert trailing_newline_response.status_code == 400
