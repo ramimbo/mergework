@@ -72,3 +72,39 @@ def test_call_mcp_tool_preserves_argument_validation_errors(
 
     with pytest.raises(ValueError, match=message):
         call_mcp_tool(sqlite_url, tool_name, arguments)
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "message"),
+    [
+        ("get_bounty", {"id": "\t1"}, "id must not contain control characters"),
+        (
+            "list_bounty_attempts",
+            {"bounty_id": "1\n"},
+            "bounty_id must not contain control characters",
+        ),
+        (
+            "submit_work_proof",
+            {"issue_number": "\x7f390"},
+            "issue_number must not contain control characters",
+        ),
+    ],
+)
+def test_mcp_integer_arguments_reject_control_characters_before_trimming(
+    sqlite_url: str, tool_name: str, arguments: dict[str, object], message: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=390,
+            issue_url="https://github.com/ramimbo/mergework/issues/390",
+            title="Code health bounty",
+            reward_mrwk="200",
+            acceptance="Extract a coherent subsystem from app.main.",
+        )
+
+    with pytest.raises(ValueError, match=message):
+        call_mcp_tool(sqlite_url, tool_name, arguments)
