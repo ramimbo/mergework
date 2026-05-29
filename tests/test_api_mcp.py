@@ -1795,17 +1795,17 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
         "created_at": "<checked>",
     }
     assert "Claim GitHub balances from /me" in account
-    assert 'href="https://github.com/alice">@alice</a>' in account
+    assert 'href="https://github.com/alice" rel="nofollow noopener">@alice</a>' in account
     assert "Accepted work summary" in account
     assert "1</strong>\n      <span>accepted awards</span>" in account
     assert "25 MRWK</strong>\n      <span>accepted MRWK</span>" in account
     assert f'href="/proofs/{proof.hash}"' in account
-    assert 'href="https://github.com/ramimbo/mergework/pull/3"' in account
+    assert 'href="https://github.com/ramimbo/mergework/pull/3" rel="nofollow noopener"' in account
     assert 'via <a href="/ledger/3">#3</a>' in account
     assert "Accepted work" in account
     assert "Proof-backed bounty payments made to this account." in account
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in account
-    assert 'href="https://github.com/ramimbo/mergework/issues/2"' in account
+    assert 'href="https://github.com/ramimbo/mergework/issues/2" rel="nofollow noopener"' in account
     assert 'href="/accounts/reserve:bounty:1"' in account
     assert 'href="/accounts/github:alice"' in account
 
@@ -1955,7 +1955,7 @@ def test_github_account_views_normalize_mixed_case_logins(sqlite_url: str) -> No
         assert account_api["balance_mrwk"] == "50"
         assert "50 MRWK" in account
         assert f"/proofs/{proof.hash}" in account
-        assert 'href="https://github.com/alice">@alice</a>' in account
+        assert 'href="https://github.com/alice" rel="nofollow noopener">@alice</a>' in account
         assert "github:alice: 50 MRWK" in balance["result"]["content"][0]["text"]
 
 
