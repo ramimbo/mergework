@@ -12,6 +12,7 @@ Submit small, reviewable work and include evidence.
 - `GET /api/v1/bounties/summary`
 - `GET /api/v1/bounties/{id}/attempts`
 - `GET /api/v1/accounts/{account}`
+- `GET /api/v1/accounts/{account}/accepted-work`
 - `GET /api/v1/wallets/{address}`
 - `GET /api/v1/ledger`
 - `GET /api/v1/ledger/{sequence}`
