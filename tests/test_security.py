@@ -209,6 +209,7 @@ def test_admin_page_renders_safe_webhook_events_for_cookie_admin(
     client.cookies.set("mrwk_admin", _signed_value("alice", "test-cookie-secret"))
     all_events = client.get("/admin?webhook_limit=10")
     filtered = client.get("/admin?webhook_status= missing_submitter &webhook_limit=10")
+    control_char_filter = client.get("/admin?webhook_status=%09&webhook_limit=10")
     limited = client.get("/admin?webhook_limit=1")
     too_large = client.get("/admin?webhook_limit=101")
 
@@ -242,6 +243,8 @@ def test_admin_page_renders_safe_webhook_events_for_cookie_admin(
     assert "bounty_not_found" in filtered.text
     assert "a" * 64 in filtered.text
     assert "secret-payload-body" not in filtered.text
+    assert control_char_filter.status_code == 400
+    assert "webhook status must not contain control characters" in control_char_filter.text
     assert limited.status_code == 200
     assert limited.text.count("<tr>") == 2
     assert too_large.status_code == 422
@@ -428,6 +431,10 @@ def test_admin_webhook_events_api_lists_and_filters_processing_outcomes(
         "/api/v1/admin/webhook-events?status= Missing_Submitter ",
         headers={"x-mergework-admin-token": "admin-token-for-tests"},
     )
+    control_char_filter = client.get(
+        "/api/v1/admin/webhook-events?status=%09",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
     limited = client.get(
         "/api/v1/admin/webhook-events?limit=1",
         headers={"x-mergework-admin-token": "admin-token-for-tests"},
@@ -452,6 +459,10 @@ def test_admin_webhook_events_api_lists_and_filters_processing_outcomes(
             "created_at": filtered.json()[0]["created_at"],
         }
     ]
+    assert control_char_filter.status_code == 400
+    assert control_char_filter.json() == {
+        "detail": "webhook status must not contain control characters"
+    }
     assert limited.status_code == 200
     assert len(limited.json()) == 1
     assert too_large.status_code == 422
