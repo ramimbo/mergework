@@ -146,6 +146,10 @@ def _parse_int(value: Any, field: str) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, str):
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise HTTPException(
+                status_code=400, detail=f"{field} must not contain control characters"
+            )
         clean = value.strip()
         if clean and clean.lstrip("+-").isdigit():
             try:

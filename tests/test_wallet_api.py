@@ -134,6 +134,40 @@ def test_wallet_transfer_api_rejects_replayed_signed_body(sqlite_url: str) -> No
     assert second.json()["detail"] == "invalid nonce"
 
 
+def test_wallet_transfer_api_rejects_control_character_nonce_string(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    sender_key, sender_public, sender_address = _keypair()
+    _, receiver_public, receiver_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, sender_public)
+    _register_wallet(client, receiver_public)
+    _fund_wallet(sqlite_url, sender_address)
+
+    payload = wallet_transfer_payload(
+        from_address=sender_address,
+        to_address=receiver_address,
+        amount_microunits=1_000_000,
+        nonce=1,
+        memo="",
+    )
+
+    response = client.post(
+        "/api/v1/transfers",
+        json={
+            "from_address": sender_address,
+            "to_address": receiver_address,
+            "amount_mrwk": "1",
+            "nonce": "\t1",
+            "memo": "",
+            "signature_hex": _sign(sender_key, payload),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "nonce must not contain control characters"
+    assert client.get(f"/api/v1/wallets/{receiver_address}").json()["balance_mrwk"] == "0"
+
+
 @pytest.mark.parametrize(
     ("body_overrides", "payload_overrides", "expected_detail"),
     [
