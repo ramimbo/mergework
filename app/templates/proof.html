@@ -10,7 +10,7 @@
     <article>
       <span>Bounty issue</span>
       {% set issue_card_url = safe_public_url("https://github.com/" ~ proof.repo ~ "/issues/" ~ proof.issue_number) %}
-      <strong>{% if issue_card_url %}<a href="{{ issue_card_url }}">{{ proof.repo }} #{{ proof.issue_number }}</a>{% else %}{{ proof.repo }} #{{ proof.issue_number }}{% endif %}</strong>
+      <strong>{% if issue_card_url %}<a href="{{ issue_card_url }}" rel="nofollow noopener">{{ proof.repo }} #{{ proof.issue_number }}</a>{% else %}{{ proof.repo }} #{{ proof.issue_number }}{% endif %}</strong>
     </article>
     <article>
       <span>MergeWork bounty</span>
@@ -33,7 +33,7 @@
   <dl>
     <dt>Issue</dt>
     {% set issue_url = safe_public_url("https://github.com/" ~ proof.repo ~ "/issues/" ~ proof.issue_number) %}
-    <dd>{% if issue_url %}<a href="{{ issue_url }}">{{ proof.repo }} #{{ proof.issue_number }}</a>{% else %}{{ proof.repo }} #{{ proof.issue_number }}{% endif %}</dd>
+    <dd>{% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">{{ proof.repo }} #{{ proof.issue_number }}</a>{% else %}{{ proof.repo }} #{{ proof.issue_number }}{% endif %}</dd>
     <dt>MergeWork bounty</dt>
     <dd><a href="/bounties/{{ proof.bounty_id }}">#{{ proof.bounty_id }}</a></dd>
     <dt>Accepted by</dt>
@@ -48,8 +48,38 @@
     <dd><code>{{ proof.ledger_hash }}</code></dd>
     <dt>Submission</dt>
     {% set submission_url = safe_public_url(proof.submission_url) %}
-    <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ proof.submission_url }}</a>{% else %}{{ proof.submission_url }}{% endif %}</dd>
+    <dd>{% if submission_url %}<a href="{{ submission_url }}" rel="nofollow noopener">{{ proof.submission_url }}</a>{% else %}{{ proof.submission_url }}{% endif %}</dd>
   </dl>
+  {% if proof.kind == "bounty_payment" %}
+  <div class="section-head">
+    <h2>Related activity</h2>
+    <p>Open accepted-work searches for this proof, recipient, bounty, or submission.</p>
+  </div>
+  <div class="meta-grid">
+    <article>
+      <span>Recipient activity</span>
+      <strong>
+        <a href="/activity?q={{ proof.to_account | urlencode }}">Search {{ proof.to_account }}</a>
+      </strong>
+    </article>
+    <article>
+      <span>Proof activity</span>
+      <strong><a href="/activity?q={{ proof_hash | urlencode }}">Search proof hash</a></strong>
+    </article>
+    <article>
+      <span>Bounty activity</span>
+      <strong>
+        <a href="/activity?q={{ proof.bounty_id | urlencode }}">Search bounty #{{ proof.bounty_id }}</a>
+      </strong>
+    </article>
+    <article>
+      <span>Submission activity</span>
+      <strong>
+        <a href="/activity?q={{ proof.submission_url | urlencode }}">Search submission</a>
+      </strong>
+    </article>
+  </div>
+  {% endif %}
   <pre>{{ proof | tojson(indent=2) }}</pre>
 </section>
 {% endblock %}

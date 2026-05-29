@@ -229,6 +229,8 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
         except ValueError:
             if has_bracketed_host or not _is_valid_dns_hostname(parsed_base_url.hostname):
                 errors.append("MERGEWORK_PUBLIC_BASE_URL must include a valid host")
+            elif "." not in parsed_base_url.hostname.rstrip("."):
+                errors.append("MERGEWORK_PUBLIC_BASE_URL must use a public host")
             is_loopback = parsed_base_url.hostname.lower() == "localhost"
             is_private_or_link_local = False
             is_non_global = False
