@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -11,6 +12,8 @@ from sqlalchemy.orm import Session
 from app.ledger.reconciliation import AcceptedPayoutCheck
 from app.ledger.service import format_mrwk, get_balance
 from app.models import Bounty, LedgerEntry, Proof, Wallet, WalletTransfer
+
+ACTIVITY_QUERY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
@@ -165,7 +168,11 @@ def _activity_row(entry: LedgerEntry, proof: Proof) -> dict[str, Any] | None:
 
 
 def _activity_search_query(query: str | None) -> str:
-    return (query or "").strip().lower()
+    if query is None:
+        return ""
+    if ACTIVITY_QUERY_CONTROL_CHAR_RE.search(query):
+        raise ValueError("activity query must not contain control characters")
+    return query.strip().lower()
 
 
 def _activity_hash_issue_query(query: str) -> str | None:

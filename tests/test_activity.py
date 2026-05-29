@@ -192,6 +192,18 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
         assert invalid_hash_query["recent"] == []
 
 
+def test_activity_routes_reject_query_control_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for route in ("/api/v1/activity", "/activity"):
+        for query in ("\talice", "alice\n", "alice\x85"):
+            response = client.get(route, params={"q": query})
+
+            assert response.status_code == 400
+            assert "activity query must not contain control characters" in response.text
+
+
 def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
