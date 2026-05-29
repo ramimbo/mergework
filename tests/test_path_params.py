@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Any
+
 from fastapi import HTTPException
 
 from app.path_params import (
@@ -9,7 +12,7 @@ from app.path_params import (
 )
 
 
-def assert_bad_request(func, *args):
+def assert_bad_request(func: Callable[..., Any], *args: Any) -> None:
     try:
         func(*args)
     except HTTPException as exc:
