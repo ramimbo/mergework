@@ -22,13 +22,22 @@
     <li><a href="/api/v1/ledger">Ledger API</a></li>
     <li><a href="/wallets">Wallets</a></li>
     <li><a href="/transfer">Transfer UI</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/discussions/16">Paid bounty discussion</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/bounty-rules.md">Bounty rules</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/paid-bounties.md">Paid bounty index</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/agent-guide.md">Agent usage</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/api-examples.md">Public API examples</a></li>
-    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/ledger.md">Ledger details</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/discussions/16" rel="nofollow noopener">Paid bounty discussion</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/bounty-rules.md" rel="nofollow noopener">Bounty rules</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/paid-bounties.md" rel="nofollow noopener">Payment proof guide</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/agent-guide.md" rel="nofollow noopener">Agent usage</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/api-examples.md" rel="nofollow noopener">Public API examples</a></li>
+    <li><a href="https://github.com/ramimbo/mergework/blob/main/docs/ledger.md" rel="nofollow noopener">Ledger details</a></li>
   </ul>
+  <h2>Current transfer paths</h2>
+  <p>Supported MRWK transfer paths today are:</p>
+  <ul>
+    {% for path in current_transfer_paths %}
+    <li>{{ path }}</li>
+    {% endfor %}
+  </ul>
+  <p>{{ unsupported_public_paths_summary }}</p>
+  <p>{{ future_path_boundary }}</p>
   <h2>Payout access</h2>
   <p>MRWK balances can live on native <code>mrwk1</code> wallet addresses. A wallet signs transfer, GitHub-link, and claim payloads with its private key; the server verifies signatures and records accepted movements in the explorer.</p>
 </section>

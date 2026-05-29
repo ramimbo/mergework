@@ -142,3 +142,36 @@ class WebhookEvent(Base):
     payload_hash: Mapped[str] = mapped_column(String(64))
     processed_status: Mapped[str] = mapped_column(String(80), index=True)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
+
+
+class TreasuryProposal(Base):
+    __tablename__ = "treasury_proposals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    payload_json: Mapped[str] = mapped_column(Text)
+    payload_hash: Mapped[str] = mapped_column(String(64), index=True)
+    proposed_by: Mapped[str] = mapped_column(String(128))
+    executed_by: Mapped[str | None] = mapped_column(String(128))
+    result_json: Mapped[str] = mapped_column(Text, default="{}")
+    executed_ledger_sequence: Mapped[int | None] = mapped_column(
+        ForeignKey("ledger_entries.sequence")
+    )
+    proposed_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
+    executes_after: Mapped[datetime] = mapped_column(index=True)
+    executed_at: Mapped[datetime | None] = mapped_column(index=True)
+    challenges: Mapped[list[TreasuryChallenge]] = relationship(back_populates="proposal")
+
+
+class TreasuryChallenge(Base):
+    __tablename__ = "treasury_challenges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    proposal_id: Mapped[int] = mapped_column(ForeignKey("treasury_proposals.id"), index=True)
+    challenger_account: Mapped[str] = mapped_column(String(128), index=True)
+    challenge_type: Mapped[str] = mapped_column(String(80), index=True)
+    status: Mapped[str] = mapped_column(String(40), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
+    proposal: Mapped[TreasuryProposal] = relationship(back_populates="challenges")

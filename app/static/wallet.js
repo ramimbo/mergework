@@ -211,6 +211,8 @@ function setupTransfer() {
       await getNextNonce(fromAddress, "[data-transfer-nonce-status]");
     } catch (error) {
       setText("[data-transfer-result]", error.message);
+    } finally {
+      clearPrivateKeyField(form);
     }
   });
 }
