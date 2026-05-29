@@ -14,10 +14,9 @@ from app.serializers import activity_to_dict
 def _normalized_activity_search_query(query: str | None) -> str | None:
     if query is None:
         return None
-    normalized_query = query.strip()
-    if any(ord(char) < 32 or ord(char) == 127 for char in normalized_query):
+    if any(ord(char) < 32 or ord(char) == 127 for char in query):
         raise HTTPException(status_code=400, detail="q must not contain control characters")
-    return normalized_query
+    return query.strip()
 
 
 def activity_context(session: Session, query: str | None = None) -> dict[str, Any]:

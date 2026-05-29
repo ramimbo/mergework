@@ -83,6 +83,16 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
         clean = value.strip()
         return clean or None
 
+    def optional_search_query_arg(field: str) -> str | None:
+        value = args.get(field)
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{field} must be a string")
+        reject_control_chars(field, value)
+        clean = value.strip()
+        return clean or None
+
     def output_format_arg() -> str:
         value = args.get("format", "text")
         if value is None:
@@ -125,9 +135,8 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             if normalized_status not in {"open", "paid", "closed"}:
                 raise ValueError("status must be one of: open, paid, closed")
             query = select(Bounty).where(Bounty.status == normalized_status)
-            query_text = optional_clean_str_arg("q")
+            query_text = optional_search_query_arg("q")
             if query_text:
-                reject_control_chars("q", query_text)
                 escaped_query = (
                     query_text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 )

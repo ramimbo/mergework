@@ -284,6 +284,11 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
 
     control_char_page_search = client.get("/bounties", params={"q": "\x00"})
     assert control_char_page_search.status_code == 400
+    assert control_char_page_search.json()["detail"] == "q must not contain control characters"
+
+    leading_tab_page_search = client.get("/bounties", params={"q": "\tDocs"})
+    assert leading_tab_page_search.status_code == 400
+    assert leading_tab_page_search.json()["detail"] == "q must not contain control characters"
 
 
 def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:

@@ -201,11 +201,17 @@ def test_activity_rejects_control_character_search_query(sqlite_url: str) -> Non
 
     api_response = client.get("/api/v1/activity", params={"q": "\x00"})
     page_response = client.get("/activity", params={"q": "\x00"})
+    leading_tab_response = client.get("/api/v1/activity", params={"q": "\talice"})
+    trailing_newline_response = client.get("/activity", params={"q": "alice\n"})
 
     assert api_response.status_code == 400
     assert api_response.json() == {"detail": "q must not contain control characters"}
     assert page_response.status_code == 400
     assert page_response.json() == {"detail": "q must not contain control characters"}
+    assert leading_tab_response.status_code == 400
+    assert leading_tab_response.json() == {"detail": "q must not contain control characters"}
+    assert trailing_newline_response.status_code == 400
+    assert trailing_newline_response.json() == {"detail": "q must not contain control characters"}
 
 
 def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
