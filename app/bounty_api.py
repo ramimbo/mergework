@@ -246,13 +246,14 @@ def register_bounty_api_routes(
             "accepted_by": accepted_by,
         }
         if data.get("note") is not None:
-            note = optional_str(data, "note").strip()
+            raw_note = optional_str(data, "note")
+            if CONTROL_CHAR_RE.search(raw_note):
+                raise HTTPException(
+                    status_code=400,
+                    detail="verifier_result.note must not contain control characters",
+                )
+            note = raw_note.strip()
             if note:
-                if CONTROL_CHAR_RE.search(note):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="verifier_result.note must not contain control characters",
-                    )
                 verifier_result["note"] = note[:240]
         with session_scope(db_url) as session:
             existing_proof = _existing_payout_proof_for_submission(

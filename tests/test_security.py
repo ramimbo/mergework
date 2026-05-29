@@ -1032,8 +1032,9 @@ def test_bounty_payment_proof_rejects_control_character_metadata(sqlite_url: str
         assert get_balance(session, "github:bob") == 0
 
 
+@pytest.mark.parametrize("note", ("line1\nline2", "\tverified manually", "verified manually\x85"))
 def test_admin_payout_api_rejects_control_character_note(
-    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, note: str
 ) -> None:
     create_schema(sqlite_url)
     monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
@@ -1061,7 +1062,7 @@ def test_admin_payout_api_rejects_control_character_note(
             "to_account": "github:alice",
             "submission_url": "https://github.com/ramimbo/mergework/pull/17",
             "accepted_by": "maintainer",
-            "note": "line1\nline2",
+            "note": note,
         },
     )
 
