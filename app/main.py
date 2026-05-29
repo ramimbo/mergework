@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit, urlunsplit
@@ -89,11 +90,14 @@ API_DOCS_CSP = (
     "worker-src 'self' blob:"
 )
 API_DOCS_PATHS = {"/api/docs", "/api/redoc"}
+FORWARDED_PROTO_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 def _request_was_forwarded_https(request: Request) -> bool:
     forwarded_proto = request.headers.get("x-forwarded-proto", "")
     if forwarded_proto:
+        if FORWARDED_PROTO_CONTROL_RE.search(forwarded_proto):
+            return False
         return forwarded_proto.split(",", 1)[0].strip().lower() == "https"
     return request.url.scheme == "https"
 

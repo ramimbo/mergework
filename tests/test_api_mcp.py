@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
-from app.main import create_app
+from app.main import _request_was_forwarded_https, create_app
 from app.models import BountyAttempt, Proof
 
 
@@ -146,6 +147,45 @@ def test_trailing_slash_redirects_keep_forwarded_https_scheme(sqlite_url: str) -
     assert (
         api_host.headers["location"] == f"https://api.mrwk.ltclab.site/api/v1/bounties/{bounty.id}"
     )
+
+
+def test_forwarded_https_redirect_rejects_control_character_proto(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=576,
+            issue_url="https://github.com/ramimbo/mergework/issues/576",
+            title="Forwarded proto robustness bounty",
+            reward_mrwk="50",
+            acceptance="Forwarded redirect handling should reject malformed proxy headers.",
+        )
+
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="http://mrwk.ltclab.site",
+    )
+
+    response = client.get(
+        f"/bounties/{bounty.id}/",
+        headers={"x-forwarded-proto": "\thttps"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 307
+    assert response.headers["location"] == f"http://mrwk.ltclab.site/bounties/{bounty.id}"
+
+
+@pytest.mark.parametrize("forwarded_proto", ["\x85https", "https\x85"])
+def test_forwarded_https_helper_rejects_c1_control_characters(forwarded_proto: str) -> None:
+    request = SimpleNamespace(
+        headers={"x-forwarded-proto": forwarded_proto},
+        url=SimpleNamespace(scheme="http"),
+    )
+
+    assert _request_was_forwarded_https(request) is False
 
 
 def test_account_api_rejects_empty_account_path(sqlite_url: str) -> None:
