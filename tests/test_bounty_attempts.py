@@ -275,6 +275,15 @@ def test_bounty_attempts_list_honors_limit(sqlite_url: str) -> None:
     ]
 
 
+def test_bounty_attempts_list_rejects_out_of_range_limit(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for limit in ("0", "201"):
+        response = client.get(f"/api/v1/bounties/1/attempts?limit={limit}")
+
+        assert response.status_code == 422
+
+
 def test_expired_bounty_attempt_is_visible_but_no_longer_blocks_submitter(
     sqlite_url: str,
     monkeypatch,
