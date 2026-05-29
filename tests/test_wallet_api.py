@@ -21,6 +21,7 @@ from app.ledger.service import (
     wallet_transfer_payload,
 )
 from app.main import _safe_next_path, _signed_value, _verified_value, create_app
+from app.models import Wallet
 from app.wallets import address_from_public_key_hex, canonical_wallet_json
 
 
@@ -515,11 +516,29 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     _register_wallet(client, public_hex, "Main smoke wallet")
     _register_wallet(client, funded_public, "Funded smoke wallet")
+    with session_scope(sqlite_url) as session:
+        wallet = session.get(Wallet, address)
+        assert wallet is not None
+        wallet.github_login = "alice-smoke"
     _fund_wallet(sqlite_url, funded_address)
+    with session_scope(sqlite_url) as session:
+        add_ledger_entry(
+            session,
+            entry_type="wallet_transfer",
+            from_account=funded_address,
+            to_account="github:filter-target",
+            amount_microunits=0,
+            reference="test-wallet-detail-filter",
+        )
 
     wallets = client.get("/wallets").text
+    main_search = client.get("/wallets?q=Main").text
+    github_search = client.get("/wallets?q=alice-smoke").text
+    no_wallet_match = client.get("/wallets?q=missing-wallet").text
     detail = client.get(f"/wallets/{address}").text
     funded_detail = client.get(f"/wallets/{funded_address}").text
+    funded_type_filter = client.get(f"/wallets/{funded_address}?type=test_funding").text
+    funded_missing_type = client.get(f"/wallets/{funded_address}?type=bounty_payment").text
     transfer = client.get("/transfer").text
     me = client.get("/me").text
 
@@ -534,11 +553,31 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert address in detail
     assert "Main smoke wallet" in wallets
     assert "Main smoke wallet" in detail
+    assert "Search wallets" in wallets
+    assert "Main smoke wallet" in main_search
+    assert "Funded smoke wallet" not in main_search
+    assert "alice-smoke" in github_search
+    assert 'href="/accounts/github:alice-smoke">alice-smoke</a>' in wallets
+    assert 'href="/accounts/github:alice-smoke">alice-smoke</a>' in github_search
+    funded_row_start = wallets.index(
+        f'<a href="/wallets/{funded_address}"><code>{funded_address}</code></a>'
+    )
+    funded_row = wallets[funded_row_start : wallets.index("</tr>", funded_row_start)]
+    assert "<td>Funded smoke wallet</td>" in funded_row
+    assert "<td>\n          -\n        </td>" in funded_row
+    assert "/accounts/github:" not in funded_row
+    assert "No registered wallets match this search." in no_wallet_match
     assert "To claim GitHub bounty balance" in detail
     assert f'href="/activity?q={address}"' in detail
+    assert ">View activity</a>" in detail
     assert f'href="/api/v1/wallets/{address}"' in detail
+    assert ">Wallet JSON</a>" in detail
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
+    assert "Filter wallet transactions" in funded_detail
+    assert 'value="test_funding" selected' in funded_type_filter
+    assert "Showing test_funding transactions." in funded_type_filter
+    assert "No wallet transactions match this type." in funded_missing_type
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer
@@ -618,6 +657,19 @@ def test_github_wallet_actions_clear_private_key_after_submit_attempt() -> None:
         idx_clear_private_key,
     }
     assert idx_set_result < idx_refresh_nonce < idx_set_error < idx_finally < idx_clear_private_key
+
+
+def test_transfer_action_clears_private_key_after_submit_attempt() -> None:
+    wallet_js = Path("app/static/wallet.js").read_text(encoding="utf-8")
+    transfer_start = wallet_js.find("function setupTransfer()")
+    github_actions_start = wallet_js.find("function setupGithubActions()")
+    transfer_block = wallet_js[transfer_start:github_actions_start]
+
+    assert 'form[data-action="submit-transfer"]' in transfer_block
+    assert 'setText("[data-transfer-result]", transfer);' in transfer_block
+    assert 'setText("[data-transfer-result]", error.message);' in transfer_block
+    assert "} finally {" in transfer_block
+    assert "clearPrivateKeyField(form);" in transfer_block
 
 
 def test_reject_self_transfer(sqlite_url: str) -> None:
