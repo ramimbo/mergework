@@ -11,6 +11,10 @@ from scripts.claim_inventory import analyze_inventory, format_markdown_report, m
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_claim_inventory_uses_canonical_api_host_by_default() -> None:
+    assert claim_inventory.DEFAULT_API_HOST == "https://api.mrwk.online"
+
+
 def _fixture() -> dict[str, object]:
     return {
         "bounties": [
@@ -204,7 +208,7 @@ def test_claim_inventory_markdown_report_is_pasteable() -> None:
     assert "## Claim Inventory" in markdown
     assert "| Status | Bounty | Claimant | Type | Source | Proof |" in markdown
     assert "`already_paid`" in markdown
-    assert "https://api.mrwk.ltclab.site/proofs/abc123" in markdown
+    assert "https://api.mrwk.online/proofs/abc123" in markdown
 
 
 def test_claim_inventory_live_mode_uses_read_only_calls(monkeypatch) -> None:

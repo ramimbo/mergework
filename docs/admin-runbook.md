@@ -42,15 +42,19 @@ Normal admin treasury actions are proposed before they execute:
 Public reads:
 
 ```bash
-curl -s https://api.mrwk.ltclab.site/api/v1/treasury/status
-curl -s https://api.mrwk.ltclab.site/api/v1/treasury/proposals
-curl -s https://api.mrwk.ltclab.site/api/v1/treasury/proposals/<proposal_id>
+curl -s https://api.mrwk.online/api/v1/treasury/status
+curl -s https://api.mrwk.online/api/v1/treasury/proposals
+curl -s https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>
 ```
+
+Legacy-compatible admin API reads remain available at
+`https://api.mrwk.ltclab.site` for existing scripts, but new examples should use
+`https://api.mrwk.online`.
 
 Execution requires an admin token and only works after the 24-hour delay:
 
 ```bash
-curl -X POST https://api.mrwk.ltclab.site/api/v1/treasury/proposals/<proposal_id>/execute \
+curl -X POST https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>/execute \
   -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN"
 ```
 
@@ -60,7 +64,7 @@ the production host environment. Before any scripted execution, validate the
 token with a harmless protected read:
 
 ```bash
-curl -fsS "https://api.mrwk.ltclab.site/api/v1/admin/webhook-events?limit=1" \
+curl -fsS "https://api.mrwk.online/api/v1/admin/webhook-events?limit=1" \
   -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN"
 ```
 
@@ -149,7 +153,7 @@ To close an open bounty without paying the remaining awards, propose a reserve
 release:
 
 ```bash
-curl -X POST https://api.mrwk.ltclab.site/api/v1/bounties/<id>/close \
+curl -X POST https://api.mrwk.online/api/v1/bounties/<id>/close \
   -H "content-type: application/json" \
   -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN" \
   -d '{
@@ -168,7 +172,7 @@ Use the admin-token payout API when the accepted proof is a comment, wallet
 address, or other non-PR submission:
 
 ```bash
-curl -X POST https://api.mrwk.ltclab.site/api/v1/bounties/<id>/pay \
+curl -X POST https://api.mrwk.online/api/v1/bounties/<id>/pay \
   -H "content-type: application/json" \
   -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN" \
   -d '{
@@ -206,7 +210,7 @@ Use the admin-token webhook events API to inspect recent delivery outcomes befor
 retrying labels or making manual payouts:
 
 ```bash
-curl -s "https://api.mrwk.ltclab.site/api/v1/admin/webhook-events?status=missing_submitter" \
+curl -s "https://api.mrwk.online/api/v1/admin/webhook-events?status=missing_submitter" \
   -H "x-mergework-admin-token: $MERGEWORK_ADMIN_TOKEN"
 ```
 
@@ -259,7 +263,7 @@ when reviewing staging-like public data:
 ```bash
 python scripts/claim_inventory.py \
   --repo ramimbo/mergework \
-  --api-host https://api.mrwk.ltclab.site \
+  --api-host https://api.mrwk.online \
   --format json
 ```
 
@@ -308,9 +312,10 @@ live GitHub access.
 
 ## GitHub OAuth
 
-Production GitHub OAuth is configured for `https://mrwk.ltclab.site`.
+Production GitHub OAuth should allow `https://mrwk.online`.
 Contributors use `/me` to sign in, link wallets, and claim older GitHub ledger
-balances. If the GitHub app is rotated later, update deployment secrets outside
+balances. Keep the legacy callback available only if old browser links still
+need it. If the GitHub app is rotated later, update deployment secrets outside
 the repository and restart Docker Compose.
 
 ## Disputes

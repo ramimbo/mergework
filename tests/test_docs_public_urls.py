@@ -6,14 +6,18 @@ from pathlib import Path
 from scripts.docs_smoke import REQUIRED, _issue_template_labels, _template_field_is_required
 
 
-def test_readme_lists_live_ltclab_urls() -> None:
+def test_readme_lists_live_and_legacy_urls() -> None:
     readme = Path("README.md").read_text(encoding="utf-8")
 
     assert "https://ltclab.site" in readme
+    assert "https://mrwk.online" in readme
+    assert "https://api.mrwk.online" in readme
+    assert "https://mcp.mrwk.online" in readme
+    assert "https://mrwk.online/activity" in readme
+    assert "Legacy-compatible endpoints" in readme
     assert "https://mrwk.ltclab.site" in readme
     assert "https://api.mrwk.ltclab.site" in readme
     assert "https://mcp.mrwk.ltclab.site" in readme
-    assert "https://mrwk.ltclab.site/activity" in readme
     assert "https://github.com/ramimbo/mergework/discussions/16" in readme
     assert "docs/paid-bounties.md" in readme
     assert "docs/api-examples.md" in readme
@@ -25,6 +29,9 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
     assert "source of truth for MRWK bounty payments" in paid
     assert "not manually updated for" in paid
     assert "every payout" in paid
+    assert "https://mrwk.online/activity" in paid
+    assert "https://api.mrwk.online/api/v1/activity" in paid
+    assert "Legacy-compatible endpoints remain available" in paid
     assert "https://mrwk.ltclab.site/activity" in paid
     assert "https://api.mrwk.ltclab.site/api/v1/activity" in paid
     assert "GET /api/v1/bounties/{id}" in paid
@@ -36,8 +43,11 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
 def test_api_examples_document_internal_bounty_ids() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
+    assert "API_HOST=https://api.mrwk.online" in examples
+    assert "MCP_HOST=https://mcp.mrwk.online" in examples
     assert "https://api.mrwk.ltclab.site" in examples
     assert "https://mcp.mrwk.ltclab.site" in examples
+    assert "legacy-compatible" in examples
     assert "/api/v1/bounties/<bounty_id>" in examples
     assert '"name":"get_bounty"' in examples
     assert '"arguments":{"id":11}' in examples

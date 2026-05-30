@@ -33,8 +33,11 @@ Submit small, reviewable work and include evidence.
 Use the live public API host for read-only examples:
 
 ```bash
-API_HOST=https://api.mrwk.ltclab.site
+API_HOST=https://api.mrwk.online
 ```
+
+Legacy-compatible API reads remain available at
+`https://api.mrwk.ltclab.site` for existing clients.
 
 List current system counts and recent bounties:
 
@@ -132,7 +135,9 @@ curl -s -X POST "$API_HOST/api/v1/wallets/register" \
 ```
 
 GitHub link and claim endpoints require GitHub OAuth plus a wallet signature.
-The browser flow starts at `https://mrwk.ltclab.site/auth/github/login?next=/me`.
+The browser flow starts at `https://mrwk.online/auth/github/login?next=/me`.
+The legacy browser host `https://mrwk.ltclab.site` remains available for old
+links while `https://mrwk.online` is the canonical host.
 
 ## Wallet Payloads
 
@@ -167,8 +172,11 @@ The MCP JSON-RPC endpoint is `POST /mcp`.
 Use the live MCP host:
 
 ```bash
-MCP_HOST=https://mcp.mrwk.ltclab.site
+MCP_HOST=https://mcp.mrwk.online
 ```
+
+The legacy MCP host `https://mcp.mrwk.ltclab.site` remains available for
+existing clients.
 
 List tools:
 

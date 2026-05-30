@@ -23,7 +23,7 @@ EVIDENCE_RE = re.compile(
 )
 SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
 GH_TIMEOUT_SECONDS = 30
-DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
+DEFAULT_API_HOST = "https://api.mrwk.online"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
 GH_PR_SAFETY_CAP = 101
 GH_ISSUE_SAFETY_CAP = 201

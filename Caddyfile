@@ -2,7 +2,7 @@
 	email admin@ltclab.site
 }
 
-ltclab.site, www.ltclab.site, mrwk.ltclab.site, api.mrwk.ltclab.site, mcp.mrwk.ltclab.site {
+ltclab.site, www.ltclab.site, mrwk.online, www.mrwk.online, api.mrwk.online, mcp.mrwk.online, mrwk.ltclab.site, api.mrwk.ltclab.site, mcp.mrwk.ltclab.site {
 	encode zstd gzip
 	header {
 		?Content-Security-Policy "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"

@@ -70,12 +70,12 @@ python3.12 -m venv .venv
 ## Project Links
 
 - Live LTC Lab: [https://ltclab.site](https://ltclab.site)
-- Live MergeWork: [https://mrwk.ltclab.site](https://mrwk.ltclab.site)
-- API host: [https://api.mrwk.ltclab.site](https://api.mrwk.ltclab.site)
-- MCP host: [https://mcp.mrwk.ltclab.site](https://mcp.mrwk.ltclab.site)
+- Live MergeWork: [https://mrwk.online](https://mrwk.online)
+- API host: [https://api.mrwk.online](https://api.mrwk.online)
+- MCP host: [https://mcp.mrwk.online](https://mcp.mrwk.online)
 - Bounty rules: [docs/bounty-rules.md](docs/bounty-rules.md)
 - Bounty lifecycle: [docs/bounty-lifecycle.md](docs/bounty-lifecycle.md)
-- Accepted work activity: [https://mrwk.ltclab.site/activity](https://mrwk.ltclab.site/activity)
+- Accepted work activity: [https://mrwk.online/activity](https://mrwk.online/activity)
 - Payment proof guide: [docs/paid-bounties.md](docs/paid-bounties.md)
 - Paid bounty discussion: [GitHub Discussions #16](https://github.com/ramimbo/mergework/discussions/16)
 - Agent API and MCP usage: [docs/agent-guide.md](docs/agent-guide.md)
@@ -84,12 +84,18 @@ python3.12 -m venv .venv
 - Admin runbook: [docs/admin-runbook.md](docs/admin-runbook.md)
 - Security policy: [SECURITY.md](SECURITY.md)
 
+Legacy-compatible endpoints remain available for existing links and clients:
+
+- Legacy MergeWork: [https://mrwk.ltclab.site](https://mrwk.ltclab.site)
+- Legacy API host: [https://api.mrwk.ltclab.site](https://api.mrwk.ltclab.site)
+- Legacy MCP host: [https://mcp.mrwk.ltclab.site](https://mcp.mrwk.ltclab.site)
+
 ## Deployment
 
 The production layout is Docker Compose with `app`, `caddy`, and `backup`
 services. SQLite lives at `/srv/mergework/data/mergework.sqlite3`; daily backups
 are written to `/srv/mergework/backups`.
 
-Production GitHub OAuth is configured for `https://mrwk.ltclab.site`.
+Production GitHub OAuth should allow `https://mrwk.online`.
 Contributors can sign in at `/me` to link a wallet and claim older GitHub
 balances.

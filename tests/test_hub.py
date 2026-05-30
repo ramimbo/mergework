@@ -17,6 +17,7 @@ def test_host_without_port_normalizes_host_headers() -> None:
 def test_is_ltc_lab_host_matches_root_domain_only() -> None:
     assert is_ltc_lab_host("ltclab.site")
     assert is_ltc_lab_host("www.ltclab.site:8443")
+    assert not is_ltc_lab_host("mrwk.online")
     assert not is_ltc_lab_host("mrwk.ltclab.site")
     assert not is_ltc_lab_host("api.mrwk.ltclab.site")
 
@@ -31,7 +32,9 @@ def test_ltc_lab_context_lists_projects_without_shared_mutation() -> None:
         "MergeWork MCP",
     ]
     assert {project["status"] for project in context["projects"]} == {"live"}
-    assert "https://api.mrwk.ltclab.site" in {project["href"] for project in context["projects"]}
+    assert "https://mrwk.online" in {project["href"] for project in context["projects"]}
+    assert "https://api.mrwk.online" in {project["href"] for project in context["projects"]}
+    assert "https://mcp.mrwk.online" in {project["href"] for project in context["projects"]}
 
     context["projects"][0]["status"] = "changed"
 
@@ -41,9 +44,9 @@ def test_ltc_lab_context_lists_projects_without_shared_mutation() -> None:
 def test_mergework_hub_context_preserves_status_and_base_url() -> None:
     status = {"ledger_height": 7, "active_bounties": 2}
 
-    context = mergework_hub_context(status, "https://mrwk.ltclab.site")
+    context = mergework_hub_context(status, "https://mrwk.online")
 
     assert context == {
         "status": status,
-        "public_base_url": "https://mrwk.ltclab.site",
+        "public_base_url": "https://mrwk.online",
     }

@@ -251,7 +251,7 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
 def get_settings() -> Settings:
     return Settings(
         database_url=os.environ.get("MERGEWORK_DATABASE_URL", "sqlite:///./mergework.sqlite3"),
-        public_base_url=os.environ.get("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.ltclab.site"),
+        public_base_url=os.environ.get("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.online"),
         github_webhook_secret=os.environ.get("MERGEWORK_GITHUB_WEBHOOK_SECRET", ""),
         github_issue_token=os.environ.get("MERGEWORK_GITHUB_ISSUE_TOKEN", ""),
         github_oauth_client_id=os.environ.get("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", ""),

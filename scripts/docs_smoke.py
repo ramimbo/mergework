@@ -60,6 +60,9 @@ REQUIRED_PUBLIC_PHRASES = {
     ],
     "docs/paid-bounties.md": [
         "This page is not manually updated for every payout.",
+        "https://mrwk.online/activity",
+        "https://api.mrwk.online/api/v1/activity",
+        "Legacy-compatible endpoints remain available",
         "https://mrwk.ltclab.site/activity",
         "https://api.mrwk.ltclab.site/api/v1/activity",
         "GET /api/v1/bounties/{id}",
@@ -84,6 +87,10 @@ REQUIRED_PUBLIC_PHRASES = {
         "For the concise state machine and maintainer checklist",
     ],
     "docs/api-examples.md": [
+        "API_HOST=https://api.mrwk.online",
+        "MCP_HOST=https://mcp.mrwk.online",
+        "https://api.mrwk.ltclab.site",
+        "https://mcp.mrwk.ltclab.site",
         "Internal ledger accounts use the same account response shape",
         ("Treasury and reserve balances change as bounties are reserved, paid, and released."),
     ],

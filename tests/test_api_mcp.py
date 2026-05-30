@@ -115,11 +115,11 @@ def test_trailing_slash_redirects_keep_forwarded_https_scheme(sqlite_url: str) -
 
     public_client = TestClient(
         create_app(database_url=sqlite_url, webhook_secret="secret"),
-        base_url="http://mrwk.ltclab.site",
+        base_url="http://mrwk.online",
     )
     api_client = TestClient(
         create_app(database_url=sqlite_url, webhook_secret="secret"),
-        base_url="http://api.mrwk.ltclab.site",
+        base_url="http://api.mrwk.online",
     )
 
     public_page = public_client.get(
@@ -139,13 +139,11 @@ def test_trailing_slash_redirects_keep_forwarded_https_scheme(sqlite_url: str) -
     )
 
     assert public_page.status_code == 307
-    assert public_page.headers["location"] == f"https://mrwk.ltclab.site/bounties/{bounty.id}"
+    assert public_page.headers["location"] == f"https://mrwk.online/bounties/{bounty.id}"
     assert public_api.status_code == 307
-    assert public_api.headers["location"] == f"https://mrwk.ltclab.site/api/v1/bounties/{bounty.id}"
+    assert public_api.headers["location"] == f"https://mrwk.online/api/v1/bounties/{bounty.id}"
     assert api_host.status_code == 307
-    assert (
-        api_host.headers["location"] == f"https://api.mrwk.ltclab.site/api/v1/bounties/{bounty.id}"
-    )
+    assert api_host.headers["location"] == f"https://api.mrwk.online/api/v1/bounties/{bounty.id}"
 
 
 def test_account_api_rejects_empty_account_path(sqlite_url: str) -> None:
@@ -1711,16 +1709,18 @@ def test_host_specific_homepages(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     lab = client.get("/", headers={"host": "ltclab.site"}).text
-    mrwk = client.get("/", headers={"host": "mrwk.ltclab.site"}).text
+    mrwk = client.get("/", headers={"host": "mrwk.online"}).text
+    legacy_mrwk = client.get("/", headers={"host": "mrwk.ltclab.site"}).text
 
     assert "LTC Lab" in lab
     assert "MRWK from LTC Lab" in lab
-    assert "https://api.mrwk.ltclab.site" in lab
-    assert "https://mcp.mrwk.ltclab.site" in lab
+    assert "https://api.mrwk.online" in lab
+    assert "https://mcp.mrwk.online" in lab
     assert "Open-source work, recorded as MRWK" in mrwk
     assert "MRWK from LTC Lab" in mrwk
-    assert "https://api.mrwk.ltclab.site" in mrwk
-    assert "https://mcp.mrwk.ltclab.site" in mrwk
+    assert "https://api.mrwk.online" in mrwk
+    assert "https://mcp.mrwk.online" in mrwk
+    assert "Open-source work, recorded as MRWK" in legacy_mrwk
 
 
 def test_docs_page_lists_live_ltclab_urls(sqlite_url: str) -> None:
@@ -1730,6 +1730,9 @@ def test_docs_page_lists_live_ltclab_urls(sqlite_url: str) -> None:
     api_docs = client.get("/api/docs").text
 
     assert "https://ltclab.site" in docs
+    assert "https://mrwk.online" in docs
+    assert "https://api.mrwk.online" in docs
+    assert "https://mcp.mrwk.online" in docs
     assert "https://mrwk.ltclab.site" in docs
     assert "https://api.mrwk.ltclab.site" in docs
     assert "https://mcp.mrwk.ltclab.site" in docs

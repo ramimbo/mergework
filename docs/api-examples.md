@@ -3,9 +3,12 @@
 MergeWork exposes read-only API and MCP hosts for contributors and agents:
 
 ```bash
-API_HOST=https://api.mrwk.ltclab.site
-MCP_HOST=https://mcp.mrwk.ltclab.site
+API_HOST=https://api.mrwk.online
+MCP_HOST=https://mcp.mrwk.online
 ```
+
+The legacy-compatible hosts remain available for existing clients:
+`https://api.mrwk.ltclab.site` and `https://mcp.mrwk.ltclab.site`.
 
 ## Status And Bounties
 
