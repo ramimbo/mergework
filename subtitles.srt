@@ -1,0 +1,604 @@
+"""
+Test suite for bounty effective availability computation.
+
+Validates that :class:`Bounty` API serializers correctly reflect pending
+treasury proposals in ``effective_awards_remaining`` and related fields.
+"""
+
+from __future__ import annotations
+
+import logging
+from decimal import Decimal
+from typing import Any, Dict, Optional
+
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from django.test import TestCase
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from .models import Bounty, BountyStatus, TreasuryProposal, TreasuryProposalState, TreasuryProposalType
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+#  Constants & Helpers
+# ---------------------------------------------------------------------------
+
+_BOUNTY_DEFAULTS: Dict[str, Any] = {
+    "title": "Test Bounty",
+    "description": "Description",
+    "awards_total": 10,
+    "awards_remaining": 5,
+    "reward_amount": Decimal("1.00000000"),
+    "status": BountyStatus.OPEN,
+}
+
+_PROPOSAL_DEFAULTS: Dict[str, Any] = {
+    "state": TreasuryProposalState.PENDING,
+    "amount": Decimal("1.00000000"),
+    "slots_claimed": 1,
+}
+
+
+def create_bounty(**overrides: Any) -> Bounty:
+    """
+    Create a :class:`Bounty` instance with sensible defaults.
+
+    The built-in defaults represent a typical open bounty. Pass overrides
+    for any field that should differ.
+
+    Args:
+        **overrides: Field-value pairs to override defaults.
+
+    Returns:
+        The created Bounty instance.
+
+    Raises:
+        ValidationError: If the resulting instance is invalid.
+        IntegrityError: If a database constraint is violated.
+    """
+    fields = {**_BOUNTY_DEFAULTS, **overrides}
+
+    # Validate allowed statuses
+    if "status" in overrides and overrides["status"] not in BountyStatus.values:
+        raise ValueError(f"Invalid status: {overrides['status']}. Allowed: {BountyStatus.values}")
+
+    bounty = Bounty(**fields)
+    try:
+        bounty.full_clean()
+    except ValidationError as exc:
+        logger.error("Bounty creation failed validation: %s", exc.message_dict)
+        raise
+    try:
+        bounty.save(force_insert=True)
+    except IntegrityError as exc:
+        logger.error("Bounty save failed with integrity error: %s", exc)
+        raise
+    return bounty
+
+
+def create_proposal(
+    bounty: Bounty,
+    proposal_type: str,
+    state: str = TreasuryProposalState.PENDING,
+    **overrides: Any,
+) -> TreasuryProposal:
+    """
+    Create a :class:`TreasuryProposal` linked to a bounty.
+
+    If the proposal type is ``PAY_BOUNTY`` or ``CLOSE_BOUNTY`` (the two types
+    that affect availability), the appropriate flag is set automatically.
+
+    Args:
+        bounty: The associated Bounty instance.
+        proposal_type: Type constant from :class:`TreasuryProposalType`.
+        state: State constant (default ``PENDING``).
+        **overrides: Additional field-value pairs.
+
+    Returns:
+        The created TreasuryProposal instance.
+
+    Raises:
+        ValueError: If ``proposal_type`` or ``state`` are invalid.
+        ValidationError: If the proposal is invalid for the given bounty state.
+        IntegrityError: If a database constraint is violated.
+    """
+    # Validate proposal_type
+    valid_types = [TreasuryProposalType.PAY_BOUNTY, TreasuryProposalType.CLOSE_BOUNTY, ...]  # extend as needed
+    if proposal_type not in TreasuryProposalType.values:
+        raise ValueError(f"Invalid proposal_type: {proposal_type}. Allowed: {TreasuryProposalType.values}")
+
+    # Validate state
+    if state not in TreasuryProposalState.values:
+        raise ValueError(f"Invalid state: {state}. Allowed: {TreasuryProposalState.values}")
+
+    fields = {
+        **_PROPOSAL_DEFAULTS,
+        "bounty": bounty,
+        "proposal_type": proposal_type,
+        "state": state,
+        **overrides,
+    }
+    proposal = TreasuryProposal(**fields)
+    try:
+        proposal.full_clean()
+    except ValidationError as exc:
+        logger.error(
+            "Proposal creation failed validation for bounty %s: %s",
+            bounty.pk,
+            exc.message_dict,
+        )
+        raise
+    try:
+        proposal.save(force_insert=True)
+    except IntegrityError as exc:
+        logger.error(
+            "Proposal save failed with integrity error for bounty %s: %s",
+            bounty.pk,
+            exc,
+        )
+        raise
+    return proposal
+
+
+# ===========================================================================
+#  Model Validation Tests
+# ===========================================================================
+
+class BountyModelTests(TestCase):
+    """Unit tests for :class:`Bounty` model integrity constraints."""
+
+    def test_awards_remaining_cannot_exceed_total(self) -> None:
+        """
+        ``awards_remaining`` greater than ``awards_total`` must raise
+        ``ValidationError`` during ``full_clean``.
+        """
+        bounty = Bounty(
+            title="Bad Bounty",
+            awards_total=5,
+            awards_remaining=10,
+            reward_amount=Decimal("1.0"),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            bounty.full_clean()
+        error_messages = ctx.exception.message_dict
+        logger.info(
+            "ValidationError raised as expected for awards_remaining > awards_total: %s",
+            error_messages,
+        )
+        self.assertIn("awards_remaining", error_messages)
+
+    def test_awards_total_must_be_positive(self) -> None:
+        """``awards_total`` of zero must raise ``ValidationError``."""
+        bounty = Bounty(
+            title="Zero Bounty",
+            awards_total=0,
+            awards_remaining=0,
+            reward_amount=Decimal("1.0"),
+        )
+        with self.assertRaises(ValidationError):
+            bounty.full_clean()
+
+    def test_bounty_str_representation(self) -> None:
+        """``__str__()`` includes the bounty title."""
+        bounty = create_bounty()
+        self.assertIn(bounty.title, str(bounty), "String representation must contain title")
+
+    def test_bounty_default_status_open(self) -> None:
+        """Default status when not specified is OPEN."""
+        bounty = Bounty(
+            title="Default Status",
+            awards_total=5,
+            awards_remaining=3,
+            reward_amount=Decimal("1.0"),
+        )
+        bounty.full_clean()
+        bounty.save()
+        self.assertEqual(bounty.status, BountyStatus.OPEN)
+
+    def test_bounty_negative_awards_remaining_validation(self) -> None:
+        """Negative ``awards_remaining`` must raise ``ValidationError``."""
+        bounty = Bounty(
+            title="Negative Remaining",
+            awards_total=5,
+            awards_remaining=-1,
+            reward_amount=Decimal("1.0"),
+        )
+        with self.assertRaises(ValidationError):
+            bounty.full_clean()
+
+
+class TreasuryProposalModelTests(TestCase):
+    """Unit tests for :class:`TreasuryProposal` model constraints."""
+
+    def test_pending_proposal_on_closed_bounty_raises(self) -> None:
+        """
+        Creating a pending proposal on a closed bounty must raise
+        ``ValidationError``.
+        """
+        bounty = create_bounty(status=BountyStatus.CLOSED)
+        proposal = TreasuryProposal(
+            bounty=bounty,
+            proposal_type=TreasuryProposalType.PAY_BOUNTY,
+            state=TreasuryProposalState.PENDING,
+            slots_claimed=1,
+        )
+        with self.assertRaises(ValidationError):
+            proposal.full_clean()
+
+    def test_proposal_str_representation(self) -> None:
+        """``__str__()`` contains the bounty primary key."""
+        bounty = create_bounty()
+        proposal = create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY)
+        self.assertIn(str(bounty.pk), str(proposal), "String representation must contain bounty PK")
+
+    def test_proposal_default_state_pending(self) -> None:
+        """Default state when not specified is PENDING."""
+        bounty = create_bounty()
+        proposal = TreasuryProposal(
+            bounty=bounty,
+            proposal_type=TreasuryProposalType.CLOSE_BOUNTY,
+            slots_claimed=0,
+        )
+        proposal.full_clean()
+        proposal.save()
+        self.assertEqual(proposal.state, TreasuryProposalState.PENDING)
+
+    def test_invalid_proposal_type_raises_value_error(self) -> None:
+        """Invalid proposal_type in helper raises ValueError."""
+        bounty = create_bounty()
+        with self.assertRaises(ValueError):
+            create_proposal(bounty, "INVALID_TYPE")
+
+    def test_negative_slots_claimed_validation(self) -> None:
+        """Negative ``slots_claimed`` must raise ``ValidationError``."""
+        bounty = create_bounty()
+        proposal = TreasuryProposal(
+            bounty=bounty,
+            proposal_type=TreasuryProposalType.PAY_BOUNTY,
+            state=TreasuryProposalState.PENDING,
+            slots_claimed=-1,
+        )
+        with self.assertRaises(ValidationError):
+            proposal.full_clean()
+
+
+# ===========================================================================
+#  API Integration Tests — Effective Availability
+# ===========================================================================
+
+class BountyAPITests(APITestCase):
+    """
+    Integration tests for bounty-level API fields related to effective
+    availability.
+
+    These tests rely on the serializer exposing:
+    - ``effective_awards_remaining``
+    - ``pending_closure``
+    - ``pending_payout_amount``
+    - ``awards_remaining`` (unchanged original value)
+    """
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.list_url = reverse("bounty-list")
+        super().setUpTestData()
+
+    @staticmethod
+    def _detail_url(pk: int) -> str:
+        """Return the detail endpoint URL for a given bounty primary key."""
+        return reverse("bounty-detail", kwargs={"pk": pk})
+
+    # ------------------------------------------------------------------
+    #  Helpers for assertions
+    # ------------------------------------------------------------------
+
+    def _assert_bounty_response_fields(
+        self,
+        response_data: Dict[str, Any],
+        expected_effective: int,
+        expected_pending_closure: bool,
+        expected_pending_payout: Decimal,
+        expected_awards_remaining: int,
+    ) -> None:
+        """
+        Verify that the JSON response contains the correct effective
+        availability fields.
+        """
+        self.assertEqual(
+            response_data["effective_awards_remaining"],
+            expected_effective,
+            f"effective_awards_remaining should be {expected_effective}",
+        )
+        self.assertEqual(
+            response_data["pending_closure"],
+            expected_pending_closure,
+            f"pending_closure should be {expected_pending_closure}",
+        )
+        self.assertEqual(
+            Decimal(response_data["pending_payout_amount"]),
+            expected_pending_payout,
+            f"pending_payout_amount should be {expected_pending_payout}",
+        )
+        self.assertEqual(
+            response_data["awards_remaining"],
+            expected_awards_remaining,
+            f"awards_remaining should be {expected_awards_remaining}",
+        )
+
+    # ------------------------------------------------------------------
+    #  Detail endpoint tests
+    # ------------------------------------------------------------------
+
+    def test_detail_effective_remaining_no_proposals(self) -> None:
+        """With no proposals, effective_remaining equals awards_remaining."""
+        bounty = create_bounty(awards_remaining=5)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=5,
+            expected_pending_closure=False,
+            expected_pending_payout=Decimal("0"),
+            expected_awards_remaining=5,
+        )
+
+    def test_detail_effective_remaining_pending_payout(self) -> None:
+        """
+        A single pending PAY_BOUNTY proposal covering one slot reduces
+        ``effective_awards_remaining`` by 1.
+        """
+        bounty = create_bounty(awards_remaining=5, awards_total=10)
+        create_proposal(
+            bounty,
+            TreasuryProposalType.PAY_BOUNTY,
+            slots_claimed=1,
+        )
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=4,
+            expected_pending_closure=False,
+            expected_pending_payout=Decimal("1.00000000"),
+            expected_awards_remaining=5,
+        )
+
+    def test_detail_effective_remaining_pending_close(self) -> None:
+        """
+        A pending CLOSE_BOUNTY proposal sets ``effective_awards_remaining``
+        to 0 and ``pending_closure`` to True.
+        """
+        bounty = create_bounty(awards_remaining=5)
+        create_proposal(
+            bounty,
+            TreasuryProposalType.CLOSE_BOUNTY,
+            slots_claimed=0,
+        )
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=0,
+            expected_pending_closure=True,
+            expected_pending_payout=Decimal("0"),
+            expected_awards_remaining=5,
+        )
+
+    def test_detail_effective_remaining_both_types(self) -> None:
+        """
+        Both a pending PAY_BOUNTY and a pending CLOSE_BOUNTY cause
+        ``effective_awards_remaining=0`` and ``pending_closure=True``.
+        """
+        bounty = create_bounty(awards_remaining=3)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=2)
+        create_proposal(bounty, TreasuryProposalType.CLOSE_BOUNTY, slots_claimed=0)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=0,
+            expected_pending_closure=True,
+            expected_pending_payout=Decimal("2.00000000"),
+            expected_awards_remaining=3,
+        )
+
+    def test_detail_effective_remaining_exact_consumption(self) -> None:
+        """
+        Pending proposals exactly consuming all remaining slots:
+        ``effective_awards_remaining=0``.
+        """
+        bounty = create_bounty(awards_remaining=2)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=2)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=0,
+            expected_pending_closure=False,
+            expected_pending_payout=Decimal("2.00000000"),
+            expected_awards_remaining=2,
+        )
+
+    def test_detail_effective_remaining_multiple_pending_payouts(self) -> None:
+        """Multiple pending PAY_BOUNTY proposals sum their slots."""
+        bounty = create_bounty(awards_remaining=10)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=3)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=2)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=5,
+            expected_pending_closure=False,
+            expected_pending_payout=Decimal("5.00000000"),
+            expected_awards_remaining=10,
+        )
+
+    def test_detail_no_effect_non_pending_proposals(self) -> None:
+        """
+        Proposals in states other than PENDING must not affect effective
+        availability.
+        """
+        bounty = create_bounty(awards_remaining=5)
+        create_proposal(
+            bounty,
+            TreasuryProposalType.PAY_BOUNTY,
+            state=TreasuryProposalState.ACCEPTED,
+            slots_claimed=3,
+        )
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._assert_bounty_response_fields(
+            response.data,
+            expected_effective=5,
+            expected_pending_closure=False,
+            expected_pending_payout=Decimal("0"),
+            expected_awards_remaining=5,
+        )
+
+    # ------------------------------------------------------------------
+    #  List endpoint tests
+    # ------------------------------------------------------------------
+
+    def test_list_contains_effective_fields(self) -> None:
+        """The list endpoint should include the effective fields for each bounty."""
+        create_bounty(awards_remaining=3)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        bounty_data = response.data["results"][0]
+        self.assertIn("effective_awards_remaining", bounty_data)
+        self.assertIn("pending_closure", bounty_data)
+        self.assertIn("pending_payout_amount", bounty_data)
+        self.assertIn("awards_remaining", bounty_data)
+
+    def test_list_effective_remaining_partially_consumed(self) -> None:
+        """Bounty with pending payout shows reduced effective_remaining in list."""
+        bounty = create_bounty(awards_remaining=5)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=2)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        self.assertEqual(len(results), 1)
+        item = results[0]
+        self.assertEqual(item["effective_awards_remaining"], 3)
+        self.assertEqual(item["pending_payout_amount"], "2.00000000")
+        self.assertEqual(item["awards_remaining"], 5)
+
+    def test_list_multiple_bounties_effective(self) -> None:
+        """Multiple bounties with different proposal states show correct fields."""
+        b1 = create_bounty(awards_remaining=5)
+        b2 = create_bounty(awards_remaining=3)
+        create_proposal(b1, TreasuryProposalType.PAY_BOUNTY, slots_claimed=1)
+        create_proposal(b2, TreasuryProposalType.CLOSE_BOUNTY, slots_claimed=0)
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        self.assertEqual(len(results), 2)
+
+        # Sort by pk for deterministic order
+        results_sorted = sorted(results, key=lambda x: x["pk"])
+
+        # First bounty b1
+        self.assertEqual(results_sorted[0]["effective_awards_remaining"], 4)
+        self.assertFalse(results_sorted[0]["pending_closure"])
+        self.assertEqual(results_sorted[0]["pending_payout_amount"], "1.00000000")
+        self.assertEqual(results_sorted[0]["awards_remaining"], 5)
+
+        # Second bounty b2
+        self.assertEqual(results_sorted[1]["effective_awards_remaining"], 0)
+        self.assertTrue(results_sorted[1]["pending_closure"])
+        self.assertEqual(results_sorted[1]["pending_payout_amount"], "0.00000000")
+        self.assertEqual(results_sorted[1]["awards_remaining"], 3)
+
+    # ------------------------------------------------------------------
+    #  Regression tests for known issues
+    # ------------------------------------------------------------------
+
+    def test_regression_576_pending_payout_consumes_remaining(self) -> None:
+        """
+        Regression test for issue #576: Pending PAY_BOUNTY proposals that
+        consume all remaining slots must make effective_remaining 0.
+        """
+        bounty = create_bounty(awards_remaining=2, awards_total=10)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=2)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["effective_awards_remaining"], 0)
+        self.assertEqual(response.data["awards_remaining"], 2)
+
+    def test_regression_578_pending_close_resets_effective(self) -> None:
+        """
+        Regression test for issue #578: Pending CLOSE_BOUNTY sets
+        effective to 0 regardless of remaining slots.
+        """
+        bounty = create_bounty(awards_remaining=10)
+        create_proposal(bounty, TreasuryProposalType.CLOSE_BOUNTY, slots_claimed=0)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["effective_awards_remaining"], 0)
+        self.assertTrue(response.data["pending_closure"])
+
+    def test_regression_569_combined_state_visibility(self) -> None:
+        """
+        Regression test for issue #569: Both pending payout and close
+        proposals should be visible in the response.
+        """
+        bounty = create_bounty(awards_remaining=7, rewards_total=10)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=3)
+        create_proposal(bounty, TreasuryProposalType.CLOSE_BOUNTY, slots_claimed=0)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["effective_awards_remaining"], 0)
+        self.assertTrue(response.data["pending_closure"])
+        self.assertEqual(Decimal(response.data["pending_payout_amount"]), Decimal("3.00000000"))
+
+    # ------------------------------------------------------------------
+    #  Edge cases
+    # ------------------------------------------------------------------
+
+    def test_negative_effective_remaining_clamped_to_zero(self) -> None:
+        """
+        If pending proposals claim more slots than available,
+        ``effective_awards_remaining`` must be 0, not negative.
+        """
+        bounty = create_bounty(awards_remaining=1)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=3)
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["effective_awards_remaining"], 0)
+
+    def test_bounty_with_zero_awards_remaining_still_shows_proposals(self) -> None:
+        """
+        A bounty with 0 awards_remaining should still display pending
+        proposals (if any) and effective_remaining = 0.
+        """
+        bounty = create_bounty(awards_remaining=0)
+        create_proposal(bounty, TreasuryProposalType.PAY_BOUNTY, slots_claimed=0)  # zero slot proposal
+        url = self._detail_url(bounty.pk)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["effective_awards_remaining"], 0)
+        # pending_payout_amount should be 0 because slots_claimed=0
+        self.assertEqual(Decimal(response.data["pending_payout_amount"]), Decimal("0"))
+
+    def test_list_empty_bounties_no_errors(self) -> None:
+        """List endpoint returns empty results without error."""
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 0)
