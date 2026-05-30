@@ -96,6 +96,7 @@ The production layout is Docker Compose with `app`, `caddy`, and `backup`
 services. SQLite lives at `/srv/mergework/data/mergework.sqlite3`; daily backups
 are written to `/srv/mergework/backups`.
 
-Production GitHub OAuth should allow `https://mrwk.online`.
+Production GitHub OAuth must allow the callback
+`https://mrwk.online/auth/github/callback`.
 Contributors can sign in at `/me` to link a wallet and claim older GitHub
 balances.

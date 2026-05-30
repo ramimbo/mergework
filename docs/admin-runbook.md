@@ -312,11 +312,13 @@ live GitHub access.
 
 ## GitHub OAuth
 
-Production GitHub OAuth should allow `https://mrwk.online`.
+Production GitHub OAuth must allow the exact callback
+`https://mrwk.online/auth/github/callback`.
 Contributors use `/me` to sign in, link wallets, and claim older GitHub ledger
-balances. Keep the legacy callback available only if old browser links still
-need it. If the GitHub app is rotated later, update deployment secrets outside
-the repository and restart Docker Compose.
+balances. Keep the legacy callback
+`https://mrwk.ltclab.site/auth/github/callback` available only if old browser
+links still need it. If the GitHub app is rotated later, update deployment
+secrets outside the repository and restart Docker Compose.
 
 ## Disputes
 
