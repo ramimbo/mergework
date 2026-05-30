@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlalchemy import select
 
 from app.db import session_scope
-from app.ledger.service import LedgerError
+from app.ledger.service import CONTROL_CHAR_RE, LedgerError
 from app.models import TreasuryProposal
 from app.path_params import SQLITE_INTEGER_MAX
 from app.treasury import (
@@ -41,6 +41,8 @@ def _proposal_error(exc: LedgerError) -> HTTPException:
 def _normalized_filter(value: str | None, field: str, allowed: set[str]) -> str | None:
     if value is None:
         return None
+    if CONTROL_CHAR_RE.search(value):
+        raise HTTPException(status_code=400, detail=f"{field} must not contain control characters")
     normalized = value.strip().lower()
     if not normalized:
         return None

@@ -215,6 +215,24 @@ def test_treasury_proposals_list_filters_status_and_action(
     )
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_detail"),
+    [
+        ("status=%09pending", "status must not contain control characters"),
+        ("action=%C2%85create_bounty", "action must not contain control characters"),
+    ],
+)
+def test_treasury_proposals_filters_reject_raw_control_characters(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, query: str, expected_detail: str
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+
+    response = client.get(f"/api/v1/treasury/proposals?{query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
+
+
 def test_direct_proposal_creation_requires_admin_token(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
