@@ -365,6 +365,7 @@ def challenge_to_dict(challenge: TreasuryChallenge) -> dict[str, Any]:
     return {
         "id": challenge.id,
         "proposal_id": challenge.proposal_id,
+        "proposal_url": f"/api/v1/treasury/proposals/{challenge.proposal_id}",
         "challenger_account": challenge.challenger_account,
         "challenge_type": challenge.challenge_type,
         "status": challenge.status,
@@ -374,9 +375,11 @@ def challenge_to_dict(challenge: TreasuryChallenge) -> dict[str, Any]:
 
 
 def proposal_to_dict(proposal: TreasuryProposal) -> dict[str, Any]:
+    executed_ledger_sequence = proposal.executed_ledger_sequence
     return {
         "id": proposal.id,
         "type": "treasury_proposal",
+        "proposal_url": f"/api/v1/treasury/proposals/{proposal.id}",
         "action": proposal.action,
         "status": proposal.status,
         "payload_hash": proposal.payload_hash,
@@ -386,7 +389,10 @@ def proposal_to_dict(proposal: TreasuryProposal) -> dict[str, Any]:
         "proposed_at": proposal.proposed_at.isoformat(),
         "executes_after": proposal.executes_after.isoformat(),
         "executed_at": proposal.executed_at.isoformat() if proposal.executed_at else None,
-        "executed_ledger_sequence": proposal.executed_ledger_sequence,
+        "executed_ledger_sequence": executed_ledger_sequence,
+        "executed_ledger_url": (
+            f"/ledger/{executed_ledger_sequence}" if executed_ledger_sequence else None
+        ),
         "result": proposal_result(proposal),
         "challenges": [challenge_to_dict(challenge) for challenge in proposal.challenges],
     }

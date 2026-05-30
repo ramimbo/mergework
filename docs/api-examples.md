@@ -91,8 +91,15 @@ Read proposals:
 
 ```bash
 curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals?status=pending"
+curl -s "$API_HOST/api/v1/treasury/proposals?action=pay_bounty&limit=10"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
+
+The proposal list accepts `status` values `pending`, `executed`, and `blocked`,
+plus `action` values `create_bounty`, `pay_bounty`, and `close_bounty`. Proposal
+rows include `proposal_url` for detail reads and `executed_ledger_url` once an
+executed proposal creates a ledger entry.
 
 Create or execute proposals with an admin token:
 

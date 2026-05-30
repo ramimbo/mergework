@@ -10,12 +10,15 @@ from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
 from app.path_params import SQLITE_INTEGER_MAX
 from app.treasury import (
+    TREASURY_ACTIONS,
     challenge_to_dict,
     create_treasury_challenge,
     execute_treasury_proposal,
     proposal_to_dict,
     propose_treasury_action,
 )
+
+TREASURY_PROPOSAL_STATUSES = {"pending", "executed", "blocked"}
 
 
 def _positive_proposal_id(proposal_id: int) -> int:
@@ -35,6 +38,18 @@ def _proposal_error(exc: LedgerError) -> HTTPException:
     return HTTPException(status_code=400, detail=detail)
 
 
+def _normalized_filter(value: str | None, field: str, allowed: set[str]) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if normalized not in allowed:
+        allowed_values = ", ".join(sorted(allowed))
+        raise HTTPException(status_code=400, detail=f"{field} must be one of: {allowed_values}")
+    return normalized
+
+
 def register_treasury_routes(
     app: FastAPI,
     *,
@@ -45,11 +60,20 @@ def register_treasury_routes(
 ) -> None:
     @app.get("/api/v1/treasury/proposals")
     def api_treasury_proposals(
+        status: str | None = Query(None),
+        action: str | None = Query(None),
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
     ) -> list[dict[str, Any]]:
+        normalized_status = _normalized_filter(status, "status", TREASURY_PROPOSAL_STATUSES)
+        normalized_action = _normalized_filter(action, "action", TREASURY_ACTIONS)
         with session_scope(db_url) as session:
+            query = select(TreasuryProposal)
+            if normalized_status is not None:
+                query = query.where(TreasuryProposal.status == normalized_status)
+            if normalized_action is not None:
+                query = query.where(TreasuryProposal.action == normalized_action)
             proposals = session.scalars(
-                select(TreasuryProposal).order_by(TreasuryProposal.id.desc()).limit(limit)
+                query.order_by(TreasuryProposal.id.desc()).limit(limit)
             ).all()
             return [proposal_to_dict(proposal) for proposal in proposals]
 

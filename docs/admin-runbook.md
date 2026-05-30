@@ -35,8 +35,15 @@ Public reads:
 
 ```bash
 curl -s https://api.mrwk.ltclab.site/api/v1/treasury/proposals
+curl -s 'https://api.mrwk.ltclab.site/api/v1/treasury/proposals?status=pending'
+curl -s 'https://api.mrwk.ltclab.site/api/v1/treasury/proposals?action=pay_bounty&limit=10'
 curl -s https://api.mrwk.ltclab.site/api/v1/treasury/proposals/<proposal_id>
 ```
+
+Use `status` filters (`pending`, `executed`, `blocked`) and `action` filters
+(`create_bounty`, `pay_bounty`, `close_bounty`) when checking a proposal queue.
+Each row includes its detail `proposal_url` and, after execution, an
+`executed_ledger_url`.
 
 Execution requires an admin token and only works after the 24-hour delay:
 

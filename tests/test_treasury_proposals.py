@@ -84,8 +84,10 @@ def test_admin_bounty_creation_creates_public_delayed_proposal(
     assert response.status_code == 200
     body = response.json()
     assert body["type"] == "treasury_proposal"
+    assert body["proposal_url"] == f"/api/v1/treasury/proposals/{body['id']}"
     assert body["action"] == "create_bounty"
     assert body["status"] == "pending"
+    assert body["executed_ledger_url"] is None
     assert body["payload"]["repo"] == "ramimbo/mergework"
     assert body["payload"]["reward_mrwk"] == "25"
     assert body["executes_after"] > body["proposed_at"]
@@ -153,6 +155,64 @@ def test_treasury_proposals_list_honors_limit(
     assert first["id"] not in [proposal["id"] for proposal in limited.json()]
     assert too_small.status_code == 422
     assert too_large.status_code == 422
+
+
+def test_treasury_proposals_list_filters_status_and_action(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    create_proposal = client.post(
+        "/api/v1/bounties",
+        headers=ADMIN_HEADERS,
+        json=_bounty_payload(issue_number=74),
+    ).json()
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=75,
+            issue_url="https://github.com/ramimbo/mergework/issues/75",
+            title="Proposal filter payout",
+            reward_mrwk="5",
+            acceptance="Accepted proof.",
+        )
+        bounty_id = bounty.id
+    pay_proposal = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:bob",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/75",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+    _make_executable(sqlite_url, create_proposal["id"])
+
+    executed = client.post(
+        f"/api/v1/treasury/proposals/{create_proposal['id']}/execute",
+        headers=ADMIN_HEADERS,
+    )
+    pending = client.get("/api/v1/treasury/proposals?status=pending")
+    executed_list = client.get("/api/v1/treasury/proposals?status=executed")
+    payout_actions = client.get("/api/v1/treasury/proposals?action=pay_bounty")
+    combined = client.get("/api/v1/treasury/proposals?status=pending&action=pay_bounty")
+    invalid_status = client.get("/api/v1/treasury/proposals?status=reviewing")
+    invalid_action = client.get("/api/v1/treasury/proposals?action=delete_bounty")
+
+    assert executed.status_code == 200
+    assert pending.status_code == 200
+    assert [proposal["id"] for proposal in pending.json()] == [pay_proposal["id"]]
+    assert [proposal["id"] for proposal in executed_list.json()] == [create_proposal["id"]]
+    assert [proposal["id"] for proposal in payout_actions.json()] == [pay_proposal["id"]]
+    assert [proposal["id"] for proposal in combined.json()] == [pay_proposal["id"]]
+    assert invalid_status.status_code == 400
+    assert invalid_status.json()["detail"] == "status must be one of: blocked, executed, pending"
+    assert invalid_action.status_code == 400
+    assert (
+        invalid_action.json()["detail"]
+        == "action must be one of: close_bounty, create_bounty, pay_bounty"
+    )
 
 
 def test_direct_proposal_creation_requires_admin_token(
@@ -232,6 +292,9 @@ def test_proposal_execution_requires_admin_delay_and_is_idempotent(
     assert executed.status_code == 200
     assert executed.json()["status"] == "executed"
     assert executed.json()["result"]["bounty"]["issue_number"] == 77
+    assert executed.json()["executed_ledger_url"] == (
+        f"/ledger/{executed.json()['executed_ledger_sequence']}"
+    )
     assert duplicate.status_code == 409
     assert duplicate.json()["detail"] == "proposal already executed"
 
@@ -665,6 +728,7 @@ def test_challenges_require_accepted_work_and_can_block_invalid_proposals(
     assert unearned.status_code == 403
     assert unearned.json()["detail"] == "accepted MRWK work required to challenge proposals"
     assert subjective.status_code == 200
+    assert subjective.json()["proposal_url"] == f"/api/v1/treasury/proposals/{proposal['id']}"
     assert subjective.json()["status"] == "noted"
     assert blocking.status_code == 200
     assert blocking.json()["status"] == "accepted_blocking"

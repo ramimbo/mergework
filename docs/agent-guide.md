@@ -74,6 +74,8 @@ Inspect treasury proposals:
 
 ```bash
 curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals?status=pending"
+curl -s "$API_HOST/api/v1/treasury/proposals?action=create_bounty&limit=10"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
 
