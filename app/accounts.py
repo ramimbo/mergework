@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.api_schemas import AccountAcceptedWorkResponse, AccountResponse
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
@@ -156,12 +157,20 @@ def account_page_context(
 
 
 def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/accounts/{account}")
+    @app.get(
+        "/api/v1/accounts/{account}",
+        response_model=AccountResponse,
+        response_model_exclude_unset=True,
+    )
     def api_account(account: str) -> dict[str, Any]:
         with session_scope(db_url) as session:
             return account_api_context(session, account)
 
-    @app.get("/api/v1/accounts/{account}/accepted-work")
+    @app.get(
+        "/api/v1/accounts/{account}/accepted-work",
+        response_model=AccountAcceptedWorkResponse,
+        response_model_exclude_unset=True,
+    )
     def api_account_accepted_work(account: str) -> dict[str, Any]:
         with session_scope(db_url) as session:
             return account_accepted_work_context(session, account)

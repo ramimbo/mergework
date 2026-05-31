@@ -276,13 +276,17 @@ def test_bounty_api_keeps_terminal_multi_awards_visible_but_inactive(sqlite_url:
     assert paid_detail["status"] == "paid"
     assert paid_detail["awards_paid"] == 2
     assert paid_detail["awards_remaining"] == 0
+    assert len(paid_detail["accepted_awards"]) == 2
     assert closed_detail["status"] == "closed"
     assert closed_detail["awards_paid"] == 1
     assert closed_detail["awards_remaining"] == 0
+    assert len(closed_detail["accepted_awards"]) == 1
     assert listed[paid_bounty_id]["status"] == "paid"
     assert listed[paid_bounty_id]["awards_remaining"] == 0
+    assert "accepted_awards" not in listed[paid_bounty_id]
     assert listed[closed_bounty_id]["status"] == "closed"
     assert listed[closed_bounty_id]["awards_remaining"] == 0
+    assert "accepted_awards" not in listed[closed_bounty_id]
     assert status["active_bounties"] == 0
 
 

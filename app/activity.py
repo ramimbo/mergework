@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.api_schemas import ActivityResponse
 from app.db import session_scope
 from app.serializers import activity_to_dict
 
@@ -16,7 +17,11 @@ def activity_context(session: Session, query: str | None = None) -> dict[str, An
 
 
 def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/activity")
+    @app.get(
+        "/api/v1/activity",
+        response_model=ActivityResponse,
+        response_model_exclude_unset=True,
+    )
     def api_activity(q: str | None = Query(None)) -> dict[str, Any]:
         with session_scope(db_url) as session:
             return activity_context(session, q)

@@ -11,6 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.admin import list_webhook_events, webhook_events_to_dict
+from app.api_schemas import BountyResponse, BountySummaryResponse
 from app.bounty_sorting import BOUNTY_SORT_ERROR, normalize_bounty_sort, sort_bounties
 from app.config import Settings
 from app.control_chars import contains_control_character
@@ -151,7 +152,11 @@ def register_bounty_api_routes(
                 return sorted_bounties[:limit]
             return sorted_bounties
 
-    @app.get("/api/v1/bounties")
+    @app.get(
+        "/api/v1/bounties",
+        response_model=list[BountyResponse],
+        response_model_exclude_unset=True,
+    )
     def api_bounties(
         status: str | None = Query(None),
         q: str | None = Query(None),
@@ -160,7 +165,11 @@ def register_bounty_api_routes(
     ) -> list[dict[str, Any]]:
         return _list_bounties_by_status(status, q, sort=sort, limit=limit)
 
-    @app.get("/api/v1/bounties/summary")
+    @app.get(
+        "/api/v1/bounties/summary",
+        response_model=BountySummaryResponse,
+        response_model_exclude_unset=True,
+    )
     def api_bounties_summary(
         status: str | None = Query(None),
         q: str | None = Query(None),
@@ -209,7 +218,11 @@ def register_bounty_api_routes(
                 raise _ledger_http_error(exc) from exc
             return proposal_to_dict(proposal)
 
-    @app.get("/api/v1/bounties/{bounty_id}")
+    @app.get(
+        "/api/v1/bounties/{bounty_id}",
+        response_model=BountyResponse,
+        response_model_exclude_unset=True,
+    )
     def api_bounty(bounty_id: int) -> dict[str, Any]:
         bounty_id = positive_bounty_id(bounty_id)
         with session_scope(db_url) as session:

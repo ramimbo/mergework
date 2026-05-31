@@ -14,6 +14,7 @@ from app import auth as auth_module
 from app.accounts import normalized_account, normalized_wallet_address, register_account_routes
 from app.activity import register_activity_routes
 from app.admin_routes import register_admin_routes
+from app.api_schemas import ProofResponse, SystemStatusResponse
 from app.bounty_api import register_bounty_api_routes
 from app.bounty_attempts import (
     register_bounty_attempt_routes,
@@ -245,7 +246,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             return health_status(session)
 
-    @app.get("/api/v1/status")
+    @app.get(
+        "/api/v1/status",
+        response_model=SystemStatusResponse,
+        response_model_exclude_unset=True,
+    )
     def api_status() -> dict[str, Any]:
         with session_scope(db_url) as session:
             return system_status(session)
@@ -319,7 +324,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="ledger entry not found")
             return entry
 
-    @app.get("/api/v1/proofs/{proof_hash}")
+    @app.get(
+        "/api/v1/proofs/{proof_hash}",
+        response_model=ProofResponse,
+        response_model_exclude_unset=True,
+    )
     def api_proof(proof_hash: str) -> dict[str, Any]:
         proof_hash = proof_hash_from_path(proof_hash)
         with session_scope(db_url) as session:

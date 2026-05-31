@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlalchemy import select
 
+from app.api_schemas import TreasuryProposalResponse
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
@@ -46,7 +47,11 @@ def register_treasury_routes(
     require_github_login: Any,
     json_object: Any,
 ) -> None:
-    @app.get("/api/v1/treasury/proposals")
+    @app.get(
+        "/api/v1/treasury/proposals",
+        response_model=list[TreasuryProposalResponse],
+        response_model_exclude_unset=True,
+    )
     def api_treasury_proposals(
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
     ) -> list[dict[str, Any]]:
@@ -61,7 +66,11 @@ def register_treasury_routes(
         with session_scope(db_url) as session:
             return treasury_status(session)
 
-    @app.get("/api/v1/treasury/proposals/{proposal_id}")
+    @app.get(
+        "/api/v1/treasury/proposals/{proposal_id}",
+        response_model=TreasuryProposalResponse,
+        response_model_exclude_unset=True,
+    )
     def api_treasury_proposal(proposal_id: int) -> dict[str, Any]:
         proposal_id = _positive_proposal_id(proposal_id)
         with session_scope(db_url) as session:
