@@ -191,6 +191,32 @@ def test_proposed_work_queue_rejects_non_read_only_gh_command() -> None:
         )
 
 
+def test_proposed_work_queue_allows_explicit_read_only_gh_api_methods(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps({"ok": True}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(proposed_work_queue.subprocess, "run", fake_run)
+
+    assert proposed_work_queue._run_gh_json(
+        ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "GET"]
+    ) == {"ok": True}
+    assert proposed_work_queue._run_gh_json(
+        ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "HEAD"]
+    ) == {"ok": True}
+    assert calls == [
+        ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "GET"],
+        ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "HEAD"],
+    ]
+
+
 def test_proposed_work_queue_rejects_when_safety_cap_reached(monkeypatch) -> None:
     def fake_run(args, **kwargs):
         issues = [
