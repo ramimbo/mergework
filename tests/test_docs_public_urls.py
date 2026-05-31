@@ -209,7 +209,9 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
 
     assert "/api/v1/bounties?status=open" in examples
     assert "/api/v1/bounties?status=open&sort=available&limit=5" in examples
+    assert "/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=649" in examples
     assert "/api/v1/bounties/summary?status=open&q=proof" in examples
+    assert "/api/v1/bounties/summary?repo=ramimbo%2Fmergework" in examples
     assert "/api/v1/bounties/summary?status=open&sort=awards&limit=5" in examples
     assert "status` can be omitted or set to" in examples
     assert "`newest` is the default" in examples
@@ -231,7 +233,9 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "Award counters can change" in examples
     assert "capacity totals" in examples
     assert "full bounty" in examples
-    assert "same optional `status`, `q`, `sort`, and" in examples
+    assert "same optional `status`, `q`, `repo`" in examples
+    assert "`issue_number`, `sort`, and `limit` filters" in examples
+    assert "Supplying `issue_number` without `repo`" in examples
     assert "Use `id` for the single-bounty API path" in examples
 
 

@@ -271,7 +271,7 @@ def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
     assert "<strong>2</strong>" in limited_page.text
     assert '<option value="2" selected>2</option>' in limited_page.text
     assert '<option value=""' in limited_page.text
-    assert 'href="/bounties?status=open&limit=2"' in limited_page.text
+    assert 'href="/bounties?status=open&amp;limit=2"' in limited_page.text
 
     filtered_limited_page = client.get("/bounties?q=public&sort=reward&limit=2")
     assert filtered_limited_page.status_code == 200
@@ -279,7 +279,7 @@ def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
         '<option value="reward" selected>Highest per-award reward</option>'
         in filtered_limited_page.text
     )
-    assert 'href="/bounties?sort=reward&limit=2">Clear search</a>' in filtered_limited_page.text
+    assert 'href="/bounties?sort=reward&amp;limit=2">Clear search</a>' in filtered_limited_page.text
     assert (
         'href="/api/v1/bounties?q=public&amp;sort=reward&amp;limit=2">View JSON results</a>'
         in filtered_limited_page.text
@@ -335,7 +335,7 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert "Showing matches for “proof inspection”." in text_search.text
     assert "Improve public bounty discovery" in text_search.text
     assert "Internal admin cleanup" not in text_search.text
-    assert 'href="/bounties?status=open&q=proof%20inspection"' in text_search.text
+    assert 'href="/bounties?status=open&amp;q=proof+inspection"' in text_search.text
 
     issue_search = client.get("/api/v1/bounties?q=65")
     assert issue_search.status_code == 200
@@ -380,6 +380,47 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     backslash_search = client.get("/api/v1/bounties", params={"q": "\\"})
     assert backslash_search.status_code == 200
     assert [row["issue_number"] for row in backslash_search.json()] == [66]
+
+
+def test_bounties_page_filters_by_exact_source(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        target = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=649,
+            issue_url="https://github.com/ramimbo/mergework/issues/649",
+            title="Exact source bounty",
+            reward_mrwk="50",
+            acceptance="Exact source filters should find this bounty.",
+        )
+        create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=649,
+            issue_url="https://github.com/example/mergework/issues/649",
+            title="Same issue other repo",
+            reward_mrwk="50",
+            acceptance="Repo filters should exclude this bounty.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/bounties?repo=RAMIMBO%2FMERGEWORK&issue_number=649")
+
+    assert page.status_code == 200
+    assert "Exact source bounty" in page.text
+    assert "Same issue other repo" not in page.text
+    assert 'value="ramimbo/mergework"' in page.text
+    assert 'value="649"' in page.text
+    assert "Filtering source repo “ramimbo/mergework” issue #649." in page.text
+    assert 'href="/api/v1/bounties?repo=ramimbo%2Fmergework&amp;issue_number=649"' in page.text
+    assert (
+        'href="/bounties?status=open&amp;repo=ramimbo%2Fmergework&amp;issue_number=649"'
+        in page.text
+    )
+    assert f'href="/bounties/{target.id}"' in page.text
 
 
 def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
@@ -444,7 +485,7 @@ def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     )
     assert 'name="sort"' in available_page.text
     assert '<option value="available" selected>Most MRWK available</option>' in available_page.text
-    assert 'href="/bounties?status=open&sort=available"' in available_page.text
+    assert 'href="/bounties?status=open&amp;sort=available"' in available_page.text
 
     whitespace_sort_page = client.get("/bounties", params={"sort": "   "})
     assert whitespace_sort_page.status_code == 200

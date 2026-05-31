@@ -354,6 +354,69 @@ def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
     assert invalid.json()["detail"] == "status must be one of: open, paid, closed"
 
 
+def test_bounty_api_filters_by_exact_source_repo_and_issue(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        target = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=649,
+            issue_url="https://github.com/ramimbo/mergework/issues/649",
+            title="Exact docs source",
+            reward_mrwk="25",
+            max_awards=2,
+            acceptance="Exact source filters should find this row.",
+        )
+        same_issue_other_repo = create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=649,
+            issue_url="https://github.com/example/mergework/issues/649",
+            title="Other repo source",
+            reward_mrwk="10",
+            acceptance="Issue-only filters can match across repos.",
+        )
+        paid_same_repo = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=650,
+            issue_url="https://github.com/ramimbo/mergework/issues/650",
+            title="Paid source row",
+            reward_mrwk="5",
+            acceptance="Status filters should still compose with repo filters.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=paid_same_repo.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/650",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    repo_rows = client.get("/api/v1/bounties?repo=RAMIMBO%2FMERGEWORK")
+    issue_rows = client.get("/api/v1/bounties?issue_number=649")
+    exact_rows = client.get("/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=649")
+    status_and_query = client.get("/api/v1/bounties?repo=ramimbo%2Fmergework&status=open&q=docs")
+    repo_summary = client.get("/api/v1/bounties/summary?repo=ramimbo%2Fmergework")
+    exact_summary = client.get("/api/v1/bounties/summary?repo=ramimbo%2Fmergework&issue_number=649")
+    invalid_repo = client.get("/api/v1/bounties?repo=%C2%85ramimbo%2Fmergework")
+
+    assert [row["id"] for row in repo_rows.json()] == [paid_same_repo.id, target.id]
+    assert [row["id"] for row in issue_rows.json()] == [same_issue_other_repo.id, target.id]
+    assert [row["id"] for row in exact_rows.json()] == [target.id]
+    assert [row["id"] for row in status_and_query.json()] == [target.id]
+    assert repo_summary.json()["bounties_shown"] == 2
+    assert repo_summary.json()["open_awards"] == 2
+    assert exact_summary.json()["bounties_shown"] == 1
+    assert exact_summary.json()["open_awards"] == 2
+    assert invalid_repo.status_code == 400
+    assert invalid_repo.json()["detail"] == "repo must not contain control characters"
+
+
 def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
