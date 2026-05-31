@@ -61,8 +61,11 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
     assert report["summary"] == {
         "pull_requests": 4,
         "open_bounties": 2,
+        "live_bounties": 2,
+        "non_live_bounties": 0,
         "closed_or_exhausted_bounties": 1,
         "closed_bounty_references": 1,
+        "non_live_bounty_references": 0,
         "missing_bounty_references": 1,
         "dirty_or_unstable_merge_state": 2,
         "needs_info": 1,
@@ -185,6 +188,94 @@ def test_pr_queue_health_accepts_github_linking_keywords() -> None:
     assert report["missing_bounty_references"] == []
 
 
+def test_pr_queue_health_flags_open_issue_without_live_bounty_signals() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 310,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "comments": [
+                        {"body": "Reserved on MergeWork: https://mrwk.online/bounties/310"}
+                    ],
+                },
+                {
+                    "number": 311,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [],
+                    "comments": [],
+                },
+                {
+                    "number": 312,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "comments": [],
+                },
+            ],
+            "pull_requests": [
+                {
+                    "number": 1,
+                    "title": "Live bounty work",
+                    "body": "Bounty #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 2,
+                    "title": "Proposed-only bounty work",
+                    "body": "Bounty #311",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 3,
+                    "title": "Label-only bounty work",
+                    "body": "Bounty #312",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["live_bounties"] == 1
+    assert report["summary"]["non_live_bounties"] == 2
+    assert report["summary"]["non_live_bounty_references"] == 2
+    details = {
+        item["pull_request"]: item["detail"] for item in report["non_live_bounty_references"]
+    }
+    assert details[2] == "Referenced bounty #311 is not live claimable: missing mrwk:bounty label"
+    assert (
+        details[3] == "Referenced bounty #312 is not live claimable: "
+        "missing Reserved on MergeWork claims-open comment"
+    )
+
+
+def test_pr_queue_health_keeps_legacy_fixture_open_bounty_compatibility() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Legacy fixture bounty work",
+                    "body": "Bounty #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["live_bounties"] == 1
+    assert report["summary"]["non_live_bounty_references"] == 0
+    assert report["non_live_bounty_references"] == []
+
+
 @pytest.mark.parametrize("reference", ("Fixes #310abc", "Fixes #310_abc", "Fixes #310-abc"))
 def test_pr_queue_health_rejects_linking_keyword_issue_suffix(reference: str) -> None:
     report = analyze_queue(
@@ -280,6 +371,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
         "- [PR #1](https://github.com/ramimbo/mergework/pull/1): "
         "Add public bounty summary API (Referenced bounty #293 is not payable)"
     ) in markdown
+    assert "- **live bounties**: 1" in markdown
+    assert "- **non live bounty references**: 0" in markdown
     assert "### Missing bounty references" in markdown
     assert (
         "- [PR #2](https://github.com/ramimbo/mergework/pull/2): "
@@ -342,6 +435,58 @@ def test_pr_queue_health_wraps_gh_timeouts(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="gh command timed out"):
         pr_queue_health._run_gh_json(["gh", "pr", "list"])
+
+
+def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 8,
+                        "title": "Queue guard",
+                        "url": "https://github.com/ramimbo/mergework/pull/8",
+                        "body": "Bounty #310",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 310,
+                        "title": "MRWK bounty: queue guard",
+                        "state": "OPEN",
+                        "labels": [{"name": "mrwk:bounty"}],
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "view"]:
+            stdout = json.dumps(
+                {
+                    "number": 310,
+                    "title": "MRWK bounty: queue guard",
+                    "state": "OPEN",
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "comments": [
+                        {"body": "Reserved on MergeWork: https://mrwk.online/bounties/310"}
+                    ],
+                }
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+
+    data = pr_queue_health.load_live_queue("ramimbo/mergework")
+    report = analyze_queue(data)
+
+    assert data["bounties"][0]["comments"]
+    assert report["summary"]["live_bounties"] == 1
+    assert report["summary"]["non_live_bounty_references"] == 0
 
 
 def test_pr_queue_health_fails_fast_when_issue_fetch_hits_cap(monkeypatch) -> None:

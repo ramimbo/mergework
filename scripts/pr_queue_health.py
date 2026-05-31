@@ -33,6 +33,17 @@ def _labels(raw: dict[str, Any]) -> list[str]:
     return names
 
 
+def _comments(raw: dict[str, Any]) -> list[str]:
+    comments = raw.get("comments", [])
+    bodies: list[str] = []
+    for comment in comments:
+        if isinstance(comment, str):
+            bodies.append(comment)
+        elif isinstance(comment, dict) and isinstance(comment.get("body"), str):
+            bodies.append(comment["body"])
+    return bodies
+
+
 def _merge_state(raw: dict[str, Any]) -> str:
     for key in ("merge_state", "mergeStateStatus", "mergeable", "mergeable_state"):
         value = raw.get(key)
@@ -85,6 +96,16 @@ def _is_open_bounty(raw: dict[str, Any]) -> bool:
     return state == "open"
 
 
+def _bounty_liveness(raw: dict[str, Any]) -> tuple[bool, str]:
+    if not _is_open_bounty(raw):
+        return False, "closed or exhausted"
+    if "labels" in raw and not any(label.lower() == "mrwk:bounty" for label in _labels(raw)):
+        return False, "missing mrwk:bounty label"
+    if "comments" in raw and not any("Reserved on MergeWork:" in body for body in _comments(raw)):
+        return False, "missing Reserved on MergeWork claims-open comment"
+    return True, "live"
+
+
 def _issue(pr: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
     return {
         "pull_request": pr["number"],
@@ -119,6 +140,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
         )
 
     closed_bounty_references: list[dict[str, Any]] = []
+    non_live_bounty_references: list[dict[str, Any]] = []
     missing_bounty_references: list[dict[str, Any]] = []
     dirty_or_unstable_merge_state: list[dict[str, Any]] = []
     needs_info: list[dict[str, Any]] = []
@@ -152,6 +174,16 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                         f"Referenced bounty #{ref} is not payable",
                     )
                 )
+            else:
+                is_live, reason = _bounty_liveness(bounty)
+                if not is_live:
+                    non_live_bounty_references.append(
+                        _issue(
+                            pr,
+                            "non_live_bounty_reference",
+                            f"Referenced bounty #{ref} is not live claimable: {reason}",
+                        )
+                    )
             duplicate_groups[(ref, pr["scope"])].append(pr["number"])
         if pr["merge_state"] in UNSTABLE_MERGE_STATES:
             dirty_or_unstable_merge_state.append(
@@ -168,18 +200,28 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
     closed_or_exhausted_count = sum(
         1 for bounty in bounties.values() if not _is_open_bounty(bounty)
     )
+    live_bounty_count = sum(1 for bounty in bounties.values() if _bounty_liveness(bounty)[0])
+    non_live_bounty_count = sum(
+        1
+        for bounty in bounties.values()
+        if _is_open_bounty(bounty) and not _bounty_liveness(bounty)[0]
+    )
     report = {
         "summary": {
             "pull_requests": len(normalized_prs),
             "open_bounties": len(bounties) - closed_or_exhausted_count,
+            "live_bounties": live_bounty_count,
+            "non_live_bounties": non_live_bounty_count,
             "closed_or_exhausted_bounties": closed_or_exhausted_count,
             "closed_bounty_references": len(closed_bounty_references),
+            "non_live_bounty_references": len(non_live_bounty_references),
             "missing_bounty_references": len(missing_bounty_references),
             "dirty_or_unstable_merge_state": len(dirty_or_unstable_merge_state),
             "needs_info": len(needs_info),
             "duplicate_scope_groups": len(duplicate_scope_groups),
         },
         "closed_bounty_references": closed_bounty_references,
+        "non_live_bounty_references": non_live_bounty_references,
         "missing_bounty_references": missing_bounty_references,
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
         "needs_info": needs_info,
@@ -193,6 +235,7 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
         report[key]
         for key in (
             "closed_bounty_references",
+            "non_live_bounty_references",
             "missing_bounty_references",
             "dirty_or_unstable_merge_state",
             "needs_info",
@@ -211,6 +254,7 @@ def format_text_report(report: dict[str, Any]) -> str:
         return "\n".join(lines)
     sections = [
         ("Closed or exhausted bounty references", "closed_bounty_references"),
+        ("Non-live bounty references", "non_live_bounty_references"),
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
@@ -253,6 +297,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
 
     sections = [
         ("Closed or exhausted bounty references", "closed_bounty_references"),
+        ("Non-live bounty references", "non_live_bounty_references"),
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
@@ -317,6 +362,9 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
             "use an API-paginated collector before trusting this live report"
         )
+    referenced_issues = sorted(
+        {ref for pr in prs if isinstance(pr, dict) for ref in _bounty_refs(pr)}
+    )
     issues = _run_gh_json(
         [
             "gh",
@@ -337,16 +385,51 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
             "use an API-paginated collector before trusting this live report"
         )
-    bounty_issues = [
-        {
-            "number": issue["number"],
-            "title": issue.get("title"),
-            "state": issue.get("state"),
-            "awards_remaining": 1 if issue.get("state") == "OPEN" else 0,
-        }
+    issues_by_number = {
+        int(issue["number"]): issue
         for issue in issues
-        if "bounty" in str(issue.get("title", "")).lower()
-    ]
+        if isinstance(issue, dict) and isinstance(issue.get("number"), int)
+    }
+    bounty_numbers = {
+        int(issue["number"])
+        for issue in issues
+        if isinstance(issue, dict)
+        and isinstance(issue.get("number"), int)
+        and "bounty" in str(issue.get("title", "")).lower()
+    } | set(referenced_issues)
+    bounty_issues = []
+    for number in sorted(bounty_numbers):
+        issue = issues_by_number.get(number, {"number": number})
+        viewed_issue = issue
+        include_comments = number in referenced_issues
+        if include_comments:
+            try:
+                viewed_issue = _run_gh_json(
+                    [
+                        "gh",
+                        "issue",
+                        "view",
+                        str(number),
+                        "--repo",
+                        repo,
+                        "--comments",
+                        "--json",
+                        "number,title,state,labels,comments",
+                    ]
+                )
+            except RuntimeError:
+                if number not in issues_by_number:
+                    continue
+        bounty_issue = {
+            "number": int(viewed_issue["number"]),
+            "title": viewed_issue.get("title"),
+            "state": viewed_issue.get("state"),
+            "labels": viewed_issue.get("labels", []),
+            "awards_remaining": 1 if viewed_issue.get("state") == "OPEN" else 0,
+        }
+        if include_comments:
+            bounty_issue["comments"] = viewed_issue.get("comments", [])
+        bounty_issues.append(bounty_issue)
     return {"pull_requests": prs, "bounties": bounty_issues}
 
 
