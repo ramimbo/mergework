@@ -40,18 +40,27 @@ def test_openapi_documents_public_post_request_bodies(sqlite_url: str) -> None:
     assert release_body["required"] is False
     assert set(release_schema["properties"]) == {"submitter_account"}
 
-    register_schema = _json_schema(_post_request_body(openapi, "/api/v1/wallets/register"))
+    register_body = _post_request_body(openapi, "/api/v1/wallets/register")
+    register_schema = _json_schema(register_body)
+    assert register_body["required"] is True
     assert register_schema["required"] == ["public_key_hex"]
     assert register_schema["properties"]["public_key_hex"]["pattern"] == "^[0-9a-f]{64}$"
     assert register_schema["properties"]["label"]["maxLength"] == 160
 
-    link_schema = _json_schema(_post_request_body(openapi, "/api/v1/wallets/link-github"))
-    claim_schema = _json_schema(_post_request_body(openapi, "/api/v1/github/claim"))
+    link_body = _post_request_body(openapi, "/api/v1/wallets/link-github")
+    claim_body = _post_request_body(openapi, "/api/v1/github/claim")
+    link_schema = _json_schema(link_body)
+    claim_schema = _json_schema(claim_body)
+    assert link_body["required"] is True
+    assert claim_body["required"] is True
     assert link_schema == claim_schema
     assert link_schema["required"] == ["address", "nonce", "signature_hex"]
     assert link_schema["properties"]["address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
+    assert link_schema["properties"]["nonce"]["minimum"] == 1
 
-    transfer_schema = _json_schema(_post_request_body(openapi, "/api/v1/transfers"))
+    transfer_body = _post_request_body(openapi, "/api/v1/transfers")
+    transfer_schema = _json_schema(transfer_body)
+    assert transfer_body["required"] is True
     assert transfer_schema["required"] == [
         "from_address",
         "to_address",
@@ -59,12 +68,18 @@ def test_openapi_documents_public_post_request_bodies(sqlite_url: str) -> None:
         "nonce",
         "signature_hex",
     ]
-    assert transfer_schema["properties"]["amount_mrwk"]["pattern"] == "^\\d+(?:\\.\\d{1,6})?$"
+    assert (
+        transfer_schema["properties"]["amount_mrwk"]["pattern"]
+        == "^(?!0+(?:\\.0{1,6})?$)\\d+(?:\\.\\d{1,6})?$"
+    )
+    assert transfer_schema["properties"]["nonce"]["minimum"] == 1
     assert transfer_schema["properties"]["memo"]["maxLength"] == 240
 
-    challenge_schema = _json_schema(
-        _post_request_body(openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges")
+    challenge_body = _post_request_body(
+        openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
     )
+    challenge_schema = _json_schema(challenge_body)
+    assert challenge_body["required"] is True
     assert challenge_schema["required"] == ["challenge_type", "reason"]
     assert "subjective_note" in challenge_schema["properties"]["challenge_type"]["enum"]
     assert challenge_schema["properties"]["reason"]["maxLength"] == 1000

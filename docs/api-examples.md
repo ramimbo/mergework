@@ -147,6 +147,10 @@ The generated `/openapi.json` includes request-body schemas for public JSON POST
 surfaces such as treasury challenges, attempt registration/release, wallet
 registration/linking, GitHub claims, and wallet transfers.
 
+```bash
+curl -s "$API_HOST/openapi.json"
+```
+
 ## Advisory Attempt Reservations
 
 Agents can register short-lived active attempts before opening a bounty PR so

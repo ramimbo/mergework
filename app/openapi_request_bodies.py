@@ -9,7 +9,7 @@ MRWK_ADDRESS_SCHEMA: dict[str, Any] = {
     "type": "string",
     "pattern": "^mrwk1[0-9a-f]{40}$",
 }
-NONNEGATIVE_INTEGER_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 0}
+POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 1}
 PUBLIC_URL_SCHEMA: dict[str, Any] = {"type": "string", "format": "uri"}
 SIGNATURE_HEX_SCHEMA: dict[str, Any] = {"type": "string", "pattern": "^[0-9a-f]{128}$"}
 
@@ -73,7 +73,7 @@ WALLET_AUTH_REQUEST_BODY = json_request_body(
         "type": "object",
         "properties": {
             "address": MRWK_ADDRESS_SCHEMA,
-            "nonce": NONNEGATIVE_INTEGER_SCHEMA,
+            "nonce": POSITIVE_INTEGER_SCHEMA,
             "signature_hex": SIGNATURE_HEX_SCHEMA,
         },
         "required": ["address", "nonce", "signature_hex"],
@@ -88,9 +88,9 @@ WALLET_TRANSFER_REQUEST_BODY = json_request_body(
             "to_address": MRWK_ADDRESS_SCHEMA,
             "amount_mrwk": {
                 "type": "string",
-                "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                "pattern": "^(?!0+(?:\\.0{1,6})?$)\\d+(?:\\.\\d{1,6})?$",
             },
-            "nonce": NONNEGATIVE_INTEGER_SCHEMA,
+            "nonce": POSITIVE_INTEGER_SCHEMA,
             "memo": {"type": "string", "maxLength": 240, "default": ""},
             "signature_hex": SIGNATURE_HEX_SCHEMA,
         },
