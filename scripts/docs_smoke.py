@@ -32,6 +32,11 @@ REQUIRED_PUBLIC_PHRASES = {
         ),
         "require separate maintainer/contributor discussion before implementation",
     ],
+    "CONTRIBUTING.md": [
+        "Confirm the issue also has a `Reserved on MergeWork` comment",
+        "pending `create_bounty` proposals",
+        "a pending `pay_bounty` proposal is not paid work until a public proof exists",
+    ],
     "docs/ledger.md": [
         "## Current Transfer Paths",
         "`github:*` balance claims into a linked wallet.",
