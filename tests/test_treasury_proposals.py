@@ -347,6 +347,54 @@ def test_treasury_status_projects_pending_create_capacity_events(
     )
 
 
+def test_treasury_status_clamps_overdue_pending_create_projection_to_now(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixed_now = utc_now().replace(microsecond=0)
+    monkeypatch.setattr("app.treasury.utc_now", lambda: fixed_now)
+    client = _client(sqlite_url, monkeypatch)
+    proposal = client.post(
+        "/api/v1/bounties",
+        headers=ADMIN_HEADERS,
+        json={**_bounty_payload(issue_number=203, reward_mrwk="1000"), "max_awards": 1},
+    )
+    assert proposal.status_code == 200
+    with session_scope(sqlite_url) as session:
+        stored = session.get(TreasuryProposal, proposal.json()["id"])
+        assert stored is not None
+        stored.executes_after = fixed_now - timedelta(hours=2)
+
+    response = client.get("/api/v1/treasury/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=24)
+    assert (
+        body["pending_create_bounties"][0]["executes_after"]
+        == (fixed_now.replace(tzinfo=None) - timedelta(hours=2)).isoformat()
+    )
+    assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
+        pending_release_at.isoformat()
+    )
+    assert body["projected_capacity_events"] == [
+        {
+            "at": fixed_now.replace(tzinfo=None).isoformat(),
+            "event_type": "pending_create_executes",
+            "amount_mrwk": "1000",
+            "available_create_reserve_mrwk": "9000",
+            "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
+        },
+        {
+            "at": pending_release_at.isoformat(),
+            "event_type": "pending_create_releases",
+            "amount_mrwk": "1000",
+            "available_create_reserve_mrwk": "10000",
+            "note": "Executed reserve from this pending create leaves the 24h cap window.",
+        },
+    ]
+    assert body["next_projected_capacity_release_at"] == pending_release_at.isoformat()
+
+
 def test_treasury_proposals_list_honors_limit(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

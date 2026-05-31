@@ -491,6 +491,8 @@ def _projected_capacity_events(
             )
     for pending in pending_creates:
         executes_after = pending["executes_after_dt"]
+        if executes_after < now:
+            executes_after = now
         reserve = int(pending["reserve_microunits"])
         event_rows.append(
             (
@@ -548,7 +550,8 @@ def treasury_status(session: Session) -> dict[str, Any]:
     for proposal, payload in _pending_action_payloads(session, "create_bounty"):
         reserve = parse_mrwk_amount(str(payload["reward_mrwk"])) * int(payload["max_awards"])
         executes_after = _db_utc(proposal.executes_after)
-        capacity_releases_at = executes_after + TREASURY_EPOCH_WINDOW
+        projected_executes_after = max(executes_after, now)
+        capacity_releases_at = projected_executes_after + TREASURY_EPOCH_WINDOW
         pending_create_reserve += reserve
         pending_create_bounties.append(
             {
@@ -566,7 +569,7 @@ def treasury_status(session: Session) -> dict[str, Any]:
         )
         pending_create_projection.append(
             {
-                "executes_after_dt": executes_after,
+                "executes_after_dt": projected_executes_after,
                 "reserve_microunits": reserve,
             }
         )
