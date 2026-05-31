@@ -200,9 +200,20 @@ def main() -> int:
     if not pr_template.exists():
         print(f"missing pull request template: {PR_TEMPLATE}")
         ok = False
-    elif "expected pr size:" not in pr_template.read_text(encoding="utf-8").lower():
-        print("pull request template must ask for expected PR size")
-        ok = False
+    else:
+        pr_template_text = pr_template.read_text(encoding="utf-8").lower()
+        if "expected pr size:" not in pr_template_text:
+            print("pull request template must ask for expected PR size")
+            ok = False
+        for phrase in [
+            "claim-window check for mrwk bounty work",
+            "github issue has the `mrwk:bounty` label",
+            "public bounty api row is `open`",
+            "active attempts and open prs do not already cover this exact scope",
+        ]:
+            if phrase not in pr_template_text:
+                print(f"pull request template missing claim-window phrase: {phrase}")
+                ok = False
     bounty_issue_template = ROOT / ".github/ISSUE_TEMPLATE/bounty.yml"
     if not bounty_issue_template.exists():
         print("missing bounty issue template: .github/ISSUE_TEMPLATE/bounty.yml")
