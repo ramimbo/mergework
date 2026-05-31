@@ -5,7 +5,8 @@
 ## Evidence
 
 - Confusion, missing step, stale example, or bug this addresses:
-- Bounty capacity and active attempts/open PRs checked:
+- Live bounty signals checked (`mrwk:bounty`, `Reserved on MergeWork`, open public API row):
+- Bounty capacity, active attempts, and overlapping open PRs checked:
 - Intended files or surfaces:
 - Expected PR size:
 - Out of scope:
