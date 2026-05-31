@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -759,6 +760,36 @@ def test_mcp_rejects_unknown_tool_name(sqlite_url: str) -> None:
     )
 
     assert_mcp_argument_error(response, 12)
+
+
+def test_mcp_internal_http_exception_stays_generic(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing_tool(database_url: str, name: str, args: dict[str, object]) -> str:
+        raise HTTPException(status_code=500, detail="database connection failed")
+
+    monkeypatch.setattr("app.main.call_mcp_tool", failing_tool)
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        raise_server_exceptions=False,
+    )
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 13,
+            "method": "tools/call",
+            "params": {"name": "get_bounty", "arguments": {"id": 1}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "error": {"code": -32603, "message": "internal error"},
+    }
 
 
 def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:

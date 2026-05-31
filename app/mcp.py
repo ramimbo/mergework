@@ -180,7 +180,16 @@ async def handle_mcp_request(
 
     try:
         tool_result = call_tool(database_url, name, args)
-    except (KeyError, ValueError, LedgerError, HTTPException) as exc:
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            return _jsonrpc_error(response_id, -32603, "internal error")
+        return _jsonrpc_error(
+            response_id,
+            -32602,
+            "invalid tool arguments",
+            _safe_argument_error_data(exc, tool_name=name, args=args),
+        )
+    except (KeyError, ValueError, LedgerError) as exc:
         return _jsonrpc_error(
             response_id,
             -32602,
