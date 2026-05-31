@@ -250,7 +250,11 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "nonce",
         "signature_hex",
     ]
-    _assert_integer_or_string_schema(transfer_schema["properties"]["nonce"], minimum=0)
+    assert (
+        transfer_schema["properties"]["amount_mrwk"]["pattern"]
+        == "^(?!0+(?:\\.0{1,6})?$)\\d+(?:\\.\\d{1,6})?$"
+    )
+    _assert_integer_or_string_schema(transfer_schema["properties"]["nonce"], minimum=1)
     assert transfer_schema["properties"]["memo"]["maxLength"] == 240
     assert tools_by_name["get_ledger_entry"]["inputSchema"]["required"] == ["sequence"]
     _assert_integer_or_string_schema(

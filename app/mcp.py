@@ -134,9 +134,9 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 "to_address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"},
                 "amount_mrwk": {
                     "type": "string",
-                    "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                    "pattern": "^(?!0+(?:\\.0{1,6})?$)\\d+(?:\\.\\d{1,6})?$",
                 },
-                "nonce": NONNEGATIVE_INTEGER_SCHEMA,
+                "nonce": POSITIVE_INTEGER_SCHEMA,
                 "memo": {"type": "string", "maxLength": 240, "default": ""},
                 "signature_hex": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
             },
