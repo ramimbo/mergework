@@ -16,6 +16,8 @@ from scripts.bounty_refs import BOUNTY_REF_RE
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
+USEFUL_REVIEW_STATES = {"approved", "changes_requested", "commented"}
+KNOWN_BOT_LOGINS = {"coderabbitai", "github-actions", "dependabot[bot]"}
 GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
@@ -50,6 +52,93 @@ def _merge_state(raw: dict[str, Any]) -> str:
         if isinstance(value, str) and value:
             return value.lower()
     return "unknown"
+
+
+def _author_login(raw: Any) -> str | None:
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    if isinstance(raw, dict):
+        login = raw.get("login")
+        if isinstance(login, str) and login.strip():
+            return login.strip()
+    return None
+
+
+def _is_bot_author(raw: Any) -> bool:
+    if isinstance(raw, dict):
+        is_bot = raw.get("is_bot")
+        if isinstance(is_bot, bool):
+            return is_bot
+        type_name = raw.get("__typename") or raw.get("type")
+        if isinstance(type_name, str) and type_name.lower() == "bot":
+            return True
+    login = _author_login(raw)
+    return bool(login and (login.lower().endswith("[bot]") or login.lower() in KNOWN_BOT_LOGINS))
+
+
+def _commit_oid(raw: dict[str, Any]) -> str | None:
+    for key in ("commit_oid", "commitOid", "commit_id", "commitId"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    commit = raw.get("commit")
+    if isinstance(commit, dict):
+        oid = commit.get("oid")
+        if isinstance(oid, str) and oid.strip():
+            return oid.strip()
+    return None
+
+
+def _latest_useful_human_review(pr: dict[str, Any]) -> dict[str, Any] | None:
+    pr_author = _author_login(pr.get("author"))
+    candidates: list[tuple[str, int, dict[str, Any]]] = []
+    for index, review in enumerate(pr.get("reviews", [])):
+        if not isinstance(review, dict):
+            continue
+        author = review.get("author")
+        reviewer = _author_login(author)
+        if reviewer is None:
+            continue
+        if pr_author and reviewer.lower() == pr_author.lower():
+            continue
+        if _is_bot_author(author):
+            continue
+        state = str(review.get("state") or "").lower()
+        if state not in USEFUL_REVIEW_STATES:
+            continue
+        candidates.append((str(review.get("submittedAt") or ""), index, review))
+    if not candidates:
+        return None
+    return max(candidates)[2]
+
+
+def _stale_review_issue(pr: dict[str, Any]) -> dict[str, Any] | None:
+    current_head = pr.get("headRefOid") or pr.get("head_ref_oid") or pr.get("head_oid")
+    if not isinstance(current_head, str) or not current_head.strip():
+        return None
+    review = _latest_useful_human_review(pr)
+    if review is None:
+        return None
+    review_commit = _commit_oid(review)
+    if not review_commit or review_commit == current_head:
+        return None
+    reviewer = _author_login(review.get("author")) or "unknown"
+    state = str(review.get("state") or "unknown")
+    item = _issue(
+        pr,
+        "stale_current_head_review",
+        f"Latest useful human review by {reviewer} is {state} on "
+        f"{review_commit[:12]}, current head is {current_head[:12]}",
+    )
+    item.update(
+        {
+            "reviewer": reviewer,
+            "review_state": state,
+            "current_head": current_head,
+            "latest_review_commit": review_commit,
+        }
+    )
+    return item
 
 
 def _scope_key(raw: dict[str, Any]) -> str:
@@ -136,6 +225,9 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 "labels": _labels(pr),
                 "merge_state": _merge_state(pr),
                 "scope": _scope_key(pr),
+                "headRefOid": pr.get("headRefOid") or pr.get("head_ref_oid") or pr.get("head_oid"),
+                "author": pr.get("author"),
+                "reviews": pr.get("reviews", []),
             }
         )
 
@@ -144,6 +236,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
     missing_bounty_references: list[dict[str, Any]] = []
     dirty_or_unstable_merge_state: list[dict[str, Any]] = []
     needs_info: list[dict[str, Any]] = []
+    stale_current_head_reviews: list[dict[str, Any]] = []
     duplicate_groups: dict[tuple[int, str], list[int]] = defaultdict(list)
 
     for pr in normalized_prs:
@@ -191,6 +284,9 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             )
         if any(label.lower() == "mrwk:needs-info" for label in pr["labels"]):
             needs_info.append(_issue(pr, "mrwk_needs_info", "PR has mrwk:needs-info label"))
+        stale_review = _stale_review_issue(pr)
+        if stale_review is not None:
+            stale_current_head_reviews.append(stale_review)
 
     duplicate_scope_groups = [
         {"bounty": bounty, "scope": scope, "pull_requests": sorted(numbers)}
@@ -218,6 +314,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             "missing_bounty_references": len(missing_bounty_references),
             "dirty_or_unstable_merge_state": len(dirty_or_unstable_merge_state),
             "needs_info": len(needs_info),
+            "stale_current_head_reviews": len(stale_current_head_reviews),
             "duplicate_scope_groups": len(duplicate_scope_groups),
         },
         "closed_bounty_references": closed_bounty_references,
@@ -225,6 +322,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
         "missing_bounty_references": missing_bounty_references,
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
         "needs_info": needs_info,
+        "stale_current_head_reviews": stale_current_head_reviews,
         "duplicate_scope_groups": duplicate_scope_groups,
     }
     return report
@@ -239,6 +337,7 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
             "missing_bounty_references",
             "dirty_or_unstable_merge_state",
             "needs_info",
+            "stale_current_head_reviews",
             "duplicate_scope_groups",
         )
     )
@@ -258,6 +357,7 @@ def format_text_report(report: dict[str, Any]) -> str:
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
+        ("Stale current-head reviews", "stale_current_head_reviews"),
     ]
     for title, key in sections:
         if report[key]:
@@ -301,6 +401,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
         ("Needs info", "needs_info"),
+        ("Stale current-head reviews", "stale_current_head_reviews"),
     ]
     for title, key in sections:
         if report[key]:
@@ -354,7 +455,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             "--limit",
             str(GH_PR_SAFETY_CAP),
             "--json",
-            "number,title,url,body,labels,mergeStateStatus",
+            "number,title,url,body,labels,mergeStateStatus,headRefOid,author,reviews",
         ]
     )
     if len(prs) >= GH_PR_SAFETY_CAP:

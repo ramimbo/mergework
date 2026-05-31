@@ -69,6 +69,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
         "missing_bounty_references": 1,
         "dirty_or_unstable_merge_state": 2,
         "needs_info": 1,
+        "stale_current_head_reviews": 0,
         "duplicate_scope_groups": 1,
     }
     assert report["closed_bounty_references"][0]["pull_request"] == 1
@@ -274,6 +275,119 @@ def test_pr_queue_health_keeps_legacy_fixture_open_bounty_compatibility() -> Non
     assert report["summary"]["live_bounties"] == 1
     assert report["summary"]["non_live_bounty_references"] == 0
     assert report["non_live_bounty_references"] == []
+
+
+def test_pr_queue_health_accepts_current_head_human_review() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Queue freshness signal",
+                    "body": "Bounty #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                    "author": {"login": "contributor", "is_bot": False},
+                    "headRefOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "reviews": [
+                        {
+                            "author": {"login": "reviewer", "is_bot": False},
+                            "state": "APPROVED",
+                            "submittedAt": "2026-05-31T10:00:00Z",
+                            "commit": {"oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["stale_current_head_reviews"] == 0
+    assert report["stale_current_head_reviews"] == []
+
+
+def test_pr_queue_health_flags_stale_human_review_commit() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Queue freshness signal",
+                    "url": "https://github.com/ramimbo/mergework/pull/8",
+                    "body": "Bounty #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                    "author": {"login": "contributor", "is_bot": False},
+                    "headRefOid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "reviews": [
+                        {
+                            "author": {"login": "reviewer", "is_bot": False},
+                            "state": "APPROVED",
+                            "submittedAt": "2026-05-31T10:00:00Z",
+                            "commit": {"oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["stale_current_head_reviews"] == 1
+    assert report["stale_current_head_reviews"] == [
+        {
+            "pull_request": 8,
+            "title": "Queue freshness signal",
+            "url": "https://github.com/ramimbo/mergework/pull/8",
+            "reason": "stale_current_head_review",
+            "detail": (
+                "Latest useful human review by reviewer is APPROVED on aaaaaaaaaaaa, "
+                "current head is bbbbbbbbbbbb"
+            ),
+            "reviewer": "reviewer",
+            "review_state": "APPROVED",
+            "current_head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "latest_review_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        }
+    ]
+
+
+def test_pr_queue_health_current_head_bot_review_does_not_mask_stale_human_review() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [
+                {
+                    "number": 8,
+                    "title": "Queue freshness signal",
+                    "body": "Bounty #310",
+                    "merge_state": "clean",
+                    "labels": [],
+                    "author": {"login": "contributor", "is_bot": False},
+                    "headRefOid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "reviews": [
+                        {
+                            "author": {"login": "reviewer", "is_bot": False},
+                            "state": "APPROVED",
+                            "submittedAt": "2026-05-31T10:00:00Z",
+                            "commit": {"oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        },
+                        {
+                            "author": {"login": "coderabbitai"},
+                            "state": "COMMENTED",
+                            "submittedAt": "2026-05-31T11:00:00Z",
+                            "commit": {"oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["stale_current_head_reviews"] == 1
+    assert report["stale_current_head_reviews"][0]["reviewer"] == "reviewer"
+    assert "current head is bbbbbbbbbbbb" in report["stale_current_head_reviews"][0]["detail"]
 
 
 @pytest.mark.parametrize("reference", ("Fixes #310abc", "Fixes #310_abc", "Fixes #310-abc"))

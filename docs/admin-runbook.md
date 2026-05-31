@@ -269,7 +269,10 @@ Live mode requires an authenticated GitHub CLI with access to the repository.
 The command only reads PRs and issues; it does not close PRs, label issues, or
 post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
-PR scope within the same bounty issue.
+PR scope within the same bounty issue. It also flags PRs whose latest useful
+non-author human review was submitted on an older commit than the current PR
+head, so maintainers can request a fresh current-head review before merge or
+payout triage. Bot reviews are ignored for that human freshness signal.
 
 ### Claim Inventory
 
