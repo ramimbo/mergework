@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.treasury import propose_treasury_action
 
 
 def test_bounty_api_reports_multi_award_capacity(sqlite_url: str) -> None:
@@ -32,6 +33,112 @@ def test_bounty_api_reports_multi_award_capacity(sqlite_url: str) -> None:
     assert bounty["max_awards"] == 4
     assert bounty["awards_paid"] == 0
     assert bounty["awards_remaining"] == 4
+
+
+def test_bounty_api_reports_effective_capacity_after_pending_payouts(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=12,
+            issue_url="https://github.com/ramimbo/mergework/issues/12",
+            title="Pending payout availability",
+            reward_mrwk="25",
+            max_awards=3,
+            acceptance="Pending payouts should reduce practical capacity.",
+        )
+        bounty_id = bounty.id
+        first = propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty_id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/12",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+        second = propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty_id,
+                "to_account": "github:bob",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/13",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    body = client.get(f"/api/v1/bounties/{bounty_id}").json()
+    summary = client.get("/api/v1/bounties/summary?status=open").json()
+
+    assert body["awards_remaining"] == 3
+    assert body["available_mrwk"] == "75"
+    assert body["pending_awards"] == 2
+    assert body["pending_payout_proposal_ids"] == [first.id, second.id]
+    assert body["pending_close"] is False
+    assert body["effective_awards_remaining"] == 1
+    assert body["effective_available_mrwk"] == "25"
+    assert body["availability_status"] == "pending_payouts"
+    assert "pending payout proposals consume practical award capacity" in body["availability_note"]
+    assert summary == {
+        "bounties_shown": 1,
+        "open_awards": 1,
+        "open_pool_mrwk": "25",
+    }
+
+
+def test_bounty_api_reports_pending_close_as_effectively_unavailable(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=13,
+            issue_url="https://github.com/ramimbo/mergework/issues/13",
+            title="Pending close availability",
+            reward_mrwk="10",
+            max_awards=4,
+            acceptance="Pending close should hide practical capacity.",
+        )
+        bounty_id = bounty.id
+        close_proposal = propose_treasury_action(
+            session,
+            action="close_bounty",
+            payload={"bounty_id": bounty_id, "closed_by": "maintainer"},
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    body = client.get(f"/api/v1/bounties/{bounty_id}").json()
+    summary = client.get("/api/v1/bounties/summary?status=open").json()
+
+    assert body["awards_remaining"] == 4
+    assert body["available_mrwk"] == "40"
+    assert body["pending_awards"] == 0
+    assert body["pending_close"] is True
+    assert body["pending_close_proposal_id"] == close_proposal.id
+    assert body["effective_awards_remaining"] == 0
+    assert body["effective_available_mrwk"] == "0"
+    assert body["availability_status"] == "pending_close"
+    assert "pending close proposal" in body["availability_note"]
+    assert summary == {
+        "bounties_shown": 1,
+        "open_awards": 0,
+        "open_pool_mrwk": "0",
+    }
 
 
 def test_bounty_api_reports_paid_multi_award_as_exhausted(sqlite_url: str) -> None:

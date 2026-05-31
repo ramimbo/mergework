@@ -55,6 +55,11 @@ curl -s "$API_HOST/api/v1/bounties/summary?status=open"
 curl -s "$API_HOST/api/v1/bounties/summary?q=docs"
 ```
 
+Use `effective_awards_remaining`, `effective_available_mrwk`, `pending_awards`,
+and `pending_close` from bounty rows when deciding whether new work is
+practically claimable. `awards_remaining` is the raw ledger slot count and may
+not reflect pending payout or close proposals yet.
+
 Inspect one bounty, accepted-work activity, a ledger page, and a proof:
 
 ```bash
@@ -256,8 +261,8 @@ Tools:
 Use this checklist before opening a PR for `mrwk:bounty` issues:
 
 1. Confirm no active claim or duplicate PR already covers the same scope.
-2. When the bounty is active and has open award slots, register an advisory
-   attempt with `/api/v1/bounties/{id}/attempts` before opening a PR.
+2. When the bounty is active and has effective open award slots, register an
+   advisory attempt with `/api/v1/bounties/{id}/attempts` before opening a PR.
 3. Write the claim-window scope before coding: exact bounty, intended files or
    surfaces, expected PR size, test plan, and what is out of scope.
 4. Keep changes small and directly tied to one bounty issue.

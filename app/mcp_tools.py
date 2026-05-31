@@ -20,6 +20,7 @@ from app.models import Bounty, Proof, Wallet
 from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, proof_hash_from_path
 from app.serializers import (
     bounty_awards_to_dict,
+    bounty_effective_availability,
     bounty_to_dict,
     wallet_to_dict,
     wallet_transfer_to_dict,
@@ -142,15 +143,26 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 newest_bounties = session.scalars(
                     query.order_by(Bounty.id.desc()).limit(limit)
                 ).all()
-                return json.dumps([bounty_to_dict(bounty) for bounty in newest_bounties])
+                return json.dumps(
+                    [
+                        bounty_to_dict(bounty, bounty_effective_availability(session, bounty))
+                        for bounty in newest_bounties
+                    ]
+                )
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
-            sorted_bounties = sort_bounties([bounty_to_dict(bounty) for bounty in bounties], sort)
+            sorted_bounties = sort_bounties(
+                [
+                    bounty_to_dict(bounty, bounty_effective_availability(session, bounty))
+                    for bounty in bounties
+                ],
+                sort,
+            )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
             bounty = session.get(Bounty, positive_int_arg("id"))
             if bounty is None:
                 return "bounty not found"
-            bounty_data = bounty_to_dict(bounty)
+            bounty_data = bounty_to_dict(bounty, bounty_effective_availability(session, bounty))
             if optional_bool_arg("include_awards"):
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)

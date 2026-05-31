@@ -48,6 +48,8 @@
 </p>
 <div class="list">
   {% for bounty in bounties %}
+  {% set effective_awards = bounty.effective_awards_remaining | default(bounty.awards_remaining) %}
+  {% set effective_available = bounty.effective_available_mrwk | default(bounty.available_mrwk) %}
   <article class="bounty-card bounty-card--{{ bounty.status }}">
     <div class="bounty-card-head">
       <h2><a href="/bounties/{{ bounty.id }}">{{ bounty.title }}</a></h2>
@@ -61,9 +63,17 @@
       {{ bounty.repo }} #{{ bounty.issue_number }} ·
       {% endif %}
       <strong>{{ bounty.reward_mrwk }} MRWK</strong> per award ·
+      {% if effective_awards == bounty.awards_remaining and not bounty.pending_awards and not bounty.pending_close %}
       {{ bounty.available_mrwk }} MRWK still available ·
       {{ bounty.awards_remaining }}/{{ bounty.max_awards }} awards open
+      {% else %}
+      {{ effective_available }} MRWK effectively available ·
+      {{ effective_awards }}/{{ bounty.max_awards }} awards effectively open
+      {% endif %}
     </p>
+    {% if bounty.pending_awards or bounty.pending_close %}
+    <p class="availability-note">{{ bounty.availability_note }}</p>
+    {% endif %}
     <p>{{ bounty.acceptance }}</p>
   </article>
   {% else %}

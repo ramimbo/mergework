@@ -214,8 +214,8 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "status` can be omitted or set to" in examples
     assert "`newest` is the default" in examples
     assert "by per-award reward" in examples
-    assert "`available` sorts by the remaining MRWK pool" in examples
-    assert "remaining award slots" in examples
+    assert "`available` sorts by the effective remaining MRWK pool" in examples
+    assert "effective remaining award slots" in examples
     assert "Use `limit` from `1` to `200`" in examples
     assert '"id": 36' in examples
     assert '"repo": "ramimbo/mergework"' in examples
@@ -225,6 +225,9 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert '"reserved_mrwk": "500"' in examples
     assert '"awards_paid": 4' in examples
     assert '"awards_remaining": 1' in examples
+    assert '"effective_awards_remaining": 0' in examples
+    assert '"effective_available_mrwk": "0"' in examples
+    assert '"pending_close": false' in examples
     assert '"bounties_shown": 1' in examples
     assert '"open_awards": 2' in examples
     assert '"open_pool_mrwk": "50"' in examples

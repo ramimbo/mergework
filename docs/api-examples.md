@@ -39,6 +39,14 @@ The bounties list returns public bounty rows. `status` can be omitted or set to
   "max_awards": 5,
   "awards_paid": 4,
   "awards_remaining": 1,
+  "pending_awards": 1,
+  "pending_payout_proposal_ids": [91],
+  "pending_close": false,
+  "pending_close_proposal_id": null,
+  "effective_awards_remaining": 0,
+  "effective_available_mrwk": "0",
+  "availability_status": "pending_payouts_full",
+  "availability_note": "1 pending payout proposal consumes practical award capacity.",
   "status": "open",
   "acceptance": "Focused public-facing enhancements that help contributors find bounties, inspect accepted work, or understand proof/account activity, with tests. Duplicate, marketing-only, docs-only, broad redesign, or unrelated changes do not qualify.",
   "created_at": "2026-05-24T20:44:00.015953"
@@ -46,14 +54,18 @@ The bounties list returns public bounty rows. `status` can be omitted or set to
 ```
 
 Use `id` for the single-bounty API path. Use `issue_number` and `issue_url` when
-linking back to the source GitHub issue. Award counters can change as accepted
-work is paid; refresh concrete examples against the live API before relying on
-available slot counts.
+linking back to the source GitHub issue. `awards_remaining` is the ledger slot
+count before pending treasury proposals execute. For starting new work, prefer
+`effective_awards_remaining`, `effective_available_mrwk`, `pending_awards`, and
+`pending_close`; those fields account for pending payouts and pending close
+proposals that can consume practical capacity before the ledger mutates.
+Award counters can change as accepted work is paid; refresh concrete examples
+against the live API before relying on available slot counts.
 
 Use `sort` to choose the bounty order: `newest` is the default, `reward` sorts
-by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
-sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
-rows after filtering and sorting.
+by per-award reward, `available` sorts by the effective remaining MRWK pool, and
+`awards` sorts by effective remaining award slots. Use `limit` from `1` to `200`
+to cap returned rows after filtering and sorting.
 
 Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
 `limit` filters when an agent only needs capacity totals instead of full bounty
@@ -771,7 +783,7 @@ curl -s "$API_HOST/api/v1/bounties/summary?status=open"
 curl -s "$API_HOST/api/v1/bounties/<bounty_id>"
 ```
 
-The single-bounty response includes `max_awards`, `awards_paid`, and `awards_remaining`:
+The single-bounty response includes raw and effective capacity:
 
 ```json
 {
@@ -781,11 +793,17 @@ The single-bounty response includes `max_awards`, `awards_paid`, and `awards_rem
   "max_awards": 5,
   "awards_paid": 4,
   "awards_remaining": 1,
+  "pending_awards": 1,
+  "pending_close": false,
+  "effective_awards_remaining": 0,
+  "effective_available_mrwk": "0",
+  "availability_status": "pending_payouts_full",
   "status": "open"
 }
 ```
 
-Do not open a PR if `awards_remaining` is zero, or if the bounty `status` is `paid` or `closed`.
+Do not open a PR if `effective_awards_remaining` is zero, `pending_close` is
+true, or the bounty `status` is `paid` or `closed`.
 
 ### Check Active Attempts
 
@@ -838,7 +856,7 @@ Filter by PR body references (`Bounty #N` or `Refs #N`) to find scope-alike PRs 
 
 Before opening work on a bounty round:
 
-1. **Check the live bounty API** — if `status` is not `"open"` or `awards_remaining` is zero, the round is exhausted or closed and no new work will be accepted.
+1. **Check the live bounty API** — if `status` is not `"open"`, `effective_awards_remaining` is zero, or `pending_close` is true, the round is exhausted, practically consumed by pending proposals, or closing.
 2. **Check the GitHub issue state** — closed issues cannot receive new PR rewards.
 3. **Check for recent maintainer comments** — if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
 4. **Verify stale rounds** — a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.

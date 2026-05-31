@@ -10,16 +10,104 @@ from sqlalchemy.orm import Session
 
 from app.ledger.reconciliation import AcceptedPayoutCheck
 from app.ledger.service import format_mrwk, get_balance
-from app.models import Bounty, LedgerEntry, Proof, Wallet, WalletTransfer
+from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, WalletTransfer
 
 
-def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
-    """Serialize a bounty row for public API and page consumers."""
+def _bounty_awards_remaining(bounty: Bounty) -> int:
     awards_remaining = max(0, bounty.max_awards - bounty.awards_paid)
+    return awards_remaining if bounty.status == "open" else 0
+
+
+def _treasury_proposal_payload(proposal: TreasuryProposal) -> dict[str, Any] | None:
+    try:
+        data = json.loads(proposal.payload_json)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _payload_bounty_id(payload: dict[str, Any]) -> int | None:
+    try:
+        return int(payload.get("bounty_id") or 0)
+    except (TypeError, ValueError):
+        return None
+
+
+def bounty_effective_availability(session: Session, bounty: Bounty) -> dict[str, Any]:
+    """Return public availability after pending payout and close proposals."""
+    awards_remaining = _bounty_awards_remaining(bounty)
+    pending_payout_proposal_ids: list[int] = []
+    pending_close_proposal_id: int | None = None
+    if bounty.status == "open":
+        proposals = session.scalars(
+            select(TreasuryProposal)
+            .where(
+                TreasuryProposal.status == "pending",
+                TreasuryProposal.action.in_(("pay_bounty", "close_bounty")),
+            )
+            .order_by(TreasuryProposal.id.asc())
+        ).all()
+        for proposal in proposals:
+            payload = _treasury_proposal_payload(proposal)
+            if payload is None or _payload_bounty_id(payload) != bounty.id:
+                continue
+            if proposal.action == "pay_bounty":
+                pending_payout_proposal_ids.append(proposal.id)
+            elif proposal.action == "close_bounty" and pending_close_proposal_id is None:
+                pending_close_proposal_id = proposal.id
+
+    pending_awards = len(pending_payout_proposal_ids)
     if bounty.status != "open":
-        awards_remaining = 0
-    available_microunits = bounty.reward_microunits * awards_remaining
+        effective_awards_remaining = 0
+        availability_status = bounty.status
+        availability_note = f"Bounty is {bounty.status}; new work is not currently payable."
+    elif pending_close_proposal_id is not None:
+        effective_awards_remaining = 0
+        availability_status = "pending_close"
+        availability_note = (
+            "A pending close proposal makes this bounty unavailable until maintainers "
+            "resolve the proposal."
+        )
+    elif pending_awards:
+        effective_awards_remaining = max(0, awards_remaining - pending_awards)
+        availability_status = (
+            "pending_payouts" if effective_awards_remaining else "pending_payouts_full"
+        )
+        proposal_word = "proposal" if pending_awards == 1 else "proposals"
+        capacity_verb = "consumes" if pending_awards == 1 else "consume"
+        availability_note = (
+            f"{pending_awards} pending payout {proposal_word} "
+            f"{capacity_verb} practical award capacity."
+        )
+    else:
+        effective_awards_remaining = awards_remaining
+        availability_status = "open" if awards_remaining else "full"
+        availability_note = (
+            "Open awards are currently available."
+            if awards_remaining
+            else "No award slots remain for new accepted work."
+        )
     return {
+        "pending_awards": pending_awards,
+        "pending_payout_proposal_ids": pending_payout_proposal_ids,
+        "pending_close": pending_close_proposal_id is not None,
+        "pending_close_proposal_id": pending_close_proposal_id,
+        "effective_awards_remaining": effective_awards_remaining,
+        "effective_available_mrwk": format_mrwk(
+            bounty.reward_microunits * effective_awards_remaining
+        ),
+        "availability_status": availability_status,
+        "availability_note": availability_note,
+    }
+
+
+def bounty_to_dict(
+    bounty: Bounty, effective_availability: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Serialize a bounty row for public API and page consumers."""
+    awards_remaining = _bounty_awards_remaining(bounty)
+    available_microunits = bounty.reward_microunits * awards_remaining
+    result: dict[str, Any] = {
         "id": bounty.id,
         "repo": bounty.repo,
         "issue_number": bounty.issue_number,
@@ -35,6 +123,9 @@ def bounty_to_dict(bounty: Bounty) -> dict[str, Any]:
         "acceptance": bounty.acceptance,
         "created_at": bounty.created_at.isoformat(),
     }
+    if effective_availability is not None:
+        result.update(effective_availability)
+    return result
 
 
 def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, Any]]:
@@ -68,10 +159,13 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
 
 def bounty_list_summary(bounties: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate visible bounty rows into capacity totals."""
-    open_awards = sum(int(bounty["awards_remaining"]) for bounty in bounties)
+    open_awards = sum(
+        int(bounty.get("effective_awards_remaining", bounty["awards_remaining"]))
+        for bounty in bounties
+    )
     open_pool_microunits = sum(
         int(Decimal(str(bounty["reward_mrwk"])) * Decimal(1_000_000))
-        * int(bounty["awards_remaining"])
+        * int(bounty.get("effective_awards_remaining", bounty["awards_remaining"]))
         for bounty in bounties
     )
     return {

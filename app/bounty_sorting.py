@@ -37,11 +37,17 @@ def sort_bounties(bounties: list[dict[str, Any]], sort: str | None) -> list[dict
     if normalized_sort == "available":
         return sorted(
             bounties,
-            key=lambda bounty: (Decimal(str(bounty["available_mrwk"])), int(bounty["id"])),
+            key=lambda bounty: (
+                Decimal(str(bounty.get("effective_available_mrwk", bounty["available_mrwk"]))),
+                int(bounty["id"]),
+            ),
             reverse=True,
         )
     return sorted(
         bounties,
-        key=lambda bounty: (int(bounty["awards_remaining"]), int(bounty["id"])),
+        key=lambda bounty: (
+            int(bounty.get("effective_awards_remaining", bounty["awards_remaining"])),
+            int(bounty["id"]),
+        ),
         reverse=True,
     )

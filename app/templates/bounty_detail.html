@@ -5,6 +5,9 @@
   <a href="/bounties">&larr; Back to bounties</a>
 </nav>
 <section class="detail">
+  {% set effective_awards = bounty.effective_awards_remaining | default(bounty.awards_remaining) %}
+  {% set effective_available = bounty.effective_available_mrwk | default(bounty.available_mrwk) %}
+  {% set has_pending_availability = bounty.pending_awards or bounty.pending_close %}
   <p class="eyebrow">Bounty #{{ bounty.id }}</p>
   <h1>{{ bounty.title }}</h1>
   <p class="lead">Review the reward, status, source issue, and acceptance criteria before starting.</p>
@@ -32,6 +35,14 @@
       <strong>{{ bounty.available_mrwk }} MRWK</strong>
     </article>
     <article>
+      <span>Effectively remaining</span>
+      <strong>{{ effective_awards }}</strong>
+    </article>
+    <article>
+      <span>Effectively available</span>
+      <strong>{{ effective_available }} MRWK</strong>
+    </article>
+    <article>
       <span>Issue</span>
       <strong>
         {% if issue_url %}
@@ -42,6 +53,9 @@
       </strong>
     </article>
   </div>
+  {% if bounty.pending_awards or bounty.pending_close %}
+  <p class="availability-note availability-note--detail">{{ bounty.availability_note }}</p>
+  {% endif %}
 
   <section class="acceptance-card" aria-labelledby="acceptance-heading">
     <p class="eyebrow">Acceptance</p>
@@ -56,10 +70,18 @@
       <li>Confirm the source issue is still open and your change is not already covered by another PR.</li>
       <li>Keep the PR focused, link the source issue as <strong>Bounty #{{ bounty.issue_number }}</strong>, and include test or smoke-check evidence.</li>
       <li>
-        {% if bounty.awards_remaining %}
-          {{ bounty.awards_remaining }} award{% if bounty.awards_remaining != 1 %}s{% endif %} still open for distinct accepted work.
+        {% if effective_awards %}
+          {% if has_pending_availability %}
+            {{ effective_awards }} award{% if effective_awards != 1 %}s{% endif %} effectively open for distinct accepted work.
+          {% else %}
+            {{ bounty.awards_remaining }} award{% if bounty.awards_remaining != 1 %}s{% endif %} still open for distinct accepted work.
+          {% endif %}
         {% else %}
-          No awards remain; treat new work as unpaid unless maintainers reopen the bounty.
+          {% if has_pending_availability %}
+            No effective awards remain; treat new work as unpaid unless maintainers reopen or clear pending proposals.
+          {% else %}
+            No awards remain; treat new work as unpaid unless maintainers reopen the bounty.
+          {% endif %}
         {% endif %}
       </li>
     </ol>
@@ -73,7 +95,7 @@
 <section>
   <div class="section-head">
     <h2>Accepted work</h2>
-    <p>{{ bounty.awards_paid }}/{{ bounty.max_awards }} awards paid{% if bounty.awards_remaining %}; {{ bounty.awards_remaining }} still open{% endif %}.</p>
+    <p>{{ bounty.awards_paid }}/{{ bounty.max_awards }} awards paid{% if effective_awards %}; {% if has_pending_availability %}{{ effective_awards }} effectively open{% else %}{{ bounty.awards_remaining }} still open{% endif %}{% endif %}.</p>
   </div>
   {% if bounty.accepted_awards %}
   <div class="ledger-list">
