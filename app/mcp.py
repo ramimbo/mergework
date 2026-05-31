@@ -11,31 +11,142 @@ from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 
+POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 1}
+LIST_LIMIT_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 1, "maximum": 100}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
         "description": "List MRWK bounties with optional status, q, sort, and limit filters",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["open", "paid", "closed"],
+                    "default": "open",
+                },
+                "q": {"type": "string"},
+                "sort": {
+                    "type": "string",
+                    "enum": ["newest", "reward", "available", "awards"],
+                    "default": "newest",
+                },
+                "limit": LIST_LIMIT_SCHEMA,
+            },
+            "additionalProperties": False,
+        },
     },
     {
         "name": "get_bounty",
         "description": "Get a bounty by id, optionally with accepted awards",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": POSITIVE_INTEGER_SCHEMA,
+                "include_awards": {"type": "boolean", "default": False},
+            },
+            "required": ["id"],
+            "additionalProperties": False,
+        },
     },
     {
         "name": "list_bounty_attempts",
         "description": "List advisory active-attempt reservations for a bounty",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "bounty_id": POSITIVE_INTEGER_SCHEMA,
+                "include_expired": {"type": "boolean", "default": False},
+                "limit": LIST_LIMIT_SCHEMA,
+            },
+            "required": ["bounty_id"],
+            "additionalProperties": False,
+        },
     },
-    {"name": "get_balance", "description": "Get an account balance"},
+    {
+        "name": "get_balance",
+        "description": "Get an account balance",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"account": {"type": "string", "minLength": 1}},
+            "required": ["account"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "register_wallet",
         "description": "Register an MRWK wallet public key",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "public_key_hex": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "description": "32-byte Ed25519 public key encoded as lowercase hex.",
+                },
+                "label": {"type": "string", "maxLength": 160},
+            },
+            "required": ["public_key_hex"],
+            "additionalProperties": False,
+        },
     },
-    {"name": "get_wallet", "description": "Get an MRWK wallet by address"},
+    {
+        "name": "get_wallet",
+        "description": "Get an MRWK wallet by address",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"}},
+            "required": ["address"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "submit_wallet_transfer",
         "description": "Submit a signed MRWK wallet transfer",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"},
+                "to_address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"},
+                "amount_mrwk": {
+                    "type": "string",
+                    "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                },
+                "nonce": {"type": "integer", "minimum": 0},
+                "memo": {"type": "string", "maxLength": 240, "default": ""},
+                "signature_hex": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+            },
+            "required": [
+                "from_address",
+                "to_address",
+                "amount_mrwk",
+                "nonce",
+                "signature_hex",
+            ],
+            "additionalProperties": False,
+        },
     },
-    {"name": "get_ledger_entry", "description": "Get a ledger entry"},
-    {"name": "get_proof", "description": "Get a public proof by hash"},
+    {
+        "name": "get_ledger_entry",
+        "description": "Get a ledger entry",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"sequence": POSITIVE_INTEGER_SCHEMA},
+            "required": ["sequence"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_proof",
+        "description": "Get a public proof by hash",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+            "required": ["hash"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "submit_work_proof",
         "description": (

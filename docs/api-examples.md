@@ -559,6 +559,10 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+The `tools/list` response includes an `inputSchema` for each argument-taking
+tool. Agent callers can use those schemas as the preflight argument contract,
+while the server-side validators remain authoritative at call time.
+
 Call `get_balance`:
 
 ```bash

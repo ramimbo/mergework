@@ -195,6 +195,50 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
     assert tools["result"]["tools"][0]["name"] == "list_bounties"
     assert "status, q, sort, and limit filters" in tools["result"]["tools"][0]["description"]
+    tools_by_name = {tool["name"]: tool for tool in tools["result"]["tools"]}
+    assert len(tools_by_name) == len(tools["result"]["tools"])
+    assert all("inputSchema" in tool for tool in tools["result"]["tools"])
+
+    list_schema = tools_by_name["list_bounties"]["inputSchema"]
+    assert list_schema["additionalProperties"] is False
+    assert list_schema["properties"]["status"]["enum"] == ["open", "paid", "closed"]
+    assert list_schema["properties"]["status"]["default"] == "open"
+    assert list_schema["properties"]["sort"]["enum"] == [
+        "newest",
+        "reward",
+        "available",
+        "awards",
+    ]
+    assert list_schema["properties"]["limit"]["maximum"] == 100
+
+    bounty_schema = tools_by_name["get_bounty"]["inputSchema"]
+    assert bounty_schema["required"] == ["id"]
+    assert bounty_schema["properties"]["id"]["minimum"] == 1
+    assert bounty_schema["properties"]["include_awards"]["type"] == "boolean"
+
+    attempt_schema = tools_by_name["list_bounty_attempts"]["inputSchema"]
+    assert attempt_schema["required"] == ["bounty_id"]
+    assert attempt_schema["properties"]["bounty_id"]["minimum"] == 1
+    assert attempt_schema["properties"]["include_expired"]["default"] is False
+    assert attempt_schema["properties"]["limit"]["maximum"] == 100
+
+    assert tools_by_name["get_balance"]["inputSchema"]["required"] == ["account"]
+    assert tools_by_name["register_wallet"]["inputSchema"]["required"] == ["public_key_hex"]
+    register_schema = tools_by_name["register_wallet"]["inputSchema"]
+    assert register_schema["properties"]["label"]["maxLength"] == 160
+    assert tools_by_name["get_wallet"]["inputSchema"]["required"] == ["address"]
+    transfer_schema = tools_by_name["submit_wallet_transfer"]["inputSchema"]
+    assert transfer_schema["required"] == [
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "signature_hex",
+    ]
+    assert transfer_schema["properties"]["memo"]["maxLength"] == 240
+    assert tools_by_name["get_ledger_entry"]["inputSchema"]["required"] == ["sequence"]
+    assert tools_by_name["get_proof"]["inputSchema"]["required"] == ["hash"]
+
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
