@@ -61,8 +61,11 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
     assert report["summary"] == {
         "pull_requests": 4,
         "open_bounties": 2,
+        "live_bounties": 2,
+        "non_live_bounties": 0,
         "closed_or_exhausted_bounties": 1,
         "closed_bounty_references": 1,
+        "non_live_bounty_references": 0,
         "missing_bounty_references": 1,
         "dirty_or_unstable_merge_state": 2,
         "needs_info": 1,
@@ -183,6 +186,100 @@ def test_pr_queue_health_accepts_github_linking_keywords() -> None:
 
     assert report["summary"]["missing_bounty_references"] == 0
     assert report["missing_bounty_references"] == []
+
+
+def test_pr_queue_health_flags_non_live_bounty_references() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 597,
+                    "state": "OPEN",
+                    "awards_remaining": 8,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "comments": [
+                        {"body": "Reserved on MergeWork: https://mrwk.online/bounties/88"}
+                    ],
+                },
+                {
+                    "number": 645,
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [],
+                    "comments": [
+                        {
+                            "body": (
+                                "Status: pending create_bounty proposal. "
+                                "Maintainers will post the `Reserved on MergeWork` "
+                                "claims-open comment after execution. "
+                                "Please do not submit /claim work yet."
+                            )
+                        }
+                    ],
+                },
+            ],
+            "pull_requests": [
+                {
+                    "number": 10,
+                    "title": "Live bounty docs improvement",
+                    "body": "Bounty #597",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+                {
+                    "number": 11,
+                    "title": "Premature guard implementation",
+                    "body": "Refs: #645",
+                    "merge_state": "clean",
+                    "labels": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["live_bounties"] == 1
+    assert report["summary"]["non_live_bounties"] == 1
+    assert report["summary"]["non_live_bounty_references"] == 1
+    assert report["non_live_bounty_references"][0]["pull_request"] == 11
+    assert (
+        report["non_live_bounty_references"][0]["detail"]
+        == "Referenced bounty #645 is not claimable: "
+        "missing mrwk:bounty label and Reserved on MergeWork comment"
+    )
+    markdown = format_markdown_report(report)
+    assert "### Non-live bounty references" in markdown
+    assert "Referenced bounty #645 is not claimable" in markdown
+
+
+def test_pr_queue_health_flags_missing_claims_open_comment() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 646,
+                    "state": "OPEN",
+                    "awards_remaining": 10,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "comments": [{"body": "Treasury proposal created, awaiting execution."}],
+                }
+            ],
+            "pull_requests": [
+                {
+                    "number": 12,
+                    "title": "Docs cleanup for proposed bounty flow",
+                    "body": "/claim #646",
+                    "merge_state": "clean",
+                    "labels": [],
+                }
+            ],
+        }
+    )
+
+    assert report["summary"]["non_live_bounty_references"] == 1
+    assert (
+        report["non_live_bounty_references"][0]["detail"]
+        == "Referenced bounty #646 is not claimable: missing Reserved on MergeWork comment"
+    )
 
 
 @pytest.mark.parametrize("reference", ("Fixes #310abc", "Fixes #310_abc", "Fixes #310-abc"))
@@ -363,6 +460,63 @@ def test_pr_queue_health_fails_fast_when_issue_fetch_hits_cap(monkeypatch) -> No
 
     with pytest.raises(RuntimeError, match="issue list reached the 201 item safety cap"):
         pr_queue_health.load_live_queue("ramimbo/mergework")
+
+
+def test_pr_queue_health_live_loader_fetches_reference_comments(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 657,
+                        "title": "Premature non-live bounty PR",
+                        "body": "Refs #645",
+                        "labels": [],
+                        "mergeStateStatus": "clean",
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "list"]:
+            assert args[-1] == "number,title,state,labels"
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 645,
+                        "title": "MRWK bounty: proposed work",
+                        "state": "OPEN",
+                        "labels": [],
+                    }
+                ]
+            )
+        elif args[:3] == ["gh", "issue", "view"]:
+            assert args[3] == "645"
+            stdout = json.dumps(
+                {
+                    "number": 645,
+                    "title": "MRWK bounty: proposed work",
+                    "state": "OPEN",
+                    "labels": [],
+                    "comments": [
+                        {
+                            "body": (
+                                "Status: not claimable yet. Maintainers will post "
+                                "`Reserved on MergeWork` after execution."
+                            )
+                        }
+                    ],
+                }
+            )
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+
+    data = pr_queue_health.load_live_queue("ramimbo/mergework")
+    report = analyze_queue(data)
+
+    assert report["summary"]["non_live_bounty_references"] == 1
+    assert report["non_live_bounty_references"][0]["pull_request"] == 657
 
 
 def test_pr_queue_health_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
