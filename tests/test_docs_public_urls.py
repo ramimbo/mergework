@@ -240,6 +240,10 @@ def test_api_examples_document_attempt_list_response_shape() -> None:
 
     assert "/api/v1/bounties/<bounty_id>/attempts" in examples
     assert "returns the bounty id, advisory warnings, and active attempt reservations" in examples
+    assert "OpenAPI `requestBody`" in examples
+    assert "schemas exposed by `GET /openapi.json`" in examples
+    assert "including attempts, wallet" in examples
+    assert "registration/linking, GitHub claims, wallet transfers" in examples
     assert '"bounty_id": 65' in examples
     assert '"warnings": []' in examples
     assert '"attempts": [' in examples

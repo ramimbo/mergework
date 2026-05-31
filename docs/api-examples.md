@@ -132,6 +132,10 @@ curl -s -X POST "$API_HOST/api/v1/treasury/proposals/<proposal_id>/execute" \
 GitHub-authenticated users with at least one accepted MRWK award can submit
 challenges:
 
+Public JSON POST examples in this document match the OpenAPI `requestBody`
+schemas exposed by `GET /openapi.json`, including attempts, wallet
+registration/linking, GitHub claims, wallet transfers, and treasury challenges.
+
 ```bash
 curl -s -X POST "$API_HOST/api/v1/treasury/proposals/<proposal_id>/challenges" \
   -b "mrwk_user=<session-cookie>" \

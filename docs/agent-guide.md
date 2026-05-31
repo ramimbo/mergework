@@ -28,6 +28,10 @@ Submit small, reviewable work and include evidence.
 - `POST /api/v1/github/claim`
 - `POST /api/v1/transfers`
 
+JSON POST payloads for attempts, wallet registration/linking, GitHub claims,
+wallet transfers, and treasury challenges are also described in
+`GET /openapi.json` as OpenAPI `requestBody` schemas.
+
 ## Public API Examples
 
 Use the live public API host for read-only examples:

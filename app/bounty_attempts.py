@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.db import session_scope
 from app.ledger.service import CONTROL_CHAR_RE, LedgerError, validate_public_url
 from app.models import Bounty, BountyAttempt
+from app.openapi_request_bodies import json_request_body
 
 DEFAULT_ATTEMPT_TTL_SECONDS = 24 * 60 * 60
 MIN_ATTEMPT_TTL_SECONDS = 60
@@ -24,6 +25,44 @@ RequiredString = Callable[[dict[str, Any], str], str]
 OptionalInteger = Callable[[dict[str, Any], str, int], int]
 NormalizeAccount = Callable[[str], str]
 PositiveBountyId = Callable[[int], int]
+
+ATTEMPT_CREATE_BODY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "submitter_account": {
+            "type": "string",
+            "description": (
+                "Optional github:<login> account; when present it must match the "
+                "authenticated session."
+            ),
+        },
+        "source_url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 500,
+            "description": "Optional public URL for the branch, issue, PR, or other work source.",
+        },
+        "ttl_seconds": {
+            "type": "integer",
+            "minimum": MIN_ATTEMPT_TTL_SECONDS,
+            "maximum": MAX_ATTEMPT_TTL_SECONDS,
+            "default": DEFAULT_ATTEMPT_TTL_SECONDS,
+        },
+    },
+}
+
+ATTEMPT_RELEASE_BODY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "submitter_account": {
+            "type": "string",
+            "description": (
+                "Optional github:<login> account; when present it must match the "
+                "authenticated session."
+            ),
+        },
+    },
+}
 
 
 def _utc_now() -> datetime:
@@ -164,7 +203,10 @@ def register_bounty_attempt_routes(
                 "attempts": listing["attempts"],
             }
 
-    @app.post("/api/v1/bounties/{bounty_id}/attempts")
+    @app.post(
+        "/api/v1/bounties/{bounty_id}/attempts",
+        openapi_extra=json_request_body(ATTEMPT_CREATE_BODY_SCHEMA, required=False),
+    )
     async def api_create_bounty_attempt(
         bounty_id: int,
         request: Request,
@@ -271,7 +313,10 @@ def register_bounty_attempt_routes(
                 },
             )
 
-    @app.post("/api/v1/bounty-attempts/{attempt_id}/release")
+    @app.post(
+        "/api/v1/bounty-attempts/{attempt_id}/release",
+        openapi_extra=json_request_body(ATTEMPT_RELEASE_BODY_SCHEMA, required=False),
+    )
     async def api_release_bounty_attempt(
         attempt_id: int,
         request: Request,

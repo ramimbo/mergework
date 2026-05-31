@@ -8,8 +8,10 @@ from sqlalchemy import select
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
+from app.openapi_request_bodies import json_request_body
 from app.path_params import SQLITE_INTEGER_MAX
 from app.treasury import (
+    CHALLENGE_TYPES,
     challenge_to_dict,
     create_treasury_challenge,
     proposal_to_dict,
@@ -17,6 +19,19 @@ from app.treasury import (
     treasury_status,
 )
 from app.treasury_executor import execute_treasury_proposal_with_finalization
+
+TREASURY_CHALLENGE_BODY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["challenge_type", "reason"],
+    "properties": {
+        "challenge_type": {
+            "type": "string",
+            "enum": sorted(CHALLENGE_TYPES),
+            "maxLength": 80,
+        },
+        "reason": {"type": "string", "maxLength": 1000},
+    },
+}
 
 
 def _positive_proposal_id(proposal_id: int) -> int:
@@ -111,7 +126,10 @@ def register_treasury_routes(
         except LedgerError as exc:
             raise _proposal_error(exc) from exc
 
-    @app.post("/api/v1/treasury/proposals/{proposal_id}/challenges")
+    @app.post(
+        "/api/v1/treasury/proposals/{proposal_id}/challenges",
+        openapi_extra=json_request_body(TREASURY_CHALLENGE_BODY_SCHEMA),
+    )
     async def api_create_treasury_challenge(
         proposal_id: int,
         request: Request,
