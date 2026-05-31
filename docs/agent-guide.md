@@ -53,6 +53,7 @@ filters:
 curl -s "$API_HOST/api/v1/bounties/summary"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open"
 curl -s "$API_HOST/api/v1/bounties/summary?q=docs"
+curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework&issue_number=647"
 ```
 
 Inspect one bounty, accepted-work activity, a ledger page, and a proof:
@@ -73,6 +74,13 @@ curl -s "$API_HOST/api/v1/ledger/1"
 
 The `<bounty_id>` value is the internal MergeWork bounty id returned by
 `/api/v1/bounties`, not the GitHub issue number.
+
+When an agent starts from a GitHub issue URL, use exact source filters before
+falling back to broad search:
+
+```bash
+curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=647"
+```
 
 Inspect treasury proposals:
 

@@ -19,8 +19,10 @@ curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
 curl -s "$API_HOST/api/v1/bounties?status=open&sort=available&limit=5"
+curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=647"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
+curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework&issue_number=647"
 ```
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
@@ -66,9 +68,14 @@ by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
 sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
 rows after filtering and sorting.
 
+Use exact source filters when starting from a GitHub issue URL:
+`repo=owner/name` narrows to one repository, `issue_number=N` narrows to one
+GitHub issue number, and both together identify a source issue without relying
+on broad `q` search.
+
 Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
 `limit` filters when an agent only needs capacity totals instead of full bounty
-rows:
+rows. It also accepts the exact `repo` and `issue_number` source filters:
 
 ```json
 {

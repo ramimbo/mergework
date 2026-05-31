@@ -22,7 +22,7 @@ from app.ledger.service import (
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
-from app.path_params import issue_number_search_value, positive_bounty_id
+from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, positive_bounty_id
 from app.serializers import (
     bounties_to_dict,
     bounty_awards_to_dict,
@@ -97,11 +97,25 @@ def register_bounty_api_routes(
 ) -> dict[str, Any]:
     """Register bounty listing, CRUD, payment, close, and reconciliation routes."""
 
+    def _repo_filter_value(repo: str | None) -> str | None:
+        if repo is None:
+            return None
+        if contains_control_character(repo):
+            raise HTTPException(status_code=400, detail="repo must not contain control characters")
+        clean = repo.strip().lower()
+        if not clean:
+            return None
+        if len(clean) > 200:
+            raise HTTPException(status_code=400, detail="repo is too long")
+        return clean
+
     def _list_bounties_by_status(
         status: str | None = None,
         query_text: str | None = None,
         sort: str | None = None,
         limit: int | None = None,
+        repo: str | None = None,
+        issue_number: int | None = None,
     ) -> list[dict[str, Any]]:
         try:
             normalized_sort = normalize_bounty_sort(sort)
@@ -110,6 +124,7 @@ def register_bounty_api_routes(
             if "control characters" not in detail:
                 detail = BOUNTY_SORT_ERROR
             raise HTTPException(status_code=400, detail=detail) from exc
+        repo_filter = _repo_filter_value(repo)
         with session_scope(db_url) as session:
             query = select(Bounty)
             if status is not None:
@@ -123,6 +138,10 @@ def register_bounty_api_routes(
                         status_code=400, detail="status must be one of: open, paid, closed"
                     )
                 query = query.where(Bounty.status == normalized_status)
+            if repo_filter is not None:
+                query = query.where(func.lower(Bounty.repo) == repo_filter)
+            if issue_number is not None:
+                query = query.where(Bounty.issue_number == issue_number)
             if query_text is not None:
                 normalized_query = query_text.strip()
                 if normalized_query:
@@ -157,8 +176,17 @@ def register_bounty_api_routes(
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
         sort: str | None = Query(None),
+        repo: str | None = Query(None),
+        issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
     ) -> list[dict[str, Any]]:
-        return _list_bounties_by_status(status, q, sort=sort, limit=limit)
+        return _list_bounties_by_status(
+            status,
+            q,
+            sort=sort,
+            limit=limit,
+            repo=repo,
+            issue_number=issue_number,
+        )
 
     @app.get("/api/v1/bounties/summary")
     def api_bounties_summary(
@@ -166,8 +194,19 @@ def register_bounty_api_routes(
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
         sort: str | None = Query(None),
+        repo: str | None = Query(None),
+        issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
     ) -> dict[str, Any]:
-        return bounty_list_summary(_list_bounties_by_status(status, q, sort=sort, limit=limit))
+        return bounty_list_summary(
+            _list_bounties_by_status(
+                status,
+                q,
+                sort=sort,
+                limit=limit,
+                repo=repo,
+                issue_number=issue_number,
+            )
+        )
 
     @app.get("/api/v1/admin/webhook-events")
     def api_admin_webhook_events(

@@ -397,6 +397,70 @@ def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:
     assert first.id not in [item["id"] for item in limited.json()]
 
 
+def test_bounty_api_filters_by_exact_source_repo_and_issue(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        first = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=61,
+            issue_url="https://github.com/ramimbo/mergework/issues/61",
+            title="MergeWork exact source",
+            reward_mrwk="10",
+            acceptance="Exact source lookup should find this bounty.",
+        )
+        second = create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=61,
+            issue_url="https://github.com/example/mergework/issues/61",
+            title="Other repo same issue",
+            reward_mrwk="20",
+            acceptance="Issue-only lookup should include this bounty too.",
+        )
+        third = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=62,
+            issue_url="https://github.com/ramimbo/mergework/issues/62",
+            title="MergeWork other issue",
+            reward_mrwk="30",
+            acceptance="Repo-only lookup should include this bounty too.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    repo_rows = client.get("/api/v1/bounties?repo=RAMIMBO%2FMergeWork").json()
+    issue_rows = client.get("/api/v1/bounties?issue_number=61").json()
+    exact_rows = client.get("/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=61").json()
+    summary = client.get("/api/v1/bounties/summary?repo=ramimbo%2Fmergework&issue_number=61").json()
+
+    assert [item["id"] for item in repo_rows] == [third.id, first.id]
+    assert [item["id"] for item in issue_rows] == [second.id, first.id]
+    assert [item["id"] for item in exact_rows] == [first.id]
+    assert summary["bounties_shown"] == 1
+    assert summary["open_awards"] == 1
+
+
+def test_bounty_api_rejects_invalid_source_filters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    control = client.get("/api/v1/bounties?repo=%C2%85ramimbo%2Fmergework")
+    oversized = client.get(f"/api/v1/bounties?repo={'a' * 201}")
+
+    assert control.status_code == 400
+    assert control.json()["detail"] == "repo must not contain control characters"
+    assert oversized.status_code == 400
+    assert oversized.json()["detail"] == "repo is too long"
+    assert client.get("/api/v1/bounties?issue_number=0").status_code == 422
+    assert client.get("/api/v1/bounties/summary?issue_number=0").status_code == 422
+
+
 def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
