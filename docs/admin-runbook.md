@@ -271,6 +271,21 @@ post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
 PR scope within the same bounty issue.
 
+### Proposed-Work Queue
+
+Use the proposed-work queue report when reviewing issue intake before turning an
+idea into a live bounty or #647-style focused implementation source:
+
+```bash
+python scripts/proposed_work_queue.py --repo ramimbo/mergework --format markdown
+```
+
+The report is read-only. It includes issues with the `proposed-work` label and
+also unlabeled issues whose title starts with `Proposed work:` and whose body
+contains the expected proposed-work sections. This fallback matters for CLI or
+API submissions from contributors who cannot attach labels. It does not label
+issues, create bounties, post comments, accept work, or trigger payouts.
+
 ### Claim Inventory
 
 Use the claim-inventory report when a busy bounty round needs a public,
