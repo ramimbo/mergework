@@ -367,7 +367,7 @@ def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     ("params", "expected_detail"),
     [
         ({"status": "open\x85"}, "status must not contain control characters"),
-        ({"sort": "reward\x85"}, "sort must be one of: newest, reward, available, awards"),
+        ({"sort": "reward\x85"}, "sort must not contain control characters"),
     ],
 )
 def test_bounties_page_rejects_status_and_sort_control_characters(

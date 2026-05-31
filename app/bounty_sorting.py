@@ -15,11 +15,12 @@ BOUNTY_SORT_LABELS = {
 }
 BOUNTY_SORT_OPTIONS = tuple(BOUNTY_SORT_LABELS)
 BOUNTY_SORT_ERROR = f"sort must be one of: {', '.join(BOUNTY_SORT_OPTIONS)}"
+BOUNTY_SORT_CONTROL_CHAR_ERROR = "sort must not contain control characters"
 
 
 def normalize_bounty_sort(sort: str | None) -> str:
     if sort is not None and CONTROL_CHAR_RE.search(sort):
-        raise ValueError(BOUNTY_SORT_ERROR)
+        raise ValueError(BOUNTY_SORT_CONTROL_CHAR_ERROR)
     normalized_sort = (sort or "").strip().lower()
     if not normalized_sort:
         return "newest"

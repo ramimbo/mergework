@@ -264,7 +264,7 @@ def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
     ("params", "expected_detail"),
     [
         ({"status": "open\x85"}, "status must not contain control characters"),
-        ({"sort": "reward\x85"}, "sort must be one of: newest, reward, available, awards"),
+        ({"sort": "reward\x85"}, "sort must not contain control characters"),
     ],
 )
 def test_bounty_api_rejects_status_and_sort_control_characters(

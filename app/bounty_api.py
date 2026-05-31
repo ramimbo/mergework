@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.admin import list_webhook_events, webhook_events_to_dict
-from app.bounty_sorting import BOUNTY_SORT_ERROR, normalize_bounty_sort, sort_bounties
+from app.bounty_sorting import normalize_bounty_sort, sort_bounties
 from app.config import Settings
 from app.db import session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
@@ -104,7 +104,7 @@ def register_bounty_api_routes(
         try:
             normalized_sort = normalize_bounty_sort(sort)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=BOUNTY_SORT_ERROR) from exc
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         with session_scope(db_url) as session:
             query = select(Bounty)
             if status is not None:
