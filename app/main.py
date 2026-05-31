@@ -21,7 +21,7 @@ from app.bounty_attempts import (
 from app.config import get_settings
 from app.db import create_schema, session_scope
 from app.hub import is_ltc_lab_host, ltc_lab_context, mergework_hub_context
-from app.ledger.service import ensure_genesis, public_url_or_none
+from app.ledger.service import CONTROL_CHAR_RE, ensure_genesis, public_url_or_none
 from app.ledger_views import ledger_entry_to_dict, recent_ledger_entries
 from app.mcp import handle_mcp_request
 from app.mcp_tools import call_mcp_tool
@@ -146,6 +146,10 @@ def _parse_int(value: Any, field: str) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, str):
+        if CONTROL_CHAR_RE.search(value):
+            raise HTTPException(
+                status_code=400, detail=f"{field} must not contain control characters"
+            )
         clean = value.strip()
         if clean and clean.lstrip("+-").isdigit():
             try:

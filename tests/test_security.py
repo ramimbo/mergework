@@ -475,6 +475,11 @@ def test_admin_webhook_events_api_lists_and_filters_processing_outcomes(
         "/api/v1/admin/webhook-events?status= Missing_Submitter ",
         headers={"x-mergework-admin-token": "admin-token-for-tests"},
     )
+    c1_filtered = client.get(
+        "/api/v1/admin/webhook-events",
+        params={"status": "Missing_Submitter\x85"},
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
     limited = client.get(
         "/api/v1/admin/webhook-events?limit=1",
         headers={"x-mergework-admin-token": "admin-token-for-tests"},
@@ -499,6 +504,8 @@ def test_admin_webhook_events_api_lists_and_filters_processing_outcomes(
             "created_at": filtered.json()[0]["created_at"],
         }
     ]
+    assert c1_filtered.status_code == 400
+    assert c1_filtered.json()["detail"] == "status must not contain control characters"
     assert limited.status_code == 200
     assert len(limited.json()) == 1
     assert too_large.status_code == 422

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import func, select
 
 from app.admin import (
@@ -38,6 +40,15 @@ def test_normalize_webhook_status_filter_trims_and_lowers() -> None:
     assert normalize_webhook_status_filter(None) is None
     assert normalize_webhook_status_filter("   ") is None
     assert normalize_webhook_status_filter(" Missing_Submitter ") == "missing_submitter"
+
+
+@pytest.mark.parametrize("status", ["missing_submitter\n", "missing_submitter\x85"])
+def test_normalize_webhook_status_filter_rejects_control_characters(status: str) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        normalize_webhook_status_filter(status)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "status must not contain control characters"
 
 
 def test_list_webhook_events_filters_and_serializes_safe_fields(sqlite_url: str) -> None:

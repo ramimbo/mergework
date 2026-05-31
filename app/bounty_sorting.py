@@ -5,6 +5,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from app.ledger.service import CONTROL_CHAR_RE
+
 BOUNTY_SORT_LABELS = {
     "newest": "Newest first",
     "reward": "Highest per-award reward",
@@ -16,6 +18,8 @@ BOUNTY_SORT_ERROR = f"sort must be one of: {', '.join(BOUNTY_SORT_OPTIONS)}"
 
 
 def normalize_bounty_sort(sort: str | None) -> str:
+    if sort is not None and CONTROL_CHAR_RE.search(sort):
+        raise ValueError(BOUNTY_SORT_ERROR)
     normalized_sort = (sort or "").strip().lower()
     if not normalized_sort:
         return "newest"

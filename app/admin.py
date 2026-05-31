@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ledger.service import CONTROL_CHAR_RE
 from app.models import WebhookEvent
 from app.treasury import propose_treasury_action, treasury_status
 
@@ -23,6 +25,8 @@ WEBHOOK_OUTCOME_SCAN_ORDER = {
 def normalize_webhook_status_filter(status: str | None) -> str | None:
     if status is None:
         return None
+    if CONTROL_CHAR_RE.search(status):
+        raise HTTPException(status_code=400, detail="status must not contain control characters")
     normalized = status.strip().lower()
     return normalized or None
 

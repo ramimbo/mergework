@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -360,6 +361,28 @@ def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     invalid_sort = client.get("/api/v1/bounties?sort=bogus")
     assert invalid_sort.status_code == 400
     assert invalid_sort.json()["detail"] == "sort must be one of: newest, reward, available, awards"
+
+
+@pytest.mark.parametrize(
+    ("params", "expected_detail"),
+    [
+        ({"status": "open\x85"}, "status must not contain control characters"),
+        ({"sort": "reward\x85"}, "sort must be one of: newest, reward, available, awards"),
+    ],
+)
+def test_bounties_page_rejects_status_and_sort_control_characters(
+    sqlite_url: str, params: dict[str, str], expected_detail: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/bounties", params=params)
+
+    assert response.status_code == 400
+    assert expected_detail in response.text
 
 
 def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:

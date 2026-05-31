@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -257,6 +258,31 @@ def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
     invalid = client.get("/api/v1/bounties?status=bogus")
     assert invalid.status_code == 400
     assert invalid.json()["detail"] == "status must be one of: open, paid, closed"
+
+
+@pytest.mark.parametrize(
+    ("params", "expected_detail"),
+    [
+        ({"status": "open\x85"}, "status must not contain control characters"),
+        ({"sort": "reward\x85"}, "sort must be one of: newest, reward, available, awards"),
+    ],
+)
+def test_bounty_api_rejects_status_and_sort_control_characters(
+    sqlite_url: str, params: dict[str, str], expected_detail: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    listing = client.get("/api/v1/bounties", params=params)
+    summary = client.get("/api/v1/bounties/summary", params=params)
+
+    assert listing.status_code == 400
+    assert listing.json()["detail"] == expected_detail
+    assert summary.status_code == 400
+    assert summary.json()["detail"] == expected_detail
 
 
 def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:

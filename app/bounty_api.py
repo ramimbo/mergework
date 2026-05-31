@@ -108,6 +108,10 @@ def register_bounty_api_routes(
         with session_scope(db_url) as session:
             query = select(Bounty)
             if status is not None:
+                if CONTROL_CHAR_RE.search(status):
+                    raise HTTPException(
+                        status_code=400, detail="status must not contain control characters"
+                    )
                 normalized_status = status.strip().lower()
                 if normalized_status not in {"open", "paid", "closed"}:
                     raise HTTPException(
