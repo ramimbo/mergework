@@ -216,6 +216,11 @@ def main() -> int:
         for phrase in [
             "mrwk bounty: <amount> mrwk - <short scope>",
             "do not add the live bounty label from this template",
+            "treasury proposal executes",
+            "maintainers add `mrwk:bounty`",
+            "reserved on mergework",
+            "open public bounty row",
+            "award capacity remains after accepted or pending payout work",
             "id: evidence",
             "evidence or tests required",
             "id: out_of_scope",
