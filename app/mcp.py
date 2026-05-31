@@ -79,8 +79,52 @@ MCP_TOOLS: list[dict[str, Any]] = [
 ]
 
 
-def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
+def _jsonrpc_error(
+    response_id: Any, code: int, message: str, data: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": response_id, "error": error}
+
+
+def _argument_from_reason(reason: str, args: dict[str, Any]) -> str | None:
+    for argument in sorted(args):
+        if not isinstance(argument, str):
+            continue
+        if reason.startswith(f"{argument} ") or reason.startswith(f"use {argument} "):
+            return argument
+    return None
+
+
+def _safe_argument_error_data(
+    error: BaseException,
+    *,
+    tool_name: str,
+    args: dict[str, Any],
+) -> dict[str, Any] | None:
+    reason: str | None = None
+    argument: str | None = None
+    if isinstance(error, KeyError) and len(error.args) == 1 and isinstance(error.args[0], str):
+        argument = error.args[0]
+        reason = f"{argument} is required"
+    elif isinstance(error, HTTPException):
+        if error.status_code >= 500 or not isinstance(error.detail, str):
+            return None
+        reason = error.detail
+    elif isinstance(error, ValueError | LedgerError):
+        reason = str(error)
+        if reason == "unknown tool":
+            return None
+    if not reason:
+        return None
+
+    data: dict[str, Any] = {"reason": reason, "tool": tool_name}
+    if argument is None:
+        argument = _argument_from_reason(reason, args)
+    if argument is not None:
+        data["argument"] = argument
+    return data
 
 
 def _tool_result_response(response_id: Any, tool_result: str | dict[str, Any]) -> dict[str, Any]:
@@ -136,7 +180,14 @@ async def handle_mcp_request(
 
     try:
         tool_result = call_tool(database_url, name, args)
-    except (KeyError, TypeError, ValueError, LedgerError, HTTPException):
+    except (KeyError, ValueError, LedgerError, HTTPException) as exc:
+        return _jsonrpc_error(
+            response_id,
+            -32602,
+            "invalid tool arguments",
+            _safe_argument_error_data(exc, tool_name=name, args=args),
+        )
+    except TypeError:
         return _jsonrpc_error(response_id, -32602, "invalid tool arguments")
 
     return _tool_result_response(response_id, tool_result)

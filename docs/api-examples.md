@@ -603,6 +603,11 @@ Successful claim responses use the same immutable ledger-entry shape as
 
 ## MCP Examples
 
+MCP tool validation errors keep JSON-RPC code `-32602` and message
+`invalid tool arguments` for compatibility. When present, inspect
+`error.data.reason` for the safe field-level correction, such as
+`limit must be at most 100` or `format must be text or json`.
+
 List MCP tools:
 
 ```bash
