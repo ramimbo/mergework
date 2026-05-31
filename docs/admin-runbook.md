@@ -280,6 +280,19 @@ idea into a live bounty or #647-style focused implementation source:
 python scripts/proposed_work_queue.py --repo ramimbo/mergework --format markdown
 ```
 
+Use text for a quick terminal summary or JSON for scripts:
+
+```bash
+python scripts/proposed_work_queue.py --repo ramimbo/mergework --format text
+python scripts/proposed_work_queue.py --repo ramimbo/mergework --format json
+```
+
+For offline review using saved fixture data:
+
+```bash
+python scripts/proposed_work_queue.py --input proposed-work.json --format markdown
+```
+
 The report is read-only. It includes issues with the `proposed-work` label and
 also unlabeled issues whose title starts with `Proposed work:` and whose body
 contains the expected proposed-work sections. This fallback matters for CLI or

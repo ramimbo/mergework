@@ -12,6 +12,8 @@ PROPOSED_WORK_LABEL = "proposed-work"
 GH_TIMEOUT_SECONDS = 30
 GH_ISSUE_SAFETY_CAP = 201
 PROPOSED_WORK_TITLE_RE = re.compile(r"^\s*proposed\s+work\s*:", re.IGNORECASE)
+READ_ONLY_ISSUE_COMMANDS = {"list", "view"}
+READ_ONLY_API_METHODS = {"GET", "HEAD"}
 
 REQUIRED_SECTION_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("problem", ("problem",)),
@@ -200,16 +202,23 @@ def format_markdown_report(report: dict[str, Any]) -> str:
 
 
 def _run_gh_json(args: list[str]) -> Any:
-    if args[:2] == ["gh", "api"]:
+    if len(args) < 2 or args[0] != "gh":
+        raise RuntimeError(f"refusing non-gh command: {' '.join(args)}")
+    if args[1] == "issue":
+        command = args[2] if len(args) > 2 else ""
+        if command not in READ_ONLY_ISSUE_COMMANDS:
+            raise RuntimeError(f"refusing non-read-only gh issue command: {' '.join(args)}")
+    elif args[1] == "api":
+        method = None
         for flag in ("--method", "-X"):
             if flag not in args:
                 continue
             index = args.index(flag)
-            if index + 1 >= len(args) or args[index + 1].upper() not in {"GET", "HEAD"}:
-                raise RuntimeError(f"refusing non-read-only gh api command: {' '.join(args)}")
-    if any(arg == "issue" for arg in args) and any(
-        arg in {"comment", "edit", "close", "reopen"} for arg in args
-    ):
+            method = args[index + 1].upper() if index + 1 < len(args) else ""
+            break
+        if method not in READ_ONLY_API_METHODS:
+            raise RuntimeError(f"refusing non-read-only gh api command: {' '.join(args)}")
+    else:
         raise RuntimeError(f"refusing non-read-only gh issue command: {' '.join(args)}")
     try:
         completed = subprocess.run(

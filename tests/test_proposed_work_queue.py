@@ -179,6 +179,35 @@ def test_proposed_work_queue_live_loader_uses_read_only_issue_list(monkeypatch) 
 def test_proposed_work_queue_rejects_non_read_only_gh_command() -> None:
     with pytest.raises(RuntimeError, match="refusing non-read-only gh issue command"):
         proposed_work_queue._run_gh_json(["gh", "issue", "edit", "2"])
+    with pytest.raises(RuntimeError, match="refusing non-read-only gh issue command"):
+        proposed_work_queue._run_gh_json(["gh", "issue", "create", "--title", "bad"])
+    with pytest.raises(RuntimeError, match="refusing non-read-only gh api command"):
+        proposed_work_queue._run_gh_json(
+            ["gh", "api", "repos/ramimbo/mergework/issues", "-f", "x=y"]
+        )
+    with pytest.raises(RuntimeError, match="refusing non-read-only gh api command"):
+        proposed_work_queue._run_gh_json(
+            ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "POST"]
+        )
+
+
+def test_proposed_work_queue_rejects_when_safety_cap_reached(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        issues = [
+            {"number": number, "title": "x", "body": "", "labels": []}
+            for number in range(proposed_work_queue.GH_ISSUE_SAFETY_CAP)
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps(issues),
+            stderr="",
+        )
+
+    monkeypatch.setattr(proposed_work_queue.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="issue list reached the 201 item safety cap"):
+        proposed_work_queue.load_live_queue("ramimbo/mergework")
 
 
 def test_proposed_work_queue_main_reads_fixture(tmp_path, capsys) -> None:
