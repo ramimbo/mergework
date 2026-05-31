@@ -152,14 +152,14 @@ def register_bounty_api_routes(
                         .replace("_", "\\_")
                     )
                     like_query = f"%{escaped_query}%"
-                    issue_number = issue_number_search_value(normalized_query)
+                    parsed_issue_number = issue_number_search_value(normalized_query)
                     text_filter = or_(
                         func.lower(Bounty.repo).like(like_query, escape="\\"),
                         func.lower(Bounty.title).like(like_query, escape="\\"),
                         func.lower(Bounty.acceptance).like(like_query, escape="\\"),
                     )
-                    if issue_number is not None:
-                        text_filter = or_(text_filter, Bounty.issue_number == issue_number)
+                    if parsed_issue_number is not None:
+                        text_filter = or_(text_filter, Bounty.issue_number == parsed_issue_number)
                     query = query.where(text_filter)
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             sorted_bounties = sort_bounties(
