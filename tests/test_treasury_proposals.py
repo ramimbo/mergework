@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import cast
 
 import pytest
@@ -216,6 +216,9 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
             "reserve_mrwk": "500",
             "proposed_at": proposal.json()["proposed_at"],
             "executes_after": proposal.json()["executes_after"],
+            "capacity_releases_at": (
+                datetime.fromisoformat(proposal.json()["executes_after"]) + timedelta(hours=24)
+            ).isoformat(),
         }
     ]
     assert body["recent_reserves"] == [
@@ -271,6 +274,77 @@ def test_treasury_status_includes_reserve_at_exact_24h_boundary(
         }
     ]
     assert body["next_capacity_release_at"] is None
+
+
+def test_treasury_status_projects_pending_create_capacity_events(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixed_now = utc_now().replace(microsecond=0)
+    monkeypatch.setattr("app.treasury.utc_now", lambda: fixed_now)
+    client = _client(sqlite_url, monkeypatch)
+    recent_time = fixed_now - timedelta(hours=1)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=201,
+            issue_url="https://github.com/ramimbo/mergework/issues/201",
+            title="Recent reserve",
+            reward_mrwk="8000",
+            acceptance="Accepted work.",
+        )
+        recent_entry = session.scalar(
+            select(LedgerEntry).where(
+                LedgerEntry.entry_type == "bounty_reserve",
+                LedgerEntry.reference == "https://github.com/ramimbo/mergework/issues/201",
+            )
+        )
+        assert recent_entry is not None
+        recent_entry.created_at = recent_time
+
+    proposal = client.post(
+        "/api/v1/bounties",
+        headers=ADMIN_HEADERS,
+        json={**_bounty_payload(issue_number=202, reward_mrwk="1000"), "max_awards": 1},
+    )
+    response = client.get("/api/v1/treasury/status")
+
+    assert proposal.status_code == 200
+    assert response.status_code == 200
+    body = response.json()
+    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=48)
+    assert body["available_create_reserve_mrwk"] == "1000"
+    assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
+        pending_release_at.isoformat()
+    )
+    assert body["projected_capacity_events"] == [
+        {
+            "at": (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "event_type": "recent_reserve_releases",
+            "amount_mrwk": "8000",
+            "available_create_reserve_mrwk": "9000",
+            "note": "Executed reserve leaves the 24h cap window.",
+        },
+        {
+            "at": (fixed_now.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "event_type": "pending_create_executes",
+            "amount_mrwk": "1000",
+            "available_create_reserve_mrwk": "9000",
+            "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
+        },
+        {
+            "at": pending_release_at.isoformat(),
+            "event_type": "pending_create_releases",
+            "amount_mrwk": "1000",
+            "available_create_reserve_mrwk": "10000",
+            "note": "Executed reserve from this pending create leaves the 24h cap window.",
+        },
+    ]
+    assert (
+        body["next_projected_capacity_release_at"]
+        == (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat()
+    )
 
 
 def test_treasury_proposals_list_honors_limit(

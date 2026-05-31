@@ -73,6 +73,30 @@
     </tbody>
   </table>
   {% endif %}
+  {% if treasury_status.projected_capacity_events %}
+  <h3>Projected capacity events</h3>
+  <p>Pending create executions do not free capacity immediately. Capacity returns after the executed reserve leaves the 24h window.</p>
+  <table class="webhook-table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Event</th>
+        <th>Amount</th>
+        <th>Available after</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in treasury_status.projected_capacity_events %}
+      <tr>
+        <td data-label="Time">{{ event.at }}</td>
+        <td data-label="Event">{{ event.note }}</td>
+        <td data-label="Amount">{{ event.amount_mrwk }} MRWK</td>
+        <td data-label="Available after">{{ event.available_create_reserve_mrwk }} MRWK</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 
 <section class="detail">

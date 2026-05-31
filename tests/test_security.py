@@ -287,6 +287,8 @@ def test_admin_page_calls_out_pending_create_proposals_when_they_limit_capacity(
     assert "Pending create-bounty proposals are using current create-bounty capacity." in (
         response.text
     )
+    assert "Pending create executions do not free capacity immediately." in response.text
+    assert "Projected capacity events" in response.text
     assert "No recent reserve entries are currently limiting create-bounty capacity." not in (
         response.text
     )

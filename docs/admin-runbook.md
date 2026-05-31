@@ -79,6 +79,11 @@ users with at least one accepted MRWK award can submit proposal challenges.
 Machine-checkable valid challenges block execution. Subjective challenges are
 public notes and do not block by themselves.
 
+The admin treasury panel also shows projected capacity events. Use that table
+to plan the next runway before current rounds empty: a pending create execution
+does not free capacity immediately, because its reserve stays counted until it
+leaves the rolling 24-hour execution window.
+
 Proposal creation rejects known impossible or conflicting actions before they
 enter the public queue, including mismatched GitHub issue URLs, missing or
 non-open bounties, duplicate pending proposals, and pending reserve-cap

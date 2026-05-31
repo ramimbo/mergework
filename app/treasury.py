@@ -468,14 +468,87 @@ def _recent_bounty_reserve_entries(session: Session, now: datetime) -> list[Ledg
     )
 
 
+def _projected_capacity_events(
+    *,
+    now: datetime,
+    executed_reserve: int,
+    pending_create_reserve: int,
+    recent_reserves: list[LedgerEntry],
+    pending_creates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    event_rows: list[tuple[datetime, int, str, int, str]] = []
+    for entry in recent_reserves:
+        releases_at = _db_utc(entry.created_at) + TREASURY_EPOCH_WINDOW
+        if releases_at > now:
+            event_rows.append(
+                (
+                    releases_at,
+                    0,
+                    "recent_reserve_releases",
+                    int(entry.amount_microunits),
+                    "Executed reserve leaves the 24h cap window.",
+                )
+            )
+    for pending in pending_creates:
+        executes_after = pending["executes_after_dt"]
+        reserve = int(pending["reserve_microunits"])
+        event_rows.append(
+            (
+                executes_after,
+                1,
+                "pending_create_executes",
+                reserve,
+                "Pending create reserve becomes executed reserve; capacity does not increase.",
+            )
+        )
+        event_rows.append(
+            (
+                executes_after + TREASURY_EPOCH_WINDOW,
+                2,
+                "pending_create_releases",
+                reserve,
+                "Executed reserve from this pending create leaves the 24h cap window.",
+            )
+        )
+
+    projected_executed = executed_reserve
+    projected_pending = pending_create_reserve
+    events: list[dict[str, Any]] = []
+    for at, _, event_type, amount, note in sorted(event_rows, key=lambda item: (item[0], item[1])):
+        if event_type == "recent_reserve_releases":
+            projected_executed = max(projected_executed - amount, 0)
+        elif event_type == "pending_create_executes":
+            projected_pending = max(projected_pending - amount, 0)
+            projected_executed += amount
+        elif event_type == "pending_create_releases":
+            projected_executed = max(projected_executed - amount, 0)
+        available = max(
+            TREASURY_EPOCH_RESERVE_CAP_MICRO - projected_executed - projected_pending,
+            0,
+        )
+        events.append(
+            {
+                "at": at.isoformat(),
+                "event_type": event_type,
+                "amount_mrwk": format_mrwk(amount),
+                "available_create_reserve_mrwk": format_mrwk(available),
+                "note": note,
+            }
+        )
+    return events
+
+
 def treasury_status(session: Session) -> dict[str, Any]:
     now = _db_now()
     recent_reserves = _recent_bounty_reserve_entries(session, now)
     executed_reserve = sum(entry.amount_microunits for entry in recent_reserves)
     pending_create_bounties: list[dict[str, Any]] = []
+    pending_create_projection: list[dict[str, Any]] = []
     pending_create_reserve = 0
     for proposal, payload in _pending_action_payloads(session, "create_bounty"):
         reserve = parse_mrwk_amount(str(payload["reward_mrwk"])) * int(payload["max_awards"])
+        executes_after = _db_utc(proposal.executes_after)
+        capacity_releases_at = executes_after + TREASURY_EPOCH_WINDOW
         pending_create_reserve += reserve
         pending_create_bounties.append(
             {
@@ -487,7 +560,14 @@ def treasury_status(session: Session) -> dict[str, Any]:
                 "max_awards": int(payload["max_awards"]),
                 "reserve_mrwk": format_mrwk(reserve),
                 "proposed_at": _db_utc(proposal.proposed_at).isoformat(),
-                "executes_after": _db_utc(proposal.executes_after).isoformat(),
+                "executes_after": executes_after.isoformat(),
+                "capacity_releases_at": capacity_releases_at.isoformat(),
+            }
+        )
+        pending_create_projection.append(
+            {
+                "executes_after_dt": executes_after,
+                "reserve_microunits": reserve,
             }
         )
     available = max(TREASURY_EPOCH_RESERVE_CAP_MICRO - executed_reserve - pending_create_reserve, 0)
@@ -497,6 +577,18 @@ def treasury_status(session: Session) -> dict[str, Any]:
         if _db_utc(entry.created_at) + TREASURY_EPOCH_WINDOW > now
     ]
     next_capacity_release_at = min(release_times).isoformat() if release_times else None
+    projected_capacity_events = _projected_capacity_events(
+        now=now,
+        executed_reserve=executed_reserve,
+        pending_create_reserve=pending_create_reserve,
+        recent_reserves=recent_reserves,
+        pending_creates=pending_create_projection,
+    )
+    projected_release_events = [
+        event["at"]
+        for event in projected_capacity_events
+        if event["event_type"] in {"recent_reserve_releases", "pending_create_releases"}
+    ]
     return {
         "type": "treasury_status",
         "epoch_window_hours": int(TREASURY_EPOCH_WINDOW.total_seconds() // 3600),
@@ -505,7 +597,11 @@ def treasury_status(session: Session) -> dict[str, Any]:
         "pending_create_reserve_mrwk": format_mrwk(pending_create_reserve),
         "available_create_reserve_mrwk": format_mrwk(available),
         "next_capacity_release_at": next_capacity_release_at,
+        "next_projected_capacity_release_at": (
+            min(projected_release_events) if projected_release_events else None
+        ),
         "pending_create_bounties": pending_create_bounties,
+        "projected_capacity_events": projected_capacity_events,
         "recent_reserves": [
             {
                 "ledger_sequence": entry.sequence,
