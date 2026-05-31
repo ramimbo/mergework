@@ -74,6 +74,10 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "not": {"required": ["bounty_id", "issue_number"]},
         },
     },
+    {
+        "name": "server_info",
+        "description": "Get public MergeWork service and deployment metadata",
+    },
 ]
 
 

@@ -26,6 +26,7 @@ from app.serializers import (
     wallet_to_dict,
     wallet_transfer_to_dict,
 )
+from app.status import build_metadata
 
 
 def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | dict[str, Any]:
@@ -119,6 +120,9 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
         if not isinstance(value, bool):
             raise ValueError(f"{field} must be a boolean")
         return value
+
+    if name == "server_info":
+        return {"service": "mergework", "ticker": "MRWK", "build": build_metadata()}
 
     with session_scope(database_url) as session:
         if name == "list_bounties":

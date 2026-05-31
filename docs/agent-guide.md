@@ -42,9 +42,15 @@ Legacy-compatible API reads remain available at
 List current system counts and recent bounties:
 
 ```bash
+curl -s "$API_HOST/health"
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 ```
+
+`/health` and `/api/v1/status` include a public `build` object with safe
+deployment metadata. Use it to tell whether a live observation may be from an
+older deployment before filing duplicate proposed work. Unconfigured fields are
+reported as `"unknown"`.
 
 Get a lightweight counts-only bounty summary with optional status and search
 filters:
@@ -188,6 +194,14 @@ curl -s -X POST "$MCP_HOST/mcp" \
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/list"}
+```
+
+Get public service and deployment metadata:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"server_info","arguments":{}}}'
 ```
 
 Get a balance:

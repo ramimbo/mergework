@@ -12,7 +12,45 @@ from app.ledger.service import (
     pay_bounty,
 )
 from app.models import LedgerEntry
-from app.status import health_status, system_status
+from app.status import build_metadata, health_status, system_status
+
+
+def test_build_metadata_defaults_to_unknown(monkeypatch) -> None:
+    for name in (
+        "MERGEWORK_GIT_SHA",
+        "MERGEWORK_BUILD_ID",
+        "MERGEWORK_BUILD_TIME",
+        "MERGEWORK_SOURCE_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    assert build_metadata() == {
+        "git_sha": "unknown",
+        "build_id": "unknown",
+        "build_time": "unknown",
+        "source_url": "unknown",
+    }
+
+
+def test_build_metadata_reports_only_safe_public_env_values(monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_GIT_SHA", " abc123 ")
+    monkeypatch.setenv("MERGEWORK_BUILD_ID", "deploy-42")
+    monkeypatch.setenv("MERGEWORK_BUILD_TIME", "2026-05-31T18:26:42Z")
+    monkeypatch.setenv("MERGEWORK_SOURCE_URL", "https://github.com/ramimbo/mergework")
+
+    assert build_metadata() == {
+        "git_sha": "abc123",
+        "build_id": "deploy-42",
+        "build_time": "2026-05-31T18:26:42Z",
+        "source_url": "https://github.com/ramimbo/mergework",
+    }
+
+    monkeypatch.setenv("MERGEWORK_GIT_SHA", "abc\n123")
+    monkeypatch.setenv("MERGEWORK_BUILD_ID", "x" * 501)
+
+    metadata = build_metadata()
+    assert metadata["git_sha"] == "unknown"
+    assert metadata["build_id"] == "unknown"
 
 
 def test_health_status_reports_current_ledger_height(sqlite_url: str) -> None:
@@ -23,6 +61,12 @@ def test_health_status_reports_current_ledger_height(sqlite_url: str) -> None:
             "service": "mergework",
             "ticker": "MRWK",
             "ledger_height": 0,
+            "build": {
+                "git_sha": "unknown",
+                "build_id": "unknown",
+                "build_time": "unknown",
+                "source_url": "unknown",
+            },
         }
 
         ensure_genesis(session)
@@ -70,6 +114,12 @@ def test_system_status_counts_only_open_bounties(sqlite_url: str) -> None:
     assert status["ticker"] == "MRWK"
     assert status["genesis_supply_mrwk"] == "100000000"
     assert status["ledger_height"] == expected_height
+    assert status["build"] == {
+        "git_sha": "unknown",
+        "build_id": "unknown",
+        "build_time": "unknown",
+        "source_url": "unknown",
+    }
     assert status["active_bounties"] == 1
     assert status["treasury_balance_mrwk"] == expected_treasury_balance
     assert status["current_transfer_paths"] == [
