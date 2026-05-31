@@ -120,6 +120,10 @@ def test_generic_work_proof_guidance_reuses_shared_submission_requirements() -> 
     assert guidance["max_awards"] is None
     assert guidance["awards_paid"] is None
     assert guidance["available_mrwk"] is None
+    assert guidance["effective_awards_remaining"] is None
+    assert guidance["effective_available_mrwk"] is None
+    assert guidance["availability_state"] is None
+    assert guidance["availability_note"] is None
     assert guidance["title"] is None
     assert guidance["submission_requirements"]["reference_formats"] == [
         "Bounty #<issue_number>",
