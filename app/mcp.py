@@ -11,22 +11,29 @@ from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 
+INTEGER_STRING_PADDING = r"(?!.*[\u0000-\u001f\u007f-\u009f])\s*"
 POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {
     "anyOf": [
         {"type": "integer", "minimum": 1},
-        {"type": "string", "pattern": r"^ *\+?(?:0*[1-9][0-9]*) *$"},
+        {
+            "type": "string",
+            "pattern": rf"^{INTEGER_STRING_PADDING}\+?(?:0*[1-9][0-9]*)\s*$",
+        },
     ]
 }
 NONNEGATIVE_INTEGER_SCHEMA: dict[str, Any] = {
     "anyOf": [
         {"type": "integer", "minimum": 0},
-        {"type": "string", "pattern": r"^ *\+?[0-9]+ *$"},
+        {"type": "string", "pattern": rf"^{INTEGER_STRING_PADDING}\+?[0-9]+\s*$"},
     ]
 }
 LIST_LIMIT_SCHEMA: dict[str, Any] = {
     "anyOf": [
         {"type": "integer", "minimum": 1, "maximum": 100},
-        {"type": "string", "pattern": r"^ *\+?0*(?:[1-9]|[1-9][0-9]|100) *$"},
+        {
+            "type": "string",
+            "pattern": rf"^{INTEGER_STRING_PADDING}\+?0*(?:[1-9]|[1-9][0-9]|100)\s*$",
+        },
     ]
 }
 

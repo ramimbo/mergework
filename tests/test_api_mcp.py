@@ -24,7 +24,7 @@ def _assert_integer_or_string_schema(
     else:
         assert "maximum" not in integer_branch
     assert string_branch["type"] == "string"
-    assert "pattern" in string_branch
+    assert r"(?!.*[\u0000-\u001f\u007f-\u009f])\s*" in string_branch["pattern"]
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
