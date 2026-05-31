@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,20 @@ from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
 from app.models import BountyAttempt, Proof
+
+
+def _assert_integer_or_string_schema(
+    schema: dict[str, Any], *, minimum: int, maximum: int | None = None
+) -> None:
+    integer_branch, string_branch = schema["anyOf"]
+    assert integer_branch["type"] == "integer"
+    assert integer_branch["minimum"] == minimum
+    if maximum is not None:
+        assert integer_branch["maximum"] == maximum
+    else:
+        assert "maximum" not in integer_branch
+    assert string_branch["type"] == "string"
+    assert "pattern" in string_branch
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -209,18 +224,18 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "available",
         "awards",
     ]
-    assert list_schema["properties"]["limit"]["maximum"] == 100
+    _assert_integer_or_string_schema(list_schema["properties"]["limit"], minimum=1, maximum=100)
 
     bounty_schema = tools_by_name["get_bounty"]["inputSchema"]
     assert bounty_schema["required"] == ["id"]
-    assert bounty_schema["properties"]["id"]["minimum"] == 1
+    _assert_integer_or_string_schema(bounty_schema["properties"]["id"], minimum=1)
     assert bounty_schema["properties"]["include_awards"]["type"] == "boolean"
 
     attempt_schema = tools_by_name["list_bounty_attempts"]["inputSchema"]
     assert attempt_schema["required"] == ["bounty_id"]
-    assert attempt_schema["properties"]["bounty_id"]["minimum"] == 1
+    _assert_integer_or_string_schema(attempt_schema["properties"]["bounty_id"], minimum=1)
     assert attempt_schema["properties"]["include_expired"]["default"] is False
-    assert attempt_schema["properties"]["limit"]["maximum"] == 100
+    _assert_integer_or_string_schema(attempt_schema["properties"]["limit"], minimum=1, maximum=100)
 
     assert tools_by_name["get_balance"]["inputSchema"]["required"] == ["account"]
     assert tools_by_name["register_wallet"]["inputSchema"]["required"] == ["public_key_hex"]
@@ -235,8 +250,13 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "nonce",
         "signature_hex",
     ]
+    _assert_integer_or_string_schema(transfer_schema["properties"]["nonce"], minimum=0)
     assert transfer_schema["properties"]["memo"]["maxLength"] == 240
     assert tools_by_name["get_ledger_entry"]["inputSchema"]["required"] == ["sequence"]
+    _assert_integer_or_string_schema(
+        tools_by_name["get_ledger_entry"]["inputSchema"]["properties"]["sequence"],
+        minimum=1,
+    )
     assert tools_by_name["get_proof"]["inputSchema"]["required"] == ["hash"]
 
     submit_tool = next(
@@ -247,8 +267,8 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_schema["additionalProperties"] is False
     assert submit_schema["properties"]["format"]["enum"] == ["text", "json"]
     assert submit_schema["properties"]["format"]["default"] == "text"
-    assert submit_schema["properties"]["bounty_id"]["minimum"] == 1
-    assert submit_schema["properties"]["issue_number"]["minimum"] == 1
+    _assert_integer_or_string_schema(submit_schema["properties"]["bounty_id"], minimum=1)
+    _assert_integer_or_string_schema(submit_schema["properties"]["issue_number"], minimum=1)
     assert submit_schema["properties"]["repo"]["maxLength"] == 200
     assert submit_schema["not"] == {"required": ["bounty_id", "issue_number"]}
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")

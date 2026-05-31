@@ -11,8 +11,24 @@ from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 
-POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 1}
-LIST_LIMIT_SCHEMA: dict[str, Any] = {"type": "integer", "minimum": 1, "maximum": 100}
+POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {
+    "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "string", "pattern": r"^ *\+?(?:0*[1-9][0-9]*) *$"},
+    ]
+}
+NONNEGATIVE_INTEGER_SCHEMA: dict[str, Any] = {
+    "anyOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "string", "pattern": r"^ *\+?[0-9]+ *$"},
+    ]
+}
+LIST_LIMIT_SCHEMA: dict[str, Any] = {
+    "anyOf": [
+        {"type": "integer", "minimum": 1, "maximum": 100},
+        {"type": "string", "pattern": r"^ *\+?0*(?:[1-9]|[1-9][0-9]|100) *$"},
+    ]
+}
 
 MCP_TOOLS: list[dict[str, Any]] = [
     {
@@ -113,7 +129,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "pattern": "^\\d+(?:\\.\\d{1,6})?$",
                 },
-                "nonce": {"type": "integer", "minimum": 0},
+                "nonce": NONNEGATIVE_INTEGER_SCHEMA,
                 "memo": {"type": "string", "maxLength": 240, "default": ""},
                 "signature_hex": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
             },
@@ -157,13 +173,11 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "bounty_id": {
-                    "type": "integer",
-                    "minimum": 1,
+                    **POSITIVE_INTEGER_SCHEMA,
                     "description": "Internal MRWK bounty id. Use either bounty_id or issue_number.",
                 },
                 "issue_number": {
-                    "type": "integer",
-                    "minimum": 1,
+                    **POSITIVE_INTEGER_SCHEMA,
                     "description": (
                         "GitHub issue number for an MRWK bounty. "
                         "Use either issue_number or bounty_id."
