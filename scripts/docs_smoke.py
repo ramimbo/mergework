@@ -104,6 +104,14 @@ REQUIRED_PUBLIC_PHRASES = {
         "Accepted claims queued as pending `pay_bounty` proposals",
         'Do not write "paid", "settled", "received", or "withdrawable"',
     ],
+    "SECURITY.md": [
+        (
+            "A pending `pay_bounty` proposal means the security work was "
+            "accepted for payout review, not paid."
+        ),
+        "A security bounty is paid only after a public proof or ledger entry exists.",
+        "Public comments should link the redacted proof",
+    ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
