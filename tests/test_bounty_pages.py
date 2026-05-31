@@ -271,7 +271,7 @@ def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
     assert "<strong>2</strong>" in limited_page.text
     assert '<option value="2" selected>2</option>' in limited_page.text
     assert '<option value=""' in limited_page.text
-    assert 'href="/bounties?status=open&limit=2"' in limited_page.text
+    assert 'href="/bounties?status=open&amp;limit=2"' in limited_page.text
 
     filtered_limited_page = client.get("/bounties?q=public&sort=reward&limit=2")
     assert filtered_limited_page.status_code == 200
@@ -279,7 +279,7 @@ def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
         '<option value="reward" selected>Highest per-award reward</option>'
         in filtered_limited_page.text
     )
-    assert 'href="/bounties?sort=reward&limit=2">Clear search</a>' in filtered_limited_page.text
+    assert 'href="/bounties?sort=reward&amp;limit=2">Clear search</a>' in filtered_limited_page.text
     assert (
         'href="/api/v1/bounties?q=public&amp;sort=reward&amp;limit=2">View JSON results</a>'
         in filtered_limited_page.text
@@ -335,7 +335,7 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert "Showing matches for “proof inspection”." in text_search.text
     assert "Improve public bounty discovery" in text_search.text
     assert "Internal admin cleanup" not in text_search.text
-    assert 'href="/bounties?status=open&q=proof%20inspection"' in text_search.text
+    assert 'href="/bounties?status=open&amp;q=proof%20inspection"' in text_search.text
 
     issue_search = client.get("/api/v1/bounties?q=65")
     assert issue_search.status_code == 200
@@ -350,6 +350,21 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert "Showing matches for “#65”." in hash_issue_page.text
     assert "Internal admin cleanup" in hash_issue_page.text
     assert "Improve public bounty discovery" not in hash_issue_page.text
+
+    exact_source_page = client.get("/bounties?repo=Ramimbo%2FMergeWork&issue_number=65")
+    assert exact_source_page.status_code == 200
+    assert 'name="repo" type="search" value="ramimbo/mergework"' in exact_source_page.text
+    assert 'name="issue_number" type="number" min="1" value="65"' in exact_source_page.text
+    assert "Showing source filter for ramimbo/mergework #65." in exact_source_page.text
+    assert "Internal admin cleanup" in exact_source_page.text
+    assert "Improve public bounty discovery" not in exact_source_page.text
+    assert (
+        'href="/api/v1/bounties?repo=ramimbo%2Fmergework&amp;issue_number=65">View JSON results</a>'
+    ) in exact_source_page.text
+    assert (
+        'href="/bounties?status=open&amp;repo=ramimbo%2Fmergework&amp;issue_number=65"'
+        in exact_source_page.text
+    )
 
     oversized_issue_search = client.get("/api/v1/bounties", params={"q": "9" * 40})
     assert oversized_issue_search.status_code == 200
@@ -444,7 +459,7 @@ def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     )
     assert 'name="sort"' in available_page.text
     assert '<option value="available" selected>Most MRWK available</option>' in available_page.text
-    assert 'href="/bounties?status=open&sort=available"' in available_page.text
+    assert 'href="/bounties?status=open&amp;sort=available"' in available_page.text
 
     whitespace_sort_page = client.get("/bounties", params={"sort": "   "})
     assert whitespace_sort_page.status_code == 200

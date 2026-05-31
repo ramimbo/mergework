@@ -29,6 +29,8 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
         },
         "selected_status": "open",
         "query_text": "proof",
+        "repo_filter": "",
+        "issue_number_filter": None,
         "selected_sort": "reward",
         "sort_options": {
             "newest": "Newest first",
@@ -38,6 +40,13 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
         },
         "selected_limit": None,
         "limit_options": (10, 25, 50, 100, 200),
+        "status_links": {
+            "all": "/bounties?q=proof&sort=reward",
+            "open": "/bounties?status=open&q=proof&sort=reward",
+            "paid": "/bounties?status=paid&q=proof&sort=reward",
+            "closed": "/bounties?status=closed&q=proof&sort=reward",
+        },
+        "clear_search_url": "/bounties?status=open&sort=reward",
         "api_results_url": "/api/v1/bounties?status=open&q=proof&sort=reward",
     }
 
@@ -45,7 +54,33 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
 def test_public_bounties_context_preserves_limited_json_results_url() -> None:
     context = public_bounties_context([], status=None, q="issue #580", sort="newest", limit=25)
 
-    assert context["api_results_url"] == "/api/v1/bounties?q=issue+%23580&limit=25"
+    assert context["api_results_url"] == "/api/v1/bounties?q=issue%20%23580&limit=25"
+
+
+def test_public_bounties_context_preserves_exact_source_filters() -> None:
+    context = public_bounties_context(
+        [],
+        status="open",
+        q=" proof ",
+        sort="available",
+        limit=25,
+        repo=" Ramimbo/MergeWork ",
+        issue_number=647,
+    )
+
+    assert context["repo_filter"] == "ramimbo/mergework"
+    assert context["issue_number_filter"] == 647
+    assert context["api_results_url"] == (
+        "/api/v1/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=647"
+        "&q=proof&sort=available&limit=25"
+    )
+    assert context["status_links"]["paid"] == (
+        "/bounties?status=paid&repo=ramimbo%2Fmergework&issue_number=647"
+        "&q=proof&sort=available&limit=25"
+    )
+    assert context["clear_search_url"] == (
+        "/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=647&sort=available&limit=25"
+    )
 
 
 def test_docs_page_marks_static_github_links_as_untrusted(sqlite_url: str) -> None:
