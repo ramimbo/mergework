@@ -438,6 +438,8 @@ def test_pr_queue_health_wraps_gh_timeouts(monkeypatch) -> None:
 
 
 def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypatch) -> None:
+    viewed_numbers = []
+
     def fake_run(args, **kwargs):
         if args[:3] == ["gh", "pr", "list"]:
             stdout = json.dumps(
@@ -460,10 +462,17 @@ def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypa
                         "title": "MRWK bounty: queue guard",
                         "state": "OPEN",
                         "labels": [{"name": "mrwk:bounty"}],
-                    }
+                    },
+                    {
+                        "number": 311,
+                        "title": "MRWK bounty: unrelated docs",
+                        "state": "OPEN",
+                        "labels": [{"name": "mrwk:bounty"}],
+                    },
                 ]
             )
         elif args[:3] == ["gh", "issue", "view"]:
+            viewed_numbers.append(args[3])
             stdout = json.dumps(
                 {
                     "number": 310,
@@ -485,7 +494,9 @@ def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypa
     report = analyze_queue(data)
 
     assert data["bounties"][0]["comments"]
-    assert report["summary"]["live_bounties"] == 1
+    assert viewed_numbers == ["310"]
+    assert report["summary"]["live_bounties"] == 2
+    assert report["summary"]["non_live_bounties"] == 0
     assert report["summary"]["non_live_bounty_references"] == 0
 
 

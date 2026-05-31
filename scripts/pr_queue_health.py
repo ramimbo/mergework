@@ -365,6 +365,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
     referenced_issues = sorted(
         {ref for pr in prs if isinstance(pr, dict) for ref in _bounty_refs(pr)}
     )
+    referenced_issue_numbers = set(referenced_issues)
     issues = _run_gh_json(
         [
             "gh",
@@ -396,12 +397,12 @@ def load_live_queue(repo: str) -> dict[str, Any]:
         if isinstance(issue, dict)
         and isinstance(issue.get("number"), int)
         and "bounty" in str(issue.get("title", "")).lower()
-    } | set(referenced_issues)
+    } | referenced_issue_numbers
     bounty_issues = []
     for number in sorted(bounty_numbers):
         issue = issues_by_number.get(number, {"number": number})
         viewed_issue = issue
-        include_comments = number in referenced_issues
+        include_comments = number in referenced_issue_numbers
         if include_comments:
             try:
                 viewed_issue = _run_gh_json(
