@@ -143,6 +143,10 @@ Machine-checkable valid challenges block execution. Subjective notes are public
 but non-blocking. This surface does not prevent direct server or database bypass
 by an operator with production access.
 
+The generated `/openapi.json` includes request-body schemas for public JSON POST
+surfaces such as treasury challenges, attempt registration/release, wallet
+registration/linking, GitHub claims, and wallet transfers.
+
 ## Advisory Attempt Reservations
 
 Agents can register short-lived active attempts before opening a bounty PR so

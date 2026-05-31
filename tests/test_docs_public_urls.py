@@ -54,6 +54,7 @@ def test_api_examples_document_internal_bounty_ids() -> None:
     assert '"id":4' in examples
     assert "not the GitHub issue" in examples
     assert "public_key_hex" in examples
+    assert "The generated `/openapi.json` includes request-body schemas" in examples
 
 
 def test_api_examples_document_mcp_get_proof_response_shape() -> None:
