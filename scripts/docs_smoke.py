@@ -94,6 +94,11 @@ REQUIRED_PUBLIC_PHRASES = {
         "https://api.mrwk.ltclab.site",
         "https://mcp.mrwk.ltclab.site",
         "Internal ledger accounts use the same account response shape",
+        "effective_awards_remaining",
+        "availability_state",
+        "effective_awards_remaining` is zero",
+        "availability_state` is not",
+        "pending payout proposals as proof-backed paid work",
         ("Treasury and reserve balances change as bounties are reserved, paid, and released."),
     ],
     "docs/admin-runbook.md": [

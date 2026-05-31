@@ -39,6 +39,11 @@ The bounties list returns public bounty rows. `status` can be omitted or set to
   "max_awards": 5,
   "awards_paid": 4,
   "awards_remaining": 1,
+  "effective_awards_remaining": 1,
+  "effective_available_mrwk": "100",
+  "pending_payout_awards": 0,
+  "availability_state": "open",
+  "availability_note": "1 award effectively available.",
   "status": "open",
   "acceptance": "Focused public-facing enhancements that help contributors find bounties, inspect accepted work, or understand proof/account activity, with tests. Duplicate, marketing-only, docs-only, broad redesign, or unrelated changes do not qualify.",
   "created_at": "2026-05-24T20:44:00.015953"
@@ -46,9 +51,15 @@ The bounties list returns public bounty rows. `status` can be omitted or set to
 ```
 
 Use `id` for the single-bounty API path. Use `issue_number` and `issue_url` when
-linking back to the source GitHub issue. Award counters can change as accepted
-work is paid; refresh concrete examples against the live API before relying on
-available slot counts.
+linking back to the source GitHub issue. `awards_remaining` is the visible
+capacity before pending payout proposals are counted, while
+`effective_awards_remaining` and `effective_available_mrwk` subtract accepted
+work that is queued in pending `pay_bounty` proposals. Treat
+`availability_state` and `availability_note` as the safer pre-submission signal
+when deciding whether a bounty still has practical capacity; do not describe
+pending payout proposals as proof-backed paid work until a proof exists. Award counters can change
+as accepted work is paid; refresh concrete examples against the live API before
+relying on available slot counts.
 
 Use `sort` to choose the bounty order: `newest` is the default, `reward` sorts
 by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
@@ -63,7 +74,9 @@ rows:
 {
   "bounties_shown": 1,
   "open_awards": 2,
-  "open_pool_mrwk": "50"
+  "open_pool_mrwk": "50",
+  "effective_open_awards": 1,
+  "effective_open_pool_mrwk": "25"
 }
 ```
 
@@ -758,7 +771,8 @@ Before opening a PR or claiming a bounty, check the live API for award capacity 
 
 ### Check Bounty Capacity
 
-Use the bounties list or single-bounty endpoint to confirm a bounty is still open and has available awards:
+Use the bounties list or single-bounty endpoint to confirm a bounty is still open
+and has effectively available awards:
 
 ```bash
 # List all open bounties with their capacity
@@ -771,7 +785,8 @@ curl -s "$API_HOST/api/v1/bounties/summary?status=open"
 curl -s "$API_HOST/api/v1/bounties/<bounty_id>"
 ```
 
-The single-bounty response includes `max_awards`, `awards_paid`, and `awards_remaining`:
+The single-bounty response includes visible award counters plus effective
+capacity fields that subtract accepted work queued in pending payouts:
 
 ```json
 {
@@ -781,11 +796,19 @@ The single-bounty response includes `max_awards`, `awards_paid`, and `awards_rem
   "max_awards": 5,
   "awards_paid": 4,
   "awards_remaining": 1,
+  "effective_awards_remaining": 1,
+  "effective_available_mrwk": "100",
+  "pending_payout_awards": 0,
+  "availability_state": "open",
+  "availability_note": "1 award effectively available.",
   "status": "open"
 }
 ```
 
-Do not open a PR if `awards_remaining` is zero, or if the bounty `status` is `paid` or `closed`.
+Do not open a PR if `status` is not `"open"`, `availability_state` is not
+`"open"`, or `effective_awards_remaining` is zero. For older cached clients
+that do not expose effective fields, treat zero `awards_remaining` as exhausted,
+and refresh against the live API before relying on visible capacity.
 
 ### Check Active Attempts
 
@@ -838,7 +861,7 @@ Filter by PR body references (`Bounty #N` or `Refs #N`) to find scope-alike PRs 
 
 Before opening work on a bounty round:
 
-1. **Check the live bounty API** — if `status` is not `"open"` or `awards_remaining` is zero, the round is exhausted or closed and no new work will be accepted.
+1. **Check the live bounty API** — if `status` is not `"open"`, `availability_state` is not `"open"`, or `effective_awards_remaining` is zero, the round is exhausted, blocked by pending payout work, or closed and no new work will be accepted.
 2. **Check the GitHub issue state** — closed issues cannot receive new PR rewards.
 3. **Check for recent maintainer comments** — if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
 4. **Verify stale rounds** — a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.
