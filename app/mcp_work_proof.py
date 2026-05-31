@@ -152,7 +152,12 @@ def work_proof_guidance_json(bounty: Bounty, session: Session | None = None) -> 
         availability_warnings.append(f"bounty is {bounty_data['status']}")
     if bounty_data["effective_awards_remaining"] <= 0:
         availability_warnings.append("bounty has no award slots remaining")
-    if bounty_data["availability_state"] not in {"open", "full", bounty_data["status"]}:
+    if bounty_data["availability_state"] == "pending_payouts_partial":
+        availability_warnings.append(
+            "capacity reduced by pending payout proposals; use "
+            f"effective_awards_remaining before submitting ({bounty_data['availability_note']})"
+        )
+    elif bounty_data["availability_state"] not in {"open", "full", bounty_data["status"]}:
         availability_warnings.append(bounty_data["availability_note"])
     return {
         "bounty_id": bounty_data["id"],

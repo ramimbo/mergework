@@ -805,10 +805,16 @@ capacity fields that subtract accepted work queued in pending payouts:
 }
 ```
 
-Do not open a PR if `status` is not `"open"`, `availability_state` is not
-`"open"`, or `effective_awards_remaining` is zero. For older cached clients
-that do not expose effective fields, treat zero `awards_remaining` as exhausted,
-and refresh against the live API before relying on visible capacity.
+Treat `status == "open"` plus `effective_awards_remaining > 0` as the
+primary submit-eligibility signal. `availability_state ==
+"pending_payouts_partial"` means capacity is reduced by pending payout
+proposals, not that the round is automatically exhausted; read
+`availability_note` and avoid duplicating accepted or pending work. Do not open
+a PR when `status` is not `"open"`, `effective_awards_remaining` is zero,
+`availability_state` is `"pending_payouts_full"` or `"pending_close"`, or a
+maintainer has closed or redirected the scope. For older cached clients that do
+not expose effective fields, treat zero `awards_remaining` as exhausted, and
+refresh against the live API before relying on visible capacity.
 
 ### Check Active Attempts
 
@@ -861,7 +867,7 @@ Filter by PR body references (`Bounty #N` or `Refs #N`) to find scope-alike PRs 
 
 Before opening work on a bounty round:
 
-1. **Check the live bounty API** — if `status` is not `"open"`, `availability_state` is not `"open"`, or `effective_awards_remaining` is zero, the round is exhausted, blocked by pending payout work, or closed and no new work will be accepted.
+1. **Check the live bounty API** — use `status == "open"` and `effective_awards_remaining > 0` as the primary submit-eligibility signal. `pending_payouts_partial` means reduced capacity with at least one effective slot still available; `pending_payouts_full`, `pending_close`, closed status, or zero effective awards means no new work should be submitted.
 2. **Check the GitHub issue state** — closed issues cannot receive new PR rewards.
 3. **Check for recent maintainer comments** — if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
 4. **Verify stale rounds** — a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.

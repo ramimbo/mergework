@@ -10,6 +10,7 @@ from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
 from app.models import BountyAttempt, Proof
+from app.treasury import propose_treasury_action
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -1544,6 +1545,124 @@ def test_mcp_submit_work_proof_structures_terminal_bounty_availability(
         "bounty has no award slots remaining",
     ]
     assert closed["submission_requirements"]["next_actions"][0]["id"] == "choose_open_bounty"
+
+
+def test_mcp_submit_work_proof_allows_partial_pending_payout_capacity(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=318,
+            issue_url="https://github.com/ramimbo/mergework/issues/318",
+            title="Partial pending payout guidance",
+            reward_mrwk="100",
+            max_awards=2,
+            acceptance="Partial pending payouts should still allow remaining capacity.",
+        )
+        bounty_id = bounty.id
+        propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty_id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/318",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"bounty_id": bounty_id, "format": "json"},
+            },
+        },
+    ).json()["result"]
+    structured = response["structuredContent"]
+
+    assert json.loads(response["content"][0]["text"]) == structured
+    assert structured["availability"] == "open_for_submissions"
+    assert structured["can_submit"] is True
+    assert structured["availability_state"] == "pending_payouts_partial"
+    assert structured["effective_awards_remaining"] == 1
+    assert structured["availability_warnings"] == [
+        (
+            "capacity reduced by pending payout proposals; use "
+            "effective_awards_remaining before submitting (1 award covered by pending "
+            "payout proposal; 1 award effectively available.)"
+        )
+    ]
+    assert structured["submission_requirements"]["next_actions"][0]["id"] == ("confirm_award_slot")
+
+
+def test_mcp_submit_work_proof_blocks_full_pending_payout_capacity(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=319,
+            issue_url="https://github.com/ramimbo/mergework/issues/319",
+            title="Full pending payout guidance",
+            reward_mrwk="100",
+            acceptance="Full pending payouts should block new submissions.",
+        )
+        bounty_id = bounty.id
+        propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty_id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/319",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"bounty_id": bounty_id, "format": "json"},
+            },
+        },
+    ).json()["result"]
+    structured = response["structuredContent"]
+
+    assert json.loads(response["content"][0]["text"]) == structured
+    assert structured["availability"] == "not_currently_open"
+    assert structured["can_submit"] is False
+    assert structured["availability_state"] == "pending_payouts_full"
+    assert structured["effective_awards_remaining"] == 0
+    assert structured["availability_warnings"] == [
+        "bounty has no award slots remaining",
+        "1 award covered by pending payout proposal; 0 awards effectively available.",
+    ]
+    assert structured["submission_requirements"]["next_actions"][0]["id"] == (
+        "watch_for_award_slot"
+    )
 
 
 def test_mcp_submit_work_proof_reports_unknown_bounty(sqlite_url: str) -> None:
