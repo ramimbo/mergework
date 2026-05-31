@@ -55,7 +55,10 @@ Before opening a PR or posting a claim:
 4. Confirm the public API row exists and is open.
 5. Check award capacity, duplicate PRs, open attempts, and stale or superseded
    work.
-6. Keep the submission focused and include evidence, tests, screenshots,
+6. Confirm the requested submission artifact: PR, review, issue comment,
+   smoke-check report, or proposed-work issue. Do not force a PR-shaped claim
+   onto a bounty that explicitly asks for another artifact.
+7. Keep the submission focused and include evidence, tests, screenshots,
    reproduction steps, or review notes as requested by the bounty.
 
 Reference tiers are only sizing guidance. They do not create a right to payment

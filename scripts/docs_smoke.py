@@ -56,6 +56,7 @@ REQUIRED_PUBLIC_PHRASES = {
         "Reserved on MergeWork",
         "A pending create_bounty proposal is not a live bounty.",
         "A pending pay_bounty proposal is not paid work.",
+        "Confirm the requested submission artifact: PR, review, issue comment,",
         "result.github_issue_finalization",
     ],
     "docs/paid-bounties.md": [
