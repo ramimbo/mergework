@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import proposed_work_triage
 from scripts.proposed_work_triage import (
     analyze_proposed_work,
@@ -308,8 +310,16 @@ def test_live_triage_uses_only_read_only_gh_commands(monkeypatch) -> None:
     assert all(
         command[:3] in (["gh", "issue", "list"], ["gh", "issue", "view"]) for command in commands
     )
-    disallowed = {"comment", "create", "edit", "close", "reopen", "merge", "review"}
+    disallowed = proposed_work_triage.MUTATING_GH_WORDS
     assert not any(word in command for command in commands for word in disallowed)
+
+
+def test_read_only_gh_guard_rejects_api_field_flags() -> None:
+    for flag in proposed_work_triage.MUTATING_GH_API_FIELD_FLAGS:
+        with pytest.raises(RuntimeError, match="field mutation flags"):
+            proposed_work_triage._assert_read_only_gh(
+                ["gh", "api", "repos/ramimbo/mergework/issues", flag, "title=test"]
+            )
 
 
 def test_live_triage_merges_public_paid_and_pending_state(monkeypatch) -> None:

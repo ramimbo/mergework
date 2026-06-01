@@ -101,20 +101,26 @@ STOPWORDS = {
     "work",
 }
 MUTATING_GH_WORDS = {
+    "assign",
     "comment",
     "create",
     "delete",
+    "develop",
     "edit",
     "close",
+    "label",
     "reopen",
     "merge",
+    "mark",
     "review",
     "lock",
     "unlock",
     "pin",
     "unpin",
     "transfer",
+    "unassign",
 }
+MUTATING_GH_API_FIELD_FLAGS = {"-f", "--field", "-F", "--raw-field"}
 
 
 @dataclass(frozen=True)
@@ -664,6 +670,8 @@ def _assert_read_only_gh(args: list[str]) -> None:
     if any(word in MUTATING_GH_WORDS for word in args):
         raise RuntimeError(f"refusing non-read-only gh command: {' '.join(args)}")
     if args[:2] == ["gh", "api"]:
+        if any(arg in MUTATING_GH_API_FIELD_FLAGS for arg in args):
+            raise RuntimeError(f"refusing gh api field mutation flags: {' '.join(args)}")
         for flag in ("--method", "-X"):
             if flag in args:
                 index = args.index(flag)
