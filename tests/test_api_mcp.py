@@ -52,6 +52,27 @@ def test_ledger_api_rejects_out_of_range_limits(sqlite_url: str, limit: str) -> 
     assert response.status_code == 422
 
 
+def test_status_routes_include_configured_build_metadata(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MERGEWORK_GIT_SHA", "abc123")
+    monkeypatch.setenv("MERGEWORK_BUILD_ID", "deploy-42")
+    monkeypatch.setenv("MERGEWORK_BUILD_TIME", "2026-05-31T18:26:42Z")
+    monkeypatch.setenv("MERGEWORK_SOURCE_URL", "https://github.com/ramimbo/mergework")
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    expected_build = {
+        "git_sha": "abc123",
+        "build_id": "deploy-42",
+        "build_time": "2026-05-31T18:26:42Z",
+        "source_url": "https://github.com/ramimbo/mergework",
+    }
+
+    assert client.get("/health").json()["build"] == expected_build
+    assert client.get("/api/v1/status").json()["build"] == expected_build
+
+
 def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -218,6 +239,28 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         tool for tool in tools["result"]["tools"] if tool["name"] == "list_bounty_attempts"
     )
     assert "active-attempt reservations" in attempt_tool["description"]
+    server_info_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "server_info"
+    )
+    assert "deployment metadata" in server_info_tool["description"]
+
+    server_info = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "server_info", "arguments": {}},
+        },
+    ).json()
+    assert server_info["result"]["structuredContent"]["service"] == "mergework"
+    assert server_info["result"]["structuredContent"]["ticker"] == "MRWK"
+    assert server_info["result"]["structuredContent"]["build"] == {
+        "git_sha": "unknown",
+        "build_id": "unknown",
+        "build_time": "unknown",
+        "source_url": "unknown",
+    }
 
     balance = client.post(
         "/mcp",

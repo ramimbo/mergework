@@ -21,6 +21,7 @@ without reading source code.
 Check service status and list bounties:
 
 ```bash
+curl -s "$API_HOST/health"
 curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
@@ -30,6 +31,12 @@ curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
 curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
 ```
+
+Status responses include a public `build` object with `git_sha`, `build_id`,
+`build_time`, and `source_url`. Deployments populate those fields from
+`MERGEWORK_GIT_SHA`, `MERGEWORK_BUILD_ID`, `MERGEWORK_BUILD_TIME`, and
+`MERGEWORK_SOURCE_URL`; unconfigured or unsafe values are reported as
+`"unknown"`.
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
 `open`, `paid`, or `closed`:
@@ -609,6 +616,14 @@ List MCP tools:
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Call `server_info` for service and public build metadata without scraping HTML:
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"server_info","arguments":{}}}'
 ```
 
 Call `get_balance`:
