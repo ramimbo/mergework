@@ -5,6 +5,8 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,7 @@ from scripts.bounty_refs import BOUNTY_REF_RE
 
 GH_TIMEOUT_SECONDS = 30
 GH_ISSUE_SAFETY_CAP = 201
+PUBLIC_API_LIMIT = 200
 DEFAULT_API_HOST = "https://api.mrwk.online"
 PROPOSED_WORK_LABEL = "proposed-work"
 
@@ -318,7 +321,7 @@ def _source_matches_issue(source: str, surfaces: set[str]) -> bool:
     return False
 
 
-def _proof_sources(data: dict[str, Any]) -> dict[str, str]:
+def _proof_sources(data: dict[str, Any], api_host: str) -> dict[str, str]:
     proof_by_source: dict[str, str] = {}
     proof_rows: list[Any] = []
     for key in ("proofs", "accepted_awards", "activity", "recent", "contributors"):
@@ -340,6 +343,8 @@ def _proof_sources(data: dict[str, Any]) -> dict[str, str]:
             or ""
         ).rstrip(".,)")
         proof = str(item.get("proof_url") or item.get("latest_proof_url") or "").strip()
+        if proof.startswith("/"):
+            proof = f"{api_host.rstrip('/')}{proof}"
         if source and proof:
             proof_by_source[source] = proof
     return proof_by_source
@@ -515,7 +520,7 @@ def _related_groups(rows: list[ProposedWorkRow]) -> list[dict[str, Any]]:
 def analyze_proposed_work(
     data: dict[str, Any], *, api_host: str = DEFAULT_API_HOST
 ) -> dict[str, Any]:
-    proof_by_source = _proof_sources(data)
+    proof_by_source = _proof_sources(data, api_host)
     pending_by_source = _pending_sources(data, api_host)
     rows: list[ProposedWorkRow] = []
     for issue in data.get("issues", []):
@@ -691,7 +696,42 @@ def _run_gh_json(args: list[str]) -> Any:
     return json.loads(completed.stdout)
 
 
-def load_live_triage(repo: str) -> dict[str, Any]:
+def _get_json(url: str) -> Any:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "accept": "application/json",
+            "user-agent": "mergework-proposed-work-triage",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise RuntimeError(f"public API request failed: {url}") from exc
+
+
+def load_public_payment_state(api_host: str = DEFAULT_API_HOST) -> dict[str, Any]:
+    host = api_host.rstrip("/")
+    bounties = _get_json(f"{host}/api/v1/bounties?limit={PUBLIC_API_LIMIT}")
+    activity = _get_json(f"{host}/api/v1/activity?limit={PUBLIC_API_LIMIT}")
+    data: dict[str, Any] = {}
+    if isinstance(bounties, list):
+        data["bounties"] = bounties
+    if isinstance(activity, dict):
+        for key in ("contributors", "recent"):
+            value = activity.get(key)
+            if isinstance(value, list):
+                data[key] = value
+    return data
+
+
+def load_live_triage(
+    repo: str,
+    *,
+    api_host: str = DEFAULT_API_HOST,
+    include_public_api: bool = True,
+) -> dict[str, Any]:
     candidate_issues: dict[int, dict[str, Any]] = {}
     list_commands = [
         [
@@ -752,7 +792,10 @@ def load_live_triage(repo: str) -> dict[str, Any]:
                 ]
             )
         )
-    return {"issues": detailed}
+    data: dict[str, Any] = {"issues": detailed}
+    if include_public_api:
+        data.update(load_public_payment_state(api_host))
+    return data
 
 
 def _load_input(path: str) -> dict[str, Any]:
@@ -775,10 +818,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--format", choices=["json", "markdown", "text"], default="text")
     parser.add_argument("--api-host", default=DEFAULT_API_HOST)
+    parser.add_argument(
+        "--no-public-api",
+        action="store_true",
+        help=(
+            "Skip read-only MergeWork public API reads. Live mode normally uses "
+            "public bounties/activity to classify #649 paid and pending intake."
+        ),
+    )
     parser.add_argument("--fail-on-warnings", action="store_true")
     args = parser.parse_args(argv)
 
-    data = _load_input(args.input) if args.input else load_live_triage(args.repo)
+    data = (
+        _load_input(args.input)
+        if args.input
+        else load_live_triage(
+            args.repo,
+            api_host=args.api_host,
+            include_public_api=not args.no_public_api,
+        )
+    )
     report = analyze_proposed_work(data, api_host=args.api_host)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))

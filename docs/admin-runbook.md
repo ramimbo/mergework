@@ -111,8 +111,11 @@ python scripts/proposed_work_triage.py \
 ```
 
 The live mode uses read-only `gh issue list` and `gh issue view --comments`
-commands. It must not add labels, post comments, create bounties, execute
-treasury proposals, or mutate payout state.
+commands plus read-only public `GET /api/v1/bounties` and `GET /api/v1/activity`
+requests so #649 accepted proposed-work intake can be shown as proof-backed paid
+or pending payout when those public rows are available. Use `--no-public-api`
+for an offline GitHub-only report. The report must not add labels, post
+comments, create bounties, execute treasury proposals, or mutate payout state.
 
 Review the report in this order:
 

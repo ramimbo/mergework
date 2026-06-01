@@ -302,7 +302,7 @@ def test_live_triage_uses_only_read_only_gh_commands(monkeypatch) -> None:
 
     monkeypatch.setattr(proposed_work_triage, "_run_gh_json", fake_run)
 
-    data = load_live_triage("ramimbo/mergework")
+    data = load_live_triage("ramimbo/mergework", include_public_api=False)
 
     assert data["issues"][0]["number"] == 22
     assert all(
@@ -310,6 +310,94 @@ def test_live_triage_uses_only_read_only_gh_commands(monkeypatch) -> None:
     )
     disallowed = {"comment", "create", "edit", "close", "reopen", "merge", "review"}
     assert not any(word in command for command in commands for word in disallowed)
+
+
+def test_live_triage_merges_public_paid_and_pending_state(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> object:
+        if args[:3] == ["gh", "issue", "list"]:
+            if "--label" in args:
+                return [
+                    {
+                        "number": 23,
+                        "title": "Proposed work: pending public payment state",
+                        "url": "https://github.com/ramimbo/mergework/issues/23",
+                        "state": "OPEN",
+                        "labels": [{"name": "proposed-work"}],
+                        "author": {"login": "agent"},
+                    },
+                    {
+                        "number": 24,
+                        "title": "Proposed work: paid public payment state",
+                        "url": "https://github.com/ramimbo/mergework/issues/24",
+                        "state": "OPEN",
+                        "labels": [{"name": "proposed-work"}],
+                        "author": {"login": "agent"},
+                    },
+                ]
+            return []
+        if args[:3] == ["gh", "issue", "view"]:
+            number = int(args[3])
+            comments = []
+            if number == 23:
+                comments = [
+                    {
+                        "url": "https://github.com/ramimbo/mergework/issues/23#issuecomment-1",
+                        "body": "/claim #649 pending intake evidence",
+                    }
+                ]
+            return {
+                "number": number,
+                "title": f"Proposed work: live {number}",
+                "url": f"https://github.com/ramimbo/mergework/issues/{number}",
+                "state": "OPEN",
+                "labels": [{"name": "proposed-work"}],
+                "author": {"login": "agent"},
+                "body": _body(),
+                "comments": comments,
+            }
+        raise AssertionError(args)
+
+    def fake_get_json(url: str) -> object:
+        if url.endswith("/api/v1/bounties?limit=200"):
+            return [
+                {
+                    "id": 97,
+                    "issue_number": 649,
+                    "pending_payout_proposals": [
+                        {
+                            "proposal_id": 77,
+                            "submission_url": (
+                                "https://github.com/ramimbo/mergework/issues/23#issuecomment-1"
+                            ),
+                        }
+                    ],
+                }
+            ]
+        if url.endswith("/api/v1/activity?limit=200"):
+            return {
+                "recent": [
+                    {
+                        "submission_url": "https://github.com/ramimbo/mergework/issues/24",
+                        "proof_url": "/proofs/paid-24",
+                    }
+                ],
+                "contributors": [],
+            }
+        raise AssertionError(url)
+
+    monkeypatch.setattr(proposed_work_triage, "_run_gh_json", fake_run)
+    monkeypatch.setattr(proposed_work_triage, "_get_json", fake_get_json)
+
+    data = load_live_triage("ramimbo/mergework", api_host="https://api.example.test")
+    report = analyze_proposed_work(data, api_host="https://api.example.test")
+    rows = {row["number"]: row for row in report["issues"]}
+
+    assert rows[23]["payment_status"] == "pending_payout"
+    assert (
+        rows[23]["pending_proposal_url"] == "https://api.example.test/api/v1/treasury/proposals/77"
+    )
+    assert rows[24]["payment_status"] == "proof_backed_paid"
+    assert rows[24]["payment_url"] == "https://api.example.test/proofs/paid-24"
 
 
 def test_repo_fixture_offline_input(capsys) -> None:
