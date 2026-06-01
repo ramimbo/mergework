@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlalchemy import select
 
+from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
@@ -58,7 +59,7 @@ def register_treasury_routes(
         if to_account is not None:
             if not to_account.strip():
                 raise HTTPException(status_code=400, detail="to_account must not be blank")
-            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in to_account):
+            if contains_control_character(to_account):
                 raise HTTPException(
                     status_code=400,
                     detail="to_account must not contain control characters",
@@ -66,7 +67,7 @@ def register_treasury_routes(
         if status is not None:
             if not status.strip():
                 raise HTTPException(status_code=400, detail="status must not be blank")
-            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in status):
+            if contains_control_character(status):
                 raise HTTPException(
                     status_code=400,
                     detail="status must not contain control characters",
@@ -74,7 +75,7 @@ def register_treasury_routes(
         if action is not None:
             if not action.strip():
                 raise HTTPException(status_code=400, detail="action must not be blank")
-            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in action):
+            if contains_control_character(action):
                 raise HTTPException(
                     status_code=400,
                     detail="action must not contain control characters",
@@ -82,7 +83,7 @@ def register_treasury_routes(
         if submission_url is not None:
             if not submission_url.strip():
                 raise HTTPException(status_code=400, detail="submission_url must not be blank")
-            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in submission_url):
+            if contains_control_character(submission_url):
                 raise HTTPException(
                     status_code=400,
                     detail="submission_url must not contain control characters",
