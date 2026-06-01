@@ -198,6 +198,57 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
         assert invalid_hash_query["recent"] == []
 
 
+def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=656,
+            issue_url="https://github.com/ramimbo/mergework/issues/656",
+            title="Activity limit bounty",
+            reward_mrwk="75",
+            max_awards=3,
+            acceptance="Activity list consumers should be able to request bounded feeds.",
+        )
+        for login in ("alice", "bob", "carol"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account=f"github:{login}",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{login}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    limited = client.get("/api/v1/activity?limit=1")
+    filtered_limited = client.get("/api/v1/activity?q=github&limit=2")
+    invalid = client.get("/api/v1/activity?limit=notanint")
+
+    assert limited.status_code == 200
+    limited_payload = limited.json()
+    assert limited_payload["totals"] == {
+        "accepted_awards": 3,
+        "accepted_mrwk": "225",
+        "contributors": 3,
+    }
+    assert len(limited_payload["contributors"]) == 1
+    assert len(limited_payload["recent"]) == 1
+    assert len(limited_payload["pending_payouts"]) == 0
+
+    assert filtered_limited.status_code == 200
+    filtered_payload = filtered_limited.json()
+    assert filtered_payload["query"] == "github"
+    assert filtered_payload["totals"]["contributors"] == 3
+    assert len(filtered_payload["contributors"]) == 2
+    assert len(filtered_payload["recent"]) == 2
+
+    assert invalid.status_code == 422
+
+
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:
