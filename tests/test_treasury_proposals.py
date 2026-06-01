@@ -417,6 +417,93 @@ def test_treasury_proposals_list_honors_limit(
     assert too_large.status_code == 422
 
 
+def test_treasury_proposals_list_filters(sqlite_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        b1 = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=10,
+            issue_url="https://github.com/ramimbo/mergework/issues/10",
+            title="Bounty 1",
+            reward_mrwk="10",
+            acceptance="Acceptance",
+        )
+        b2 = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=11,
+            issue_url="https://github.com/ramimbo/mergework/issues/11",
+            title="Bounty 2",
+            reward_mrwk="10",
+            acceptance="Acceptance",
+        )
+        session.flush()
+        b1_id = b1.id
+        b2_id = b2.id
+
+    p1 = client.post(
+        f"/api/v1/bounties/{b1_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:gwani-28",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/10",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+
+    p2 = client.post(
+        f"/api/v1/bounties/{b2_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:otherguy",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/11",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+
+    unfiltered = client.get("/api/v1/treasury/proposals")
+    assert unfiltered.status_code == 200
+    assert len(unfiltered.json()) >= 2
+
+    filtered_gwani = client.get("/api/v1/treasury/proposals?to_account=github:gwani-28")
+    assert filtered_gwani.status_code == 200
+    assert [p["id"] for p in filtered_gwani.json()] == [p1["id"]]
+
+    filtered_gwani_upper = client.get("/api/v1/treasury/proposals?to_account=GITHUB:GWANI-28")
+    assert filtered_gwani_upper.status_code == 200
+    assert [p["id"] for p in filtered_gwani_upper.json()] == [p1["id"]]
+
+    filtered_other = client.get("/api/v1/treasury/proposals?to_account=github:otherguy")
+    assert filtered_other.status_code == 200
+    assert [p["id"] for p in filtered_other.json()] == [p2["id"]]
+
+    comp = client.get(
+        "/api/v1/treasury/proposals?to_account=github:gwani-28&status=pending&action=pay_bounty&limit=1"
+    )
+    assert comp.status_code == 200
+    assert [p["id"] for p in comp.json()] == [p1["id"]]
+
+    blank = client.get("/api/v1/treasury/proposals?to_account=%20")
+    assert blank.status_code == 400
+    assert blank.json()["detail"] == "to_account must not be blank"
+
+    ctrl = client.get("/api/v1/treasury/proposals", params={"to_account": "github:gwani\t28"})
+    assert ctrl.status_code == 400
+    assert ctrl.json()["detail"] == "to_account must not contain control characters"
+
+    filtered_bounty = client.get(f"/api/v1/treasury/proposals?bounty_id={b1_id}")
+    assert filtered_bounty.status_code == 200
+    assert [p["id"] for p in filtered_bounty.json()] == [p1["id"]]
+
+    filtered_submission = client.get(
+        "/api/v1/treasury/proposals?submission_url=https://github.com/ramimbo/mergework/pull/10"
+    )
+    assert filtered_submission.status_code == 200
+    assert [p["id"] for p in filtered_submission.json()] == [p1["id"]]
+
+
 def test_direct_proposal_creation_requires_admin_token(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

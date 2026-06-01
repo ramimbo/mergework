@@ -49,12 +49,78 @@ def register_treasury_routes(
     @app.get("/api/v1/treasury/proposals")
     def api_treasury_proposals(
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
+        status: str | None = None,
+        action: str | None = None,
+        to_account: str | None = None,
+        bounty_id: int | None = None,
+        submission_url: str | None = None,
     ) -> list[dict[str, Any]]:
+        if to_account is not None:
+            if not to_account.strip():
+                raise HTTPException(status_code=400, detail="to_account must not be blank")
+            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in to_account):
+                raise HTTPException(
+                    status_code=400,
+                    detail="to_account must not contain control characters",
+                )
+        if status is not None:
+            if not status.strip():
+                raise HTTPException(status_code=400, detail="status must not be blank")
+            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in status):
+                raise HTTPException(
+                    status_code=400,
+                    detail="status must not contain control characters",
+                )
+        if action is not None:
+            if not action.strip():
+                raise HTTPException(status_code=400, detail="action must not be blank")
+            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in action):
+                raise HTTPException(
+                    status_code=400,
+                    detail="action must not contain control characters",
+                )
+        if submission_url is not None:
+            if not submission_url.strip():
+                raise HTTPException(status_code=400, detail="submission_url must not be blank")
+            if any(ord(c) < 32 or ord(c) == 127 or 0x80 <= ord(c) <= 0x9F for c in submission_url):
+                raise HTTPException(
+                    status_code=400,
+                    detail="submission_url must not contain control characters",
+                )
+
         with session_scope(db_url) as session:
-            proposals = session.scalars(
-                select(TreasuryProposal).order_by(TreasuryProposal.id.desc()).limit(limit)
-            ).all()
-            return [proposal_to_dict(proposal) for proposal in proposals]
+            query = select(TreasuryProposal)
+            if status is not None:
+                query = query.where(TreasuryProposal.status == status.strip())
+            if action is not None:
+                query = query.where(TreasuryProposal.action == action.strip())
+
+            proposals = session.scalars(query.order_by(TreasuryProposal.id.desc())).all()
+
+            import json
+
+            results = []
+            for proposal in proposals:
+                try:
+                    payload = json.loads(proposal.payload_json)
+                except Exception:
+                    continue
+
+                if to_account is not None:
+                    payload_to = str(payload.get("to_account", "")).lower()
+                    if payload_to != to_account.strip().lower():
+                        continue
+                if bounty_id is not None and payload.get("bounty_id") != bounty_id:
+                    continue
+                if submission_url is not None:
+                    payload_sub = str(payload.get("submission_url", "")).lower()
+                    if payload_sub != submission_url.strip().lower():
+                        continue
+
+                results.append(proposal_to_dict(proposal))
+                if len(results) >= limit:
+                    break
+            return results
 
     @app.get("/api/v1/treasury/status")
     def api_treasury_status() -> dict[str, Any]:

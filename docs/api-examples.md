@@ -111,6 +111,15 @@ curl -s "$API_HOST/api/v1/treasury/proposals"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
 
+Proposals can be filtered by recipient (`to_account`), bounty ID (`bounty_id`), submission URL (`submission_url`), status, action, and limit:
+
+```bash
+curl -s "$API_HOST/api/v1/treasury/proposals?to_account=github:gwani-28"
+curl -s "$API_HOST/api/v1/treasury/proposals?bounty_id=11"
+curl -s "$API_HOST/api/v1/treasury/proposals?submission_url=https://github.com/ramimbo/mergework/pull/10"
+curl -s "$API_HOST/api/v1/treasury/proposals?status=pending&action=pay_bounty&limit=5"
+```
+
 The treasury status endpoint reports the 24-hour create-bounty reserve cap,
 recent executed reserves, pending create-bounty proposal reserves, remaining
 create capacity, the next reserve capacity release time, and pending

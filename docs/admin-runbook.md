@@ -47,6 +47,13 @@ curl -s https://api.mrwk.online/api/v1/treasury/proposals
 curl -s https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>
 ```
 
+Filter proposals by payout recipient (`to_account`), bounty (`bounty_id`), submission (`submission_url`), status, action, or limit:
+
+```bash
+curl -s "https://api.mrwk.online/api/v1/treasury/proposals?to_account=github:gwani-28"
+curl -s "https://api.mrwk.online/api/v1/treasury/proposals?status=pending&action=pay_bounty&limit=10"
+```
+
 Legacy-compatible admin API reads remain available at
 `https://api.mrwk.ltclab.site` for existing scripts, but new examples should use
 `https://api.mrwk.online`.
