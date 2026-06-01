@@ -723,14 +723,15 @@ def load_public_payment_state(api_host: str = DEFAULT_API_HOST) -> dict[str, Any
     host = api_host.rstrip("/")
     bounties = _get_json(f"{host}/api/v1/bounties?limit={PUBLIC_API_LIMIT}")
     activity = _get_json(f"{host}/api/v1/activity?limit={PUBLIC_API_LIMIT}")
-    data: dict[str, Any] = {}
-    if isinstance(bounties, list):
-        data["bounties"] = bounties
-    if isinstance(activity, dict):
-        for key in ("contributors", "recent"):
-            value = activity.get(key)
-            if isinstance(value, list):
-                data[key] = value
+    if not isinstance(bounties, list):
+        raise RuntimeError("unexpected /api/v1/bounties response shape: expected list")
+    if not isinstance(activity, dict):
+        raise RuntimeError("unexpected /api/v1/activity response shape: expected object")
+    data: dict[str, Any] = {"bounties": bounties}
+    for key in ("contributors", "recent"):
+        value = activity.get(key)
+        if isinstance(value, list):
+            data[key] = value
     return data
 
 

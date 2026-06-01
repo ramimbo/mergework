@@ -410,6 +410,34 @@ def test_live_triage_merges_public_paid_and_pending_state(monkeypatch) -> None:
     assert rows[24]["payment_url"] == "https://api.example.test/proofs/paid-24"
 
 
+def test_public_payment_state_rejects_unexpected_bounties_shape(monkeypatch) -> None:
+    def fake_get_json(url: str) -> object:
+        if url.endswith("/api/v1/bounties?limit=200"):
+            return {"bounties": []}
+        if url.endswith("/api/v1/activity?limit=200"):
+            return {"recent": [], "contributors": []}
+        raise AssertionError(url)
+
+    monkeypatch.setattr(proposed_work_triage, "_get_json", fake_get_json)
+
+    with pytest.raises(RuntimeError, match="/api/v1/bounties response shape"):
+        proposed_work_triage.load_public_payment_state("https://api.example.test")
+
+
+def test_public_payment_state_rejects_unexpected_activity_shape(monkeypatch) -> None:
+    def fake_get_json(url: str) -> object:
+        if url.endswith("/api/v1/bounties?limit=200"):
+            return []
+        if url.endswith("/api/v1/activity?limit=200"):
+            return []
+        raise AssertionError(url)
+
+    monkeypatch.setattr(proposed_work_triage, "_get_json", fake_get_json)
+
+    with pytest.raises(RuntimeError, match="/api/v1/activity response shape"):
+        proposed_work_triage.load_public_payment_state("https://api.example.test")
+
+
 def test_repo_fixture_offline_input(capsys) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "proposed_work_triage.json"
     exit_code = main(["--input", str(fixture_path), "--format", "markdown"])
