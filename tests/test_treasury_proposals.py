@@ -458,6 +458,15 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
         "/api/v1/treasury/proposals"
         "?status=pending&action=pay_bounty&to_account=github%3Aalice&limit=1"
     )
+    uppercase_recipient_filtered = client.get(
+        "/api/v1/treasury/proposals",
+        params={
+            "status": "pending",
+            "action": "pay_bounty",
+            "to_account": " GitHub:Alice ",
+            "limit": "1",
+        },
+    )
     bob_filtered = client.get(
         "/api/v1/treasury/proposals"
         "?status=pending&action=pay_bounty&to_account=github%3Abob&limit=1"
@@ -468,6 +477,8 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
     assert filtered.status_code == 200
     assert [proposal["id"] for proposal in filtered.json()] == [alice.json()["id"]]
     assert filtered.json()[0]["payload"]["to_account"] == "github:alice"
+    assert uppercase_recipient_filtered.status_code == 200
+    assert uppercase_recipient_filtered.json() == filtered.json()
     assert bob_filtered.status_code == 200
     assert [proposal["id"] for proposal in bob_filtered.json()] == [bob.json()["id"]]
 
@@ -480,6 +491,7 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
             "to_account=github%3Aalice%0Abad",
             "to_account must not contain control characters",
         ),
+        ("to_account=github%3A%20", "github login must be valid"),
     ],
 )
 def test_treasury_proposals_list_rejects_invalid_recipient_filter(

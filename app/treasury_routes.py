@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlalchemy import select
 
+from app.accounts import normalized_account
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError
@@ -141,6 +142,8 @@ def register_treasury_routes(
             max_length=128,
             blank_detail="to_account must not be blank",
         )
+        if to_account_filter is not None:
+            to_account_filter = normalized_account(to_account_filter)
         with session_scope(db_url) as session:
             query = select(TreasuryProposal).order_by(TreasuryProposal.id.desc())
             if action_filter is not None:
