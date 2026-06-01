@@ -6,7 +6,9 @@ from fastapi import HTTPException
 
 SQLITE_INTEGER_MAX = 2**63 - 1
 HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
-POSITIVE_INTEGER_RE = re.compile(r"^[0-9]+$")
+# Keep zero syntactically canonical so existing positive-range checks own the
+# error message, while rejecting aliases like +1, 1.0, and 01 before coercion.
+POSITIVE_INTEGER_RE = re.compile(r"^(?:0|[1-9][0-9]*)$")
 
 
 def issue_number_search_value(query: str) -> int | None:

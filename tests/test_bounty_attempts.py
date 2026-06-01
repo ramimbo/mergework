@@ -107,7 +107,12 @@ def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, mo
         "github:bob",
         "github:alice",
     ]
-    for noncanonical_id in (f"{bounty.id}.0", f"+{bounty.id}", f"%C2%85{bounty.id}"):
+    for noncanonical_id in (
+        f"{bounty.id}.0",
+        f"+{bounty.id}",
+        f"0{bounty.id}",
+        f"%C2%85{bounty.id}",
+    ):
         response = client.get(f"/api/v1/bounties/{noncanonical_id}/attempts")
         assert response.status_code == 400
         assert response.json()["detail"] == "bounty id must be a positive integer"

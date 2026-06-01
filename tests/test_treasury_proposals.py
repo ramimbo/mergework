@@ -114,7 +114,12 @@ def test_admin_bounty_creation_creates_public_delayed_proposal(
     assert [proposal["id"] for proposal in listed.json()] == [body["id"]]
     assert detail.status_code == 200
     assert detail.json()["payload_hash"] == body["payload_hash"]
-    for noncanonical_id in (f"{body['id']}.0", f"+{body['id']}", f"%C2%85{body['id']}"):
+    for noncanonical_id in (
+        f"{body['id']}.0",
+        f"+{body['id']}",
+        f"0{body['id']}",
+        f"%C2%85{body['id']}",
+    ):
         noncanonical_detail = client.get(f"/api/v1/treasury/proposals/{noncanonical_id}")
         assert noncanonical_detail.status_code == 400
         assert noncanonical_detail.json()["detail"] == "proposal id must be a positive integer"
