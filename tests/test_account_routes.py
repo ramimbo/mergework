@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import app.serializers as serializers_module
@@ -296,6 +298,18 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     assert padded.json()["detail"] == "tx_type must not include leading or trailing whitespace"
     assert repeated.status_code == 400
     assert repeated.json()["detail"] == "tx_type must be provided at most once"
+
+
+def test_account_page_context_rejects_padded_transaction_type(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        with pytest.raises(HTTPException) as exc:
+            account_page_context(session, "github:alice", " bounty_payment ")
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "transaction type must not include leading or trailing whitespace"
 
 
 def test_account_api_does_not_advertise_wallet_transfers_for_plain_accounts(
