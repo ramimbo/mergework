@@ -71,6 +71,14 @@ def _optional_query_filter(
     return clean
 
 
+def _reject_control_char_query_param(request: Request, field: str) -> None:
+    for value in request.query_params.getlist(field):
+        if contains_control_character(value):
+            raise HTTPException(
+                status_code=400, detail=f"{field} must not contain control characters"
+            )
+
+
 def _proposal_payload_object(proposal: TreasuryProposal) -> dict[str, Any] | None:
     try:
         payload = json.loads(proposal.payload_json)
@@ -116,12 +124,14 @@ def register_treasury_routes(
 ) -> None:
     @app.get("/api/v1/treasury/proposals")
     def api_treasury_proposals(
+        request: Request,
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
         action: Annotated[str | None, Query(max_length=40)] = None,
         status: Annotated[str | None, Query(max_length=40)] = None,
         to_account: Annotated[str | None, Query(max_length=128)] = None,
         bounty_id: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
     ) -> list[dict[str, Any]]:
+        _reject_control_char_query_param(request, "bounty_id")
         action_filter = _optional_query_filter(
             action,
             "action",

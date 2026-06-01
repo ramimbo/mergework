@@ -568,6 +568,9 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
     pending_filtered = client.get("/api/v1/treasury/proposals?status=pending")
     uppercase_pending_filtered = client.get("/api/v1/treasury/proposals?status=PENDING")
     bounty_filtered = client.get(f"/api/v1/treasury/proposals?bounty_id={first_bounty_id}")
+    control_padded_bounty_filter = client.get(
+        f"/api/v1/treasury/proposals?bounty_id=%C2%85{first_bounty_id}"
+    )
     composed_filtered = client.get(
         "/api/v1/treasury/proposals",
         params={
@@ -594,6 +597,11 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
     assert uppercase_pending_filtered.json() == pending_filtered.json()
     assert bounty_filtered.status_code == 200
     assert [proposal["id"] for proposal in bounty_filtered.json()] == [first_payout["id"]]
+    assert control_padded_bounty_filter.status_code == 400
+    assert (
+        control_padded_bounty_filter.json()["detail"]
+        == "bounty_id must not contain control characters"
+    )
     assert composed_filtered.status_code == 200
     assert [proposal["id"] for proposal in composed_filtered.json()] == [second_payout["id"]]
     assert limited_after_filter.status_code == 200
