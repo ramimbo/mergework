@@ -20,6 +20,7 @@ GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
 MAX_BOUNTY_REF = 2**63 - 1
+STANDARD_QUALITY_CHECK_NAME = "quality, readiness, docs, and image checks"
 
 
 def _labels(raw: dict[str, Any]) -> list[str]:
@@ -48,6 +49,32 @@ def _scope_key(raw: dict[str, Any]) -> str:
     title = str(raw.get("title") or "")
     title = NOISY_TITLE_PREFIX_RE.sub("", title)
     return " ".join(title.lower().split())
+
+
+def _standard_quality_check_status(raw: dict[str, Any]) -> str:
+    rollup = raw.get("statusCheckRollup")
+    if not isinstance(rollup, list) or not rollup:
+        return "missing"
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("workflowName") or "").strip().lower()
+        if name != STANDARD_QUALITY_CHECK_NAME:
+            continue
+        conclusion = str(item.get("conclusion") or "").strip().lower()
+        status = str(item.get("status") or "").strip().lower()
+        if conclusion == "action_required":
+            return "action_required"
+        if conclusion in {"failure", "timed_out", "cancelled", "startup_failure"}:
+            return "failed"
+        if conclusion == "success":
+            return "passed"
+        if status in {"queued", "in_progress", "pending", "waiting"}:
+            return "pending"
+        if status in {"completed"} and not conclusion:
+            return "pending"
+        return "pending"
+    return "missing"
 
 
 def _bounty_refs(raw: dict[str, Any]) -> list[int]:
@@ -115,12 +142,14 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
                 "labels": _labels(pr),
                 "merge_state": _merge_state(pr),
                 "scope": _scope_key(pr),
+                "standard_quality_check_status": _standard_quality_check_status(pr),
             }
         )
 
     closed_bounty_references: list[dict[str, Any]] = []
     missing_bounty_references: list[dict[str, Any]] = []
     dirty_or_unstable_merge_state: list[dict[str, Any]] = []
+    standard_quality_gate_not_green: list[dict[str, Any]] = []
     needs_info: list[dict[str, Any]] = []
     duplicate_groups: dict[tuple[int, str], list[int]] = defaultdict(list)
 
@@ -157,6 +186,19 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             dirty_or_unstable_merge_state.append(
                 _issue(pr, "dirty_or_unstable_merge_state", f"Merge state is {pr['merge_state']}")
             )
+        if pr["standard_quality_check_status"] != "passed":
+            status_detail = pr["standard_quality_check_status"]
+            if status_detail == "action_required":
+                detail = "Standard quality check is waiting for maintainer approval (action_required)"
+            elif status_detail == "failed":
+                detail = "Standard quality check failed"
+            elif status_detail == "pending":
+                detail = "Standard quality check is still pending"
+            else:
+                detail = "Standard quality check is missing"
+            standard_quality_gate_not_green.append(
+                _issue(pr, "standard_quality_gate_not_green", detail)
+            )
         if any(label.lower() == "mrwk:needs-info" for label in pr["labels"]):
             needs_info.append(_issue(pr, "mrwk_needs_info", "PR has mrwk:needs-info label"))
 
@@ -176,12 +218,14 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             "closed_bounty_references": len(closed_bounty_references),
             "missing_bounty_references": len(missing_bounty_references),
             "dirty_or_unstable_merge_state": len(dirty_or_unstable_merge_state),
+            "standard_quality_gate_not_green": len(standard_quality_gate_not_green),
             "needs_info": len(needs_info),
             "duplicate_scope_groups": len(duplicate_scope_groups),
         },
         "closed_bounty_references": closed_bounty_references,
         "missing_bounty_references": missing_bounty_references,
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
+        "standard_quality_gate_not_green": standard_quality_gate_not_green,
         "needs_info": needs_info,
         "duplicate_scope_groups": duplicate_scope_groups,
     }
@@ -195,6 +239,7 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
             "closed_bounty_references",
             "missing_bounty_references",
             "dirty_or_unstable_merge_state",
+            "standard_quality_gate_not_green",
             "needs_info",
             "duplicate_scope_groups",
         )
@@ -213,6 +258,7 @@ def format_text_report(report: dict[str, Any]) -> str:
         ("Closed or exhausted bounty references", "closed_bounty_references"),
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
+        ("Standard quality gate not green", "standard_quality_gate_not_green"),
         ("Needs info", "needs_info"),
     ]
     for title, key in sections:
@@ -255,6 +301,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         ("Closed or exhausted bounty references", "closed_bounty_references"),
         ("Missing bounty references", "missing_bounty_references"),
         ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
+        ("Standard quality gate not green", "standard_quality_gate_not_green"),
         ("Needs info", "needs_info"),
     ]
     for title, key in sections:
@@ -309,7 +356,7 @@ def load_live_queue(repo: str) -> dict[str, Any]:
             "--limit",
             str(GH_PR_SAFETY_CAP),
             "--json",
-            "number,title,url,body,labels,mergeStateStatus",
+            "number,title,url,body,labels,mergeStateStatus,statusCheckRollup",
         ]
     )
     if len(prs) >= GH_PR_SAFETY_CAP:

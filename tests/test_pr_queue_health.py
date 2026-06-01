@@ -11,6 +11,7 @@ from scripts import pr_queue_health
 from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
 
 ROOT = Path(__file__).resolve().parents[1]
+STANDARD_CHECK = "Quality, readiness, docs, and image checks"
 
 
 def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
@@ -28,6 +29,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
                 "body": "Refs #293",
                 "merge_state": "clean",
                 "labels": [],
+                "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
             },
             {
                 "number": 2,
@@ -36,6 +38,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
                 "body": "",
                 "merge_state": "clean",
                 "labels": [],
+                "statusCheckRollup": [{"name": STANDARD_CHECK, "status": "IN_PROGRESS"}],
             },
             {
                 "number": 3,
@@ -44,6 +47,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
                 "body": "Bounty #292",
                 "merge_state": "dirty",
                 "labels": ["mrwk:needs-info"],
+                "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "FAILURE"}],
             },
             {
                 "number": 4,
@@ -52,6 +56,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
                 "body": "Refs #292",
                 "merge_state": "unknown",
                 "labels": [],
+                "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "ACTION_REQUIRED"}],
             },
         ],
     }
@@ -65,12 +70,14 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
         "closed_bounty_references": 1,
         "missing_bounty_references": 1,
         "dirty_or_unstable_merge_state": 2,
+        "standard_quality_gate_not_green": 3,
         "needs_info": 1,
         "duplicate_scope_groups": 1,
     }
     assert report["closed_bounty_references"][0]["pull_request"] == 1
     assert report["missing_bounty_references"][0]["pull_request"] == 2
     assert {item["pull_request"] for item in report["dirty_or_unstable_merge_state"]} == {3, 4}
+    assert {item["pull_request"] for item in report["standard_quality_gate_not_green"]} == {2, 3, 4}
     assert report["needs_info"][0]["pull_request"] == 3
     assert report["duplicate_scope_groups"] == [
         {
@@ -112,6 +119,7 @@ def test_pr_queue_health_text_report_is_pasteable() -> None:
                     "body": "Refs #310",
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
                 }
             ],
         }
@@ -135,6 +143,7 @@ def test_pr_queue_health_accepts_claim_command_reference() -> None:
                     "body": "/claim #310",
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
                 }
             ],
         }
@@ -175,6 +184,7 @@ def test_pr_queue_health_accepts_github_linking_keywords() -> None:
                     "body": reference,
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
                 }
                 for index, reference in enumerate(references, start=1)
             ],
@@ -218,6 +228,7 @@ def test_pr_queue_health_ignores_oversized_numeric_bounty_refs() -> None:
                     "body": f"Refs #{oversized_ref}\nRefs #406",
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
                 }
             ],
         }
@@ -242,6 +253,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
                     "body": "Refs #293",
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
                 },
                 {
                     "number": 2,
@@ -250,6 +262,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
                     "body": "",
                     "merge_state": "clean",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "status": "IN_PROGRESS"}],
                 },
                 {
                     "number": 3,
@@ -258,6 +271,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
                     "body": "Bounty #292",
                     "merge_state": "dirty",
                     "labels": ["mrwk:needs-info"],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "FAILURE"}],
                 },
                 {
                     "number": 4,
@@ -266,6 +280,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
                     "body": "Refs #292",
                     "merge_state": "unknown",
                     "labels": [],
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "ACTION_REQUIRED"}],
                 },
             ],
         }
@@ -288,6 +303,8 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     ) in markdown
     assert "### Dirty or unstable merge state" in markdown
     assert "Merge state is dirty" in markdown
+    assert "### Standard quality gate not green" in markdown
+    assert "waiting for maintainer approval (action_required)" in markdown
     assert "### Needs info" in markdown
     assert "PR has mrwk:needs-info label" in markdown
     assert "### Likely duplicate bounty scope" in markdown
@@ -304,6 +321,7 @@ def test_pr_queue_health_markdown_no_issues_output_is_pasteable(tmp_path, capsys
                 "body": "Refs #310",
                 "merge_state": "clean",
                 "labels": [],
+                "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
             }
         ],
     }
@@ -342,6 +360,70 @@ def test_pr_queue_health_wraps_gh_timeouts(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="gh command timed out"):
         pr_queue_health._run_gh_json(["gh", "pr", "list"])
+
+
+def test_standard_quality_check_status_bucket_variants() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 10}],
+            "pull_requests": [
+                {
+                    "number": 11,
+                    "title": "passed",
+                    "body": "Refs #310",
+                    "labels": [],
+                    "merge_state": "clean",
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "SUCCESS"}],
+                },
+                {
+                    "number": 12,
+                    "title": "failed",
+                    "body": "Refs #310",
+                    "labels": [],
+                    "merge_state": "clean",
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "FAILURE"}],
+                },
+                {
+                    "number": 13,
+                    "title": "action required",
+                    "body": "Refs #310",
+                    "labels": [],
+                    "merge_state": "clean",
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "conclusion": "ACTION_REQUIRED"}],
+                },
+                {
+                    "number": 14,
+                    "title": "pending",
+                    "body": "Refs #310",
+                    "labels": [],
+                    "merge_state": "clean",
+                    "statusCheckRollup": [{"name": STANDARD_CHECK, "status": "IN_PROGRESS"}],
+                },
+                {
+                    "number": 15,
+                    "title": "missing",
+                    "body": "Refs #310",
+                    "labels": [],
+                    "merge_state": "clean",
+                    "statusCheckRollup": [],
+                },
+            ],
+        }
+    )
+
+    assert report["summary"]["standard_quality_gate_not_green"] == 4
+    details_by_pr = {
+        item["pull_request"]: item["detail"]
+        for item in report["standard_quality_gate_not_green"]
+    }
+    assert 11 not in details_by_pr
+    assert details_by_pr[12] == "Standard quality check failed"
+    assert (
+        details_by_pr[13]
+        == "Standard quality check is waiting for maintainer approval (action_required)"
+    )
+    assert details_by_pr[14] == "Standard quality check is still pending"
+    assert details_by_pr[15] == "Standard quality check is missing"
 
 
 def test_pr_queue_health_fails_fast_when_issue_fetch_hits_cap(monkeypatch) -> None:
