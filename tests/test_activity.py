@@ -227,6 +227,8 @@ def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
     limited = client.get("/api/v1/activity?limit=1")
     filtered_limited = client.get("/api/v1/activity?q=github&limit=2")
     invalid = client.get("/api/v1/activity?limit=notanint")
+    below_min = client.get("/api/v1/activity?limit=0")
+    above_max = client.get("/api/v1/activity?limit=201")
 
     assert limited.status_code == 200
     limited_payload = limited.json()
@@ -247,6 +249,8 @@ def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
     assert len(filtered_payload["recent"]) == 2
 
     assert invalid.status_code == 422
+    assert below_min.status_code == 422
+    assert above_max.status_code == 422
 
 
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
