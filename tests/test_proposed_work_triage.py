@@ -315,11 +315,38 @@ def test_live_triage_uses_only_read_only_gh_commands(monkeypatch) -> None:
 
 
 def test_read_only_gh_guard_rejects_api_field_flags() -> None:
-    for flag in proposed_work_triage.MUTATING_GH_API_FIELD_FLAGS:
+    for flag in (
+        *proposed_work_triage.MUTATING_GH_API_FIELD_FLAGS,
+        "--field=title=test",
+        "--raw-field=title=test",
+        "-ftitle=test",
+        "-Ftitle=test",
+    ):
         with pytest.raises(RuntimeError, match="field mutation flags"):
-            proposed_work_triage._assert_read_only_gh(
-                ["gh", "api", "repos/ramimbo/mergework/issues", flag, "title=test"]
-            )
+            args = ["gh", "api", "repos/ramimbo/mergework/issues", flag]
+            if "=" not in flag:
+                args.append("title=test")
+            proposed_work_triage._assert_read_only_gh(args)
+
+
+def test_read_only_gh_guard_rejects_non_get_methods() -> None:
+    for method in ("POST", "PATCH", "PUT", "DELETE"):
+        for args in (
+            ["gh", "api", "repos/ramimbo/mergework/issues", "-X", method],
+            ["gh", "api", "repos/ramimbo/mergework/issues", f"-X{method}"],
+            ["gh", "api", "repos/ramimbo/mergework/issues", f"--method={method}"],
+        ):
+            with pytest.raises(RuntimeError, match="non-read-only gh api"):
+                proposed_work_triage._assert_read_only_gh(args)
+
+
+def test_read_only_gh_guard_allows_get_and_head_methods() -> None:
+    for args in (
+        ["gh", "api", "repos/ramimbo/mergework/issues", "-X", "GET"],
+        ["gh", "api", "repos/ramimbo/mergework/issues", "-XHEAD"],
+        ["gh", "api", "repos/ramimbo/mergework/issues", "--method=GET"],
+    ):
+        proposed_work_triage._assert_read_only_gh(args)
 
 
 def test_live_triage_merges_public_paid_and_pending_state(monkeypatch) -> None:

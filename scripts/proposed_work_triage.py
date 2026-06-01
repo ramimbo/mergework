@@ -670,13 +670,32 @@ def _assert_read_only_gh(args: list[str]) -> None:
     if any(word in MUTATING_GH_WORDS for word in args):
         raise RuntimeError(f"refusing non-read-only gh command: {' '.join(args)}")
     if args[:2] == ["gh", "api"]:
-        if any(arg in MUTATING_GH_API_FIELD_FLAGS for arg in args):
+        if any(_matches_gh_api_field_flag(arg) for arg in args):
             raise RuntimeError(f"refusing gh api field mutation flags: {' '.join(args)}")
-        for flag in ("--method", "-X"):
-            if flag in args:
-                index = args.index(flag)
-                if index + 1 >= len(args) or args[index + 1].upper() not in {"GET", "HEAD"}:
-                    raise RuntimeError(f"refusing non-read-only gh api command: {' '.join(args)}")
+        for method in _gh_api_methods(args):
+            if method.upper() not in {"GET", "HEAD"}:
+                raise RuntimeError(f"refusing non-read-only gh api command: {' '.join(args)}")
+
+
+def _matches_gh_api_field_flag(arg: str) -> bool:
+    if arg in MUTATING_GH_API_FIELD_FLAGS:
+        return True
+    for flag in MUTATING_GH_API_FIELD_FLAGS:
+        if arg.startswith(f"{flag}="):
+            return True
+    return any(arg.startswith(flag) for flag in ("-f", "-F") if len(arg) > len(flag))
+
+
+def _gh_api_methods(args: list[str]) -> list[str]:
+    methods: list[str] = []
+    for index, arg in enumerate(args):
+        if arg in {"--method", "-X"}:
+            methods.append(args[index + 1] if index + 1 < len(args) else "")
+        elif arg.startswith("--method="):
+            methods.append(arg.split("=", 1)[1])
+        elif arg.startswith("-X") and len(arg) > len("-X"):
+            methods.append(arg[len("-X") :])
+    return methods
 
 
 def _run_gh_json(args: list[str]) -> Any:
