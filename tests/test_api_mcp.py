@@ -10,6 +10,7 @@ from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
 from app.models import BountyAttempt, Proof
+from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
 
 
@@ -776,7 +777,7 @@ def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
             "amount_mrwk": "75",
             "submission_url": "https://github.com/ramimbo/mergework/pull/284",
             "accepted_by": "maintainer",
-            "created_at": proof.created_at.replace(tzinfo=None).isoformat(),
+            "created_at": public_utc_timestamp(proof.created_at),
         }
     ]
 

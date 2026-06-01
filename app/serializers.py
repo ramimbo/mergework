@@ -78,7 +78,7 @@ def bounty_to_dict(
         ),
         "status": bounty.status,
         "acceptance": bounty.acceptance,
-        "created_at": bounty.created_at.isoformat(),
+        "created_at": public_utc_timestamp(bounty.created_at),
     }
 
 
@@ -122,7 +122,7 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
                 "amount_mrwk": data.get("amount_mrwk"),
                 "submission_url": data.get("submission_url"),
                 "accepted_by": data.get("accepted_by"),
-                "created_at": proof.created_at.isoformat(),
+                "created_at": public_utc_timestamp(proof.created_at),
             }
         )
     return awards
