@@ -93,6 +93,43 @@ enter the public queue, including mismatched GitHub issue URLs, missing or
 non-open bounties, duplicate pending proposals, and pending reserve-cap
 overcommit.
 
+### Proposed-work Intake Triage
+
+Proposed-work issues are maintainer intake only. They are not live bounties,
+even when the author included acceptance criteria or suggested a reference tier.
+Use the read-only triage report when the queue needs a quick review before
+opening, routing, rejecting, or consolidating possible bounty scopes:
+
+```bash
+python scripts/proposed_work_triage.py \
+  --input tests/fixtures/proposed_work_triage.json \
+  --format markdown
+
+python scripts/proposed_work_triage.py \
+  --repo ramimbo/mergework \
+  --format markdown
+```
+
+The live mode uses read-only `gh issue list` and `gh issue view --comments`
+commands. It must not add labels, post comments, create bounties, execute
+treasury proposals, or mutate payout state.
+
+Review the report in this order:
+
+1. Fix incomplete template sections first: problem, evidence, proposed work,
+   expected value, possible acceptance criteria, evidence/tests, duplicate
+   search, and out-of-scope notes.
+2. Add the `proposed-work` label only when an issue clearly matches the intake
+   template but was opened without the label.
+3. Keep routed proposals separate from live bounties; follow the linked bounty
+   only after it has `mrwk:bounty`, remaining award capacity, and the
+   `Reserved on MergeWork` claims-open comment.
+4. Keep pending payout proposals separate from proof-backed paid work. A
+   pending `pay_bounty` proposal is accepted-for-review, not paid, until the
+   public proof or ledger entry exists.
+5. Consolidate likely duplicate proposals before creating a new bounty so
+   contributors do not claim overlapping scopes.
+
 When `MERGEWORK_GITHUB_ISSUE_TOKEN` is set, successful `create_bounty`
 execution also finalizes the GitHub issue. The token needs permission to add
 labels and comments on `ramimbo/mergework` issues. Treasury execution still

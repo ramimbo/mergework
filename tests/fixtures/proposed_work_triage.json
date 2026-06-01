@@ -1,0 +1,58 @@
+{
+  "bounties": [
+    {
+      "id": 90,
+      "issue_number": 649,
+      "pending_payout_proposals": [
+        {
+          "proposal_id": 60,
+          "submission_url": "https://github.com/ramimbo/mergework/issues/101#issuecomment-1",
+          "executes_after": "2026-06-01T11:41:45Z"
+        }
+      ]
+    }
+  ],
+  "proofs": [
+    {
+      "source_url": "https://github.com/ramimbo/mergework/issues/102",
+      "proof_url": "https://api.mrwk.online/proofs/example-paid-proof"
+    }
+  ],
+  "issues": [
+    {
+      "number": 100,
+      "title": "Proposed work: complete intake example",
+      "url": "https://github.com/ramimbo/mergework/issues/100",
+      "state": "OPEN",
+      "labels": ["proposed-work"],
+      "author": {"login": "example-author"},
+      "body": "### Problem\nMaintainers need a safe read-only way to understand proposed-work intake quality.\n\n### Evidence\nThe proposed-work label can include complete, vague, routed, rejected, pending, and paid examples.\n\n### Proposed work\nGenerate a triage report without mutating GitHub labels, comments, bounties, or payouts.\n\n### Expected value\nMaintainers can decide what needs more evidence and what should not become a duplicate bounty.\n\n### Possible acceptance criteria\nThe report includes readiness gaps, routed bounty references, payment status separation, and next actions.\n\n### Evidence or tests required\nRun pytest for fixture coverage and a docs smoke check.\n\n### Duplicate search\nSearch related proposed-work issues before opening a new bounty.\n\n### Out of scope\nNo payout execution, label changes, bounty creation, private API mutation, or broad rewrite.\n",
+      "comments": []
+    },
+    {
+      "number": 101,
+      "title": "Proposed work: pending payout example",
+      "url": "https://github.com/ramimbo/mergework/issues/101",
+      "state": "OPEN",
+      "labels": ["proposed-work"],
+      "author": {"login": "example-author"},
+      "body": "### Problem\nAccepted work can be queued but not paid yet.\n\n### Evidence\nPending pay_bounty proposals are public but are not proof-backed payments.\n\n### Proposed work\nKeep pending payout proposals separate from paid rows.\n\n### Expected value\nContributors do not confuse queued review with received payment.\n\n### Possible acceptance criteria\nThe report marks this row as pending_payout, not proof_backed_paid.\n\n### Evidence or tests required\nFixture test with a pending proposal source URL.\n\n### Duplicate search\nThis covers a payment-state example only.\n\n### Out of scope\nNo payout execution or treasury mutation.\n",
+      "comments": [
+        {
+          "url": "https://github.com/ramimbo/mergework/issues/101#issuecomment-1",
+          "body": "Accepted for review; pending proposal only."
+        }
+      ]
+    },
+    {
+      "number": 102,
+      "title": "Proposed work: paid proof example",
+      "url": "https://github.com/ramimbo/mergework/issues/102",
+      "state": "OPEN",
+      "labels": ["proposed-work"],
+      "author": {"login": "example-author"},
+      "body": "### Problem\nProof-backed payments must not be mixed with pending payout proposals.\n\n### Evidence\nA public proof URL exists for this issue.\n\n### Proposed work\nMark this row as proof_backed_paid.\n\n### Expected value\nMaintainers can reconcile already-paid work without duplicate payout language.\n\n### Possible acceptance criteria\nThe report links the proof and avoids pending wording.\n\n### Evidence or tests required\nFixture test with a proof source URL.\n\n### Duplicate search\nThis covers a paid-state example only.\n\n### Out of scope\nNo duplicate claim or new bounty.\n",
+      "comments": []
+    }
+  ]
+}
