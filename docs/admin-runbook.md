@@ -275,6 +275,27 @@ post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
 PR scope within the same bounty issue.
 
+### Proposed Work Triage
+
+Use the read-only proposed-work triage report when maintainers need to review
+the intake queue before creating, rejecting, or consolidating future bounties:
+
+```bash
+python scripts/proposed_work_triage.py --repo ramimbo/mergework --format markdown
+```
+
+For deterministic review or incident write-ups, use an offline fixture instead:
+
+```bash
+python scripts/proposed_work_triage.py --input proposed-work-fixture.json --format json
+```
+
+The report lists proposed-work issues, missing `proposed-work` labels, missing
+template sections, vague or rejected proposals, already-routed items, likely
+related groups, and #649 pending-versus-proof-backed payment status when that
+public data is present in the input. It does not label, comment, edit issues,
+create bounties, accept work, or pay claims.
+
 For reviewer-specific review-bounty preflight, generate a candidate report with
 the reviewer login:
 
