@@ -348,7 +348,7 @@ def test_bounty_api_filters_by_status(sqlite_url: str) -> None:
     assert [item["id"] for item in client.get("/api/v1/bounties?status=OPEN").json()] == [
         open_bounty.id
     ]
-    assert [item["id"] for item in client.get("/api/v1/bounties?status= Paid ").json()] == [
+    assert [item["id"] for item in client.get("/api/v1/bounties?status=Paid").json()] == [
         paid_bounty.id
     ]
     invalid = client.get("/api/v1/bounties?status=bogus")
@@ -370,6 +370,44 @@ def test_bounty_api_search_query_rejects_control_characters(sqlite_url: str) -> 
     assert list_response.json()["detail"] == "q must not contain control characters"
     assert summary_response.status_code == 400
     assert summary_response.json()["detail"] == "q must not contain control characters"
+
+
+@pytest.mark.parametrize(
+    ("path", "detail"),
+    [
+        (
+            "/api/v1/bounties?status=%20open%20",
+            "status must not include leading or trailing whitespace",
+        ),
+        (
+            "/api/v1/bounties/summary?q=%20open%20",
+            "q must not include leading or trailing whitespace",
+        ),
+        (
+            "/api/v1/bounties?sort=%20reward%20",
+            "sort must not include leading or trailing whitespace",
+        ),
+        (
+            "/api/v1/bounties/summary?repo=%20ramimbo%2Fmergework%20",
+            "repo must not include leading or trailing whitespace",
+        ),
+        (
+            "/api/v1/bounties?availability=%20effectively_open%20",
+            "availability must not include leading or trailing whitespace",
+        ),
+    ],
+)
+def test_bounty_api_rejects_padded_string_filters(sqlite_url: str, path: str, detail: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(path)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
 
 
 @pytest.mark.parametrize(

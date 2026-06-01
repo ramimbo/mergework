@@ -36,6 +36,17 @@ def reject_noncanonical_int_query_param(request: Request, name: str) -> None:
             )
 
 
+def reject_padded_query_param(request: Request, name: str) -> None:
+    """Reject non-empty string query values with raw leading/trailing whitespace."""
+    for value in request.query_params.getlist(name):
+        stripped = value.strip()
+        if stripped and stripped != value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} must not include leading or trailing whitespace",
+            )
+
+
 def reject_repeated_query_param(request: Request, name: str) -> None:
     """Reject ambiguous scalar query parameters before FastAPI chooses one value."""
     if len(request.query_params.getlist(name)) > 1:
