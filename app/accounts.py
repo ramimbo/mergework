@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
@@ -49,7 +50,7 @@ def normalized_wallet_address(address: str) -> str:
 def normalized_account(account: str) -> str:
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
-    if re.search(r"[\x00-\x1f\x7f]", account):
+    if contains_control_character(account):
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
     lower = clean.lower()
