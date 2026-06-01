@@ -266,6 +266,7 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     invalid = client.get("/accounts/github:alice?tx_type=bogus")
     control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment")
     masked_control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment&tx_type=all")
+    padded = client.get("/accounts/github:alice?tx_type=%20bounty_payment%20")
     repeated = client.get("/accounts/github:alice?tx_type=bounty_payment&tx_type=all")
 
     assert all_rows.status_code == 200
@@ -291,6 +292,8 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     assert control.json()["detail"] == "transaction type must not contain control characters"
     assert masked_control.status_code == 400
     assert masked_control.json()["detail"] == "transaction type must not contain control characters"
+    assert padded.status_code == 400
+    assert padded.json()["detail"] == "tx_type must not include leading or trailing whitespace"
     assert repeated.status_code == 400
     assert repeated.json()["detail"] == "tx_type must be provided at most once"
 
