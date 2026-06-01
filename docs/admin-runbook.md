@@ -353,6 +353,32 @@ python scripts/pr_queue_health.py --input queue.json --format json --fail-on-iss
 maintainers add the check to local release or payout workflows without requiring
 live GitHub access.
 
+### Proposed Work Triage
+
+Use the read-only proposed-work intake triage report before turning busy intake
+rounds into implementation bounties:
+
+```bash
+python scripts/proposed_work_triage.py --repo ramimbo/mergework --format markdown
+```
+
+The live command uses only read-only `gh issue list/view` calls plus public
+MergeWork API reads. It lists proposed-work issues, detects missing
+`proposed-work` labels and missing template sections, flags vague,
+duplicate-looking, already-routed, rejected, and non-live-confused proposals,
+and keeps #649 pending payout proposals separate from proof-backed paid intake.
+It can suggest conservative consolidated bounty scopes when multiple proposals
+share an issue, URL, or narrow title evidence.
+
+For offline review or reproducible maintainer notes, save fixture data and run:
+
+```bash
+python scripts/proposed_work_triage.py --input proposed-work-triage.json --format json
+```
+
+The report is advisory only. Do not use it to automatically label issues, post
+comments, create bounties, accept work, or queue payouts.
+
 ### Final Checks
 
 1. Confirm the webhook or admin API records one ledger payment for that award.
