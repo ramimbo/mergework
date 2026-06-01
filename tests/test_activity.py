@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import add_ledger_entry, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
 
 
@@ -243,8 +244,8 @@ def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
         )
         pending_bounty_id = pending_bounty.id
         proposal_id = proposal.id
-        proposal_proposed_at = proposal.proposed_at.isoformat()
-        proposal_executes_after = proposal.executes_after.isoformat()
+        proposal_proposed_at = public_utc_timestamp(proposal.proposed_at)
+        proposal_executes_after = public_utc_timestamp(proposal.executes_after)
         proof_hash = proof.hash
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
@@ -285,6 +286,7 @@ def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
             "executes_after": proposal_executes_after,
         }
     ]
+    assert payload["pending_payouts"][0]["executes_after"].endswith("Z")
     assert by_account["pending_payouts"][0]["proposal_id"] == proposal_id
     assert by_proposal["pending_payouts"][0]["proposal_id"] == proposal_id
     assert by_submission["pending_payouts"][0]["proposal_id"] == proposal_id

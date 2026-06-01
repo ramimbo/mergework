@@ -24,6 +24,7 @@ from app.ledger.service import (
 from app.main import create_app
 from app.models import Bounty, LedgerEntry, Submission, TreasuryChallenge, TreasuryProposal, utc_now
 from app.path_params import SQLITE_INTEGER_MAX
+from app.serializers import public_utc_timestamp
 
 ADMIN_HEADERS = {"x-mergework-admin-token": "admin-token-for-tests"}
 
@@ -100,6 +101,8 @@ def test_admin_bounty_creation_creates_public_delayed_proposal(
     assert body["payload"]["repo"] == "ramimbo/mergework"
     assert body["payload"]["reward_mrwk"] == "25"
     assert body["executes_after"] > body["proposed_at"]
+    assert body["proposed_at"].endswith("Z")
+    assert body["executes_after"].endswith("Z")
     with session_scope(sqlite_url) as session:
         assert session.scalar(select(func.count(Bounty.id))) == 0
         assert get_balance(session, TREASURY_ACCOUNT) == 100_000_000_000_000
@@ -201,9 +204,8 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
     assert body["executed_reserve_24h_mrwk"] == "9000"
     assert body["pending_create_reserve_mrwk"] == "500"
     assert body["available_create_reserve_mrwk"] == "500"
-    assert (
-        body["next_capacity_release_at"]
-        == (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat()
+    assert body["next_capacity_release_at"] == public_utc_timestamp(
+        recent_time + timedelta(hours=24)
     )
     assert body["pending_create_bounties"] == [
         {
@@ -216,9 +218,9 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
             "reserve_mrwk": "500",
             "proposed_at": proposal.json()["proposed_at"],
             "executes_after": proposal.json()["executes_after"],
-            "capacity_releases_at": (
+            "capacity_releases_at": public_utc_timestamp(
                 datetime.fromisoformat(proposal.json()["executes_after"]) + timedelta(hours=24)
-            ).isoformat(),
+            ),
         }
     ]
     assert body["recent_reserves"] == [
@@ -226,8 +228,8 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
             "ledger_sequence": recent_entry.sequence,
             "amount_mrwk": "9000",
             "reference": "https://github.com/ramimbo/mergework/issues/1",
-            "created_at": recent_time.replace(tzinfo=None).isoformat(),
-            "expires_at": (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "created_at": public_utc_timestamp(recent_time),
+            "expires_at": public_utc_timestamp(recent_time + timedelta(hours=24)),
         }
     ]
 
@@ -269,8 +271,8 @@ def test_treasury_status_includes_reserve_at_exact_24h_boundary(
             "ledger_sequence": entry.sequence,
             "amount_mrwk": "1",
             "reference": "https://github.com/ramimbo/mergework/issues/42",
-            "created_at": boundary_time.replace(tzinfo=None).isoformat(),
-            "expires_at": fixed_now.replace(tzinfo=None).isoformat(),
+            "created_at": public_utc_timestamp(boundary_time),
+            "expires_at": public_utc_timestamp(fixed_now),
         }
     ]
     assert body["next_capacity_release_at"] is None
@@ -313,37 +315,36 @@ def test_treasury_status_projects_pending_create_capacity_events(
     assert proposal.status_code == 200
     assert response.status_code == 200
     body = response.json()
-    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=48)
+    pending_release_at = fixed_now + timedelta(hours=48)
     assert body["available_create_reserve_mrwk"] == "1000"
     assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
-        pending_release_at.isoformat()
+        public_utc_timestamp(pending_release_at)
     )
     assert body["projected_capacity_events"] == [
         {
-            "at": (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "at": public_utc_timestamp(recent_time + timedelta(hours=24)),
             "event_type": "recent_reserve_releases",
             "amount_mrwk": "8000",
             "available_create_reserve_mrwk": "9000",
             "note": "Executed reserve leaves the 24h cap window.",
         },
         {
-            "at": (fixed_now.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "at": public_utc_timestamp(fixed_now + timedelta(hours=24)),
             "event_type": "pending_create_executes",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "9000",
             "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
         },
         {
-            "at": pending_release_at.isoformat(),
+            "at": public_utc_timestamp(pending_release_at),
             "event_type": "pending_create_releases",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "10000",
             "note": "Executed reserve from this pending create leaves the 24h cap window.",
         },
     ]
-    assert (
-        body["next_projected_capacity_release_at"]
-        == (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat()
+    assert body["next_projected_capacity_release_at"] == public_utc_timestamp(
+        recent_time + timedelta(hours=24)
     )
 
 
@@ -368,31 +369,30 @@ def test_treasury_status_clamps_overdue_pending_create_projection_to_now(
 
     assert response.status_code == 200
     body = response.json()
-    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=24)
-    assert (
-        body["pending_create_bounties"][0]["executes_after"]
-        == (fixed_now.replace(tzinfo=None) - timedelta(hours=2)).isoformat()
+    pending_release_at = fixed_now + timedelta(hours=24)
+    assert body["pending_create_bounties"][0]["executes_after"] == public_utc_timestamp(
+        fixed_now - timedelta(hours=2)
     )
     assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
-        pending_release_at.isoformat()
+        public_utc_timestamp(pending_release_at)
     )
     assert body["projected_capacity_events"] == [
         {
-            "at": fixed_now.replace(tzinfo=None).isoformat(),
+            "at": public_utc_timestamp(fixed_now),
             "event_type": "pending_create_executes",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "9000",
             "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
         },
         {
-            "at": pending_release_at.isoformat(),
+            "at": public_utc_timestamp(pending_release_at),
             "event_type": "pending_create_releases",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "10000",
             "note": "Executed reserve from this pending create leaves the 24h cap window.",
         },
     ]
-    assert body["next_projected_capacity_release_at"] == pending_release_at.isoformat()
+    assert body["next_projected_capacity_release_at"] == public_utc_timestamp(pending_release_at)
 
 
 def test_treasury_proposals_list_honors_limit(

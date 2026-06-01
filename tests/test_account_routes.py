@@ -13,6 +13,7 @@ from app.ledger.service import (
     pay_bounty,
 )
 from app.main import create_app
+from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
 
 
@@ -160,7 +161,7 @@ def test_account_routes_expose_pending_payouts_separately_from_paid_work(
     assert account_api["pending_summary"] == {
         "pending_awards": 1,
         "pending_mrwk": "75",
-        "next_executes_after": proposal.executes_after.isoformat(),
+        "next_executes_after": public_utc_timestamp(proposal.executes_after),
     }
     assert accepted_api["summary"] == account_api["accepted_work"]
     assert accepted_api["pending_summary"] == account_api["pending_summary"]
@@ -178,10 +179,11 @@ def test_account_routes_expose_pending_payouts_separately_from_paid_work(
             "issue_url": "https://github.com/ramimbo/mergework/issues/180",
             "submission_url": "https://github.com/ramimbo/mergework/pull/180",
             "accepted_by": "maintainer",
-            "proposed_at": proposal.proposed_at.isoformat(),
-            "executes_after": proposal.executes_after.isoformat(),
+            "proposed_at": public_utc_timestamp(proposal.proposed_at),
+            "executes_after": public_utc_timestamp(proposal.executes_after),
         }
     ]
+    assert account_api["pending_summary"]["next_executes_after"].endswith("Z")
     assert len(accepted_api["accepted_work"]) == 1
     assert accepted_api["accepted_work"][0]["proof_hash"] == proof.hash
     assert "Pending payouts" in page

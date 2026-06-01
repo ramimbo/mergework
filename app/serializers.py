@@ -17,6 +17,13 @@ from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, Wal
 PendingBountyProposals = tuple[list[dict[str, Any]], dict[str, Any] | None]
 
 
+def public_utc_timestamp(value: datetime) -> str:
+    """Serialize public API timestamps with an explicit UTC marker."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
 def bounty_to_dict(
     bounty: Bounty,
     session: Session | None = None,
@@ -168,8 +175,8 @@ def _proposal_summary(
     summary = {
         "proposal_id": proposal.id,
         "proposed_by": proposal.proposed_by,
-        "proposed_at": proposal.proposed_at.isoformat(),
-        "executes_after": proposal.executes_after.isoformat(),
+        "proposed_at": public_utc_timestamp(proposal.proposed_at),
+        "executes_after": public_utc_timestamp(proposal.executes_after),
     }
     for field in fields:
         value = payload.get(field)
@@ -456,8 +463,8 @@ def _pending_activity_row(
         "bounty_id": bounty.id if bounty else _proposal_bounty_id(payload),
         "bounty_url": _bounty_detail_url(bounty.id if bounty else _proposal_bounty_id(payload)),
         "accepted_by": payload.get("accepted_by"),
-        "proposed_at": proposal.proposed_at.isoformat(),
-        "executes_after": proposal.executes_after.isoformat(),
+        "proposed_at": public_utc_timestamp(proposal.proposed_at),
+        "executes_after": public_utc_timestamp(proposal.executes_after),
     }
 
 
@@ -710,8 +717,8 @@ def pending_payouts_for_account(session: Session, account: str) -> list[dict[str
                 "issue_url": bounty.issue_url if bounty else None,
                 "submission_url": payload.get("submission_url"),
                 "accepted_by": payload.get("accepted_by"),
-                "proposed_at": proposal.proposed_at.isoformat(),
-                "executes_after": proposal.executes_after.isoformat(),
+                "proposed_at": public_utc_timestamp(proposal.proposed_at),
+                "executes_after": public_utc_timestamp(proposal.executes_after),
             }
         )
     return pending
