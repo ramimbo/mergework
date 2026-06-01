@@ -199,6 +199,100 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
         assert invalid_hash_query["recent"] == []
 
 
+def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=656,
+            issue_url="https://github.com/ramimbo/mergework/issues/656",
+            title="Activity limit bounty",
+            reward_mrwk="75",
+            max_awards=3,
+            acceptance="Activity list consumers should be able to request bounded feeds.",
+        )
+        pending_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=657,
+            issue_url="https://github.com/ramimbo/mergework/issues/657",
+            title="Pending activity limit bounty",
+            reward_mrwk="50",
+            max_awards=2,
+            acceptance="Pending payout rows should be limited with the rest of activity.",
+        )
+        for login in ("alice", "bob"):
+            propose_treasury_action(
+                session,
+                action="pay_bounty",
+                payload={
+                    "bounty_id": pending_bounty.id,
+                    "to_account": f"github:{login}",
+                    "submission_url": f"https://github.com/ramimbo/mergework/pull/pending-{login}",
+                    "accepted_by": "maintainer",
+                },
+                proposed_by="maintainer",
+            )
+        for login in ("alice", "bob", "carol"):
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account=f"github:{login}",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{login}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    limited = client.get("/api/v1/activity?limit=1")
+    filtered_limited = client.get("/api/v1/activity?q=github&limit=2")
+    exact_size = client.get("/api/v1/activity?limit=3")
+    exceeds_size = client.get("/api/v1/activity?limit=100")
+    invalid = client.get("/api/v1/activity?limit=notanint")
+    below_min = client.get("/api/v1/activity?limit=0")
+    above_max = client.get("/api/v1/activity?limit=201")
+
+    assert limited.status_code == 200
+    limited_payload = limited.json()
+    assert limited_payload["limit"] == 1
+    assert limited_payload["totals"] == {
+        "accepted_awards": 3,
+        "accepted_mrwk": "225",
+        "contributors": 3,
+    }
+    assert len(limited_payload["contributors"]) == 1
+    assert len(limited_payload["recent"]) == 1
+    assert len(limited_payload["pending_payouts"]) == 1
+
+    assert filtered_limited.status_code == 200
+    filtered_payload = filtered_limited.json()
+    assert filtered_payload["query"] == "github"
+    assert filtered_payload["limit"] == 2
+    assert filtered_payload["totals"]["contributors"] == 3
+    assert len(filtered_payload["contributors"]) == 2
+    assert len(filtered_payload["recent"]) == 2
+    assert len(filtered_payload["pending_payouts"]) == 2
+
+    assert exact_size.status_code == 200
+    exact_payload = exact_size.json()
+    assert len(exact_payload["contributors"]) == 3
+    assert len(exact_payload["recent"]) == 3
+    assert len(exact_payload["pending_payouts"]) == 2
+
+    assert exceeds_size.status_code == 200
+    exceeds_payload = exceeds_size.json()
+    assert len(exceeds_payload["contributors"]) == 3
+    assert len(exceeds_payload["recent"]) == 3
+    assert len(exceeds_payload["pending_payouts"]) == 2
+
+    assert invalid.status_code == 422
+    assert below_min.status_code == 422
+    assert above_max.status_code == 422
+
+
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:
@@ -351,12 +445,17 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "Pending accepted work" in paid.text
 
     filtered = client.get("/activity?q=bob")
+    limited_filtered = client.get("/activity?q=bob&limit=25")
     issue_ref = client.get("/activity?q=%2312")
 
     assert filtered.status_code == 200
     assert 'value="bob"' in filtered.text
     assert "Showing accepted work matching “bob”." in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
+    assert limited_filtered.status_code == 200
+    assert 'href="/api/v1/activity?q=bob&amp;limit=25">View JSON activity</a>' in (
+        limited_filtered.text
+    )
     assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text

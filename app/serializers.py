@@ -534,7 +534,9 @@ def pending_activity_rows(session: Session, query: str | None = None) -> list[di
     return pending
 
 
-def activity_to_dict(session: Session, query: str | None = None) -> dict[str, Any]:
+def activity_to_dict(
+    session: Session, query: str | None = None, *, limit: int = 100
+) -> dict[str, Any]:
     """Build the public activity feed and contributor totals."""
     search_query = _activity_search_query(query)
     rows = session.execute(
@@ -594,6 +596,10 @@ def activity_to_dict(session: Session, query: str | None = None) -> dict[str, An
     for row in pending_payouts:
         del row["amount_microunits"]
 
+    contributor_rows = contributors[:limit]
+    pending_rows = pending_payouts[:limit]
+    recent_rows = recent[:limit]
+
     return {
         "totals": {
             "accepted_awards": len(recent),
@@ -605,9 +611,10 @@ def activity_to_dict(session: Session, query: str | None = None) -> dict[str, An
             "pending_mrwk": format_mrwk(pending_microunits),
         },
         "query": search_query,
-        "contributors": contributors,
-        "pending_payouts": pending_payouts[:100],
-        "recent": recent[:100],
+        "limit": limit,
+        "contributors": contributor_rows,
+        "pending_payouts": pending_rows,
+        "recent": recent_rows,
     }
 
 

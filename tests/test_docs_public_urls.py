@@ -107,6 +107,15 @@ def test_api_examples_document_ledger_response_shape() -> None:
     assert "bounty-payment ledger entries" in examples
 
 
+def test_api_examples_document_activity_limit() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "/api/v1/activity?q=p3xill&limit=25" in examples
+    assert "The optional `limit` parameter defaults to `100`" in examples
+    assert "values from `1` to `200`" in examples
+    assert '"limit": 25' in examples
+
+
 def test_api_examples_document_auth_me_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
