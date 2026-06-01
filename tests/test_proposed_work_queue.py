@@ -191,6 +191,16 @@ def test_proposed_work_queue_rejects_non_read_only_gh_command() -> None:
         )
 
 
+def test_proposed_work_queue_wraps_missing_gh_binary(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(proposed_work_queue.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh executable not found"):
+        proposed_work_queue.load_live_queue("ramimbo/mergework")
+
+
 def test_proposed_work_queue_allows_explicit_read_only_gh_api_methods(monkeypatch) -> None:
     calls: list[list[str]] = []
 
