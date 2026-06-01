@@ -70,6 +70,11 @@ REQUIRED_PUBLIC_PHRASES = {
         "Internal ledger accounts use the same account response shape",
         ("Treasury and reserve balances change as bounties are reserved, paid, and released."),
     ],
+    "docs/admin-runbook.md": [
+        "When CodeRabbit reports a large `Bounty Pr Focus` file count",
+        "Run `gh pr diff <number> --name-only`",
+        "If they disagree, post a short scope-sanity note",
+    ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"

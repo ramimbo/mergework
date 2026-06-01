@@ -168,6 +168,14 @@ post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
 PR scope within the same bounty issue.
 
+When CodeRabbit reports a large `Bounty Pr Focus` file count, verify current PR
+scope before treating it as unresolved scope creep:
+
+1. Check the GitHub PR "Files changed" tab for the current head.
+2. Run `gh pr diff <number> --name-only` and compare with GitHub's file list.
+3. Treat it as a real scope warning only when both sources show a broad diff.
+4. If they disagree, post a short scope-sanity note with the current-head file list.
+
 ### Claim Inventory
 
 Use the claim-inventory report when a busy bounty round needs a public,
