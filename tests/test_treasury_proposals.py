@@ -493,6 +493,18 @@ def test_treasury_proposals_list_filters(sqlite_url: str, monkeypatch: pytest.Mo
     assert ctrl.status_code == 400
     assert ctrl.json()["detail"] == "to_account must not contain control characters"
 
+    blank_status = client.get("/api/v1/treasury/proposals?status=%20")
+    assert blank_status.status_code == 400
+    assert blank_status.json()["detail"] == "status must not be blank"
+
+    ctrl_action = client.get("/api/v1/treasury/proposals", params={"action": "pay_bounty\t"})
+    assert ctrl_action.status_code == 400
+    assert ctrl_action.json()["detail"] == "action must not contain control characters"
+
+    blank_submission = client.get("/api/v1/treasury/proposals?submission_url=%20")
+    assert blank_submission.status_code == 400
+    assert blank_submission.json()["detail"] == "submission_url must not be blank"
+
     filtered_bounty = client.get(f"/api/v1/treasury/proposals?bounty_id={b1_id}")
     assert filtered_bounty.status_code == 200
     assert [p["id"] for p in filtered_bounty.json()] == [p1["id"]]

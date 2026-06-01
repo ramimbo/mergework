@@ -95,15 +95,15 @@ def register_treasury_routes(
             if action is not None:
                 query = query.where(TreasuryProposal.action == action.strip())
 
-            proposals = session.scalars(query.order_by(TreasuryProposal.id.desc())).all()
-
             import json
 
             results = []
-            for proposal in proposals:
+            for proposal in session.scalars(query.order_by(TreasuryProposal.id.desc())):
                 try:
                     payload = json.loads(proposal.payload_json)
                 except Exception:
+                    continue
+                if not isinstance(payload, dict):
                     continue
 
                 if to_account is not None:
