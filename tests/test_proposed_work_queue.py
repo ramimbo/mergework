@@ -189,6 +189,8 @@ def test_proposed_work_queue_rejects_non_read_only_gh_command() -> None:
         proposed_work_queue._run_gh_json(
             ["gh", "api", "repos/ramimbo/mergework/issues", "--method", "POST"]
         )
+    with pytest.raises(RuntimeError, match="refusing unsupported gh command"):
+        proposed_work_queue._run_gh_json(["gh", "pr", "list", "--repo", "ramimbo/mergework"])
 
 
 def test_proposed_work_queue_wraps_missing_gh_binary(monkeypatch) -> None:
@@ -269,3 +271,20 @@ def test_proposed_work_queue_main_reads_fixture(tmp_path, capsys) -> None:
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
     assert output["summary"]["title_body_fallback"] == 1
+
+
+def test_proposed_work_queue_main_treats_empty_input_as_fixture_path(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_load_input(path: str) -> dict[str, object]:
+        calls.append(path)
+        return {"issues": []}
+
+    def fail_live_queue(repo: str) -> dict[str, object]:
+        raise AssertionError(f"unexpected live queue load for {repo}")
+
+    monkeypatch.setattr(proposed_work_queue, "_load_input", fake_load_input)
+    monkeypatch.setattr(proposed_work_queue, "load_live_queue", fail_live_queue)
+
+    assert main(["--input", ""]) == 0
+    assert calls == [""]

@@ -219,7 +219,7 @@ def _run_gh_json(args: list[str]) -> Any:
         if method not in READ_ONLY_API_METHODS:
             raise RuntimeError(f"refusing non-read-only gh api command: {' '.join(args)}")
     else:
-        raise RuntimeError(f"refusing non-read-only gh issue command: {' '.join(args)}")
+        raise RuntimeError(f"refusing unsupported gh command: {' '.join(args)}")
     try:
         completed = subprocess.run(
             args,
@@ -286,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", choices=["json", "markdown", "text"], default="text")
     args = parser.parse_args(argv)
 
-    data = _load_input(args.input) if args.input else load_live_queue(args.repo)
+    data = _load_input(args.input) if args.input is not None else load_live_queue(args.repo)
     report = analyze_queue(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
