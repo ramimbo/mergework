@@ -301,18 +301,22 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 ```bash
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
+curl -s "$API_HOST/api/v1/activity?q=p3xill&limit=25"
 ```
 
 The optional `q` parameter filters proof-backed and pending activity rows by
 account, amount, submission URL, proof hash, proposal id, bounty repo, bounty
 issue URL, internal bounty id, or GitHub issue number. In other words, the
 same search can match bounty repo, bounty issue URL, proposal, proof, or
-submission evidence. The response groups
-matching proof-backed bounty payments into `totals`, contributor rollups, and
-the most recent payment rows. Accepted-but-not-yet-executed `pay_bounty`
-proposals appear separately in `pending_totals` and `pending_payouts`; they are
-not counted as paid, proof-backed, received, or withdrawable work until treasury
-execution creates a ledger proof:
+submission evidence. The optional `limit` parameter defaults to `100`, accepts
+values from `1` to `200`, and caps returned `contributors`, `pending_payouts`,
+and `recent` arrays while totals still describe the full matching set. The
+response groups matching proof-backed bounty payments into `totals`,
+contributor rollups, and the most recent payment rows.
+Accepted-but-not-yet-executed `pay_bounty` proposals appear separately in
+`pending_totals` and `pending_payouts`; they are not counted as paid,
+proof-backed, received, or withdrawable work until treasury execution creates a
+ledger proof:
 
 ```json
 {
@@ -326,6 +330,7 @@ execution creates a ledger proof:
     "pending_mrwk": "50"
   },
   "query": "p3xill",
+  "limit": 25,
   "contributors": [
     {
       "account": "github:p3xill",
@@ -377,7 +382,7 @@ execution creates a ledger proof:
 ```
 
 `contributors` is sorted by accepted MRWK amount, while `recent` is sorted by
-newest ledger sequence and capped to the latest 100 matching rows. Use
+newest ledger sequence. Use
 `proof_hash` with `/api/v1/proofs/<proof_hash>` to inspect the public proof
 payload for a payment.
 

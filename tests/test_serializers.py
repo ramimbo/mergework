@@ -293,6 +293,7 @@ def test_activity_serializers_skip_malformed_public_proofs(sqlite_url: str) -> N
         "totals": {"accepted_awards": 0, "accepted_mrwk": "0", "contributors": 0},
         "pending_totals": {"pending_awards": 0, "pending_mrwk": "0"},
         "query": "",
+        "limit": 100,
         "contributors": [],
         "pending_payouts": [],
         "recent": [],

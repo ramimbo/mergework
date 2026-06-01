@@ -232,6 +232,7 @@ def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
 
     assert limited.status_code == 200
     limited_payload = limited.json()
+    assert limited_payload["limit"] == 1
     assert limited_payload["totals"] == {
         "accepted_awards": 3,
         "accepted_mrwk": "225",
@@ -244,6 +245,7 @@ def test_activity_api_validates_and_applies_limit(sqlite_url: str) -> None:
     assert filtered_limited.status_code == 200
     filtered_payload = filtered_limited.json()
     assert filtered_payload["query"] == "github"
+    assert filtered_payload["limit"] == 2
     assert filtered_payload["totals"]["contributors"] == 3
     assert len(filtered_payload["contributors"]) == 2
     assert len(filtered_payload["recent"]) == 2
@@ -404,12 +406,17 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "Pending accepted work" in paid.text
 
     filtered = client.get("/activity?q=bob")
+    limited_filtered = client.get("/activity?q=bob&limit=25")
     issue_ref = client.get("/activity?q=%2312")
 
     assert filtered.status_code == 200
     assert 'value="bob"' in filtered.text
     assert "Showing accepted work matching “bob”." in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
+    assert limited_filtered.status_code == 200
+    assert 'href="/api/v1/activity?q=bob&amp;limit=25">View JSON activity</a>' in (
+        limited_filtered.text
+    )
     assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
