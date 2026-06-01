@@ -552,7 +552,9 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
     assert executed.status_code == 200
 
     action_filtered = client.get("/api/v1/treasury/proposals?action=pay_bounty")
+    uppercase_action_filtered = client.get("/api/v1/treasury/proposals?action=PAY_BOUNTY")
     pending_filtered = client.get("/api/v1/treasury/proposals?status=pending")
+    uppercase_pending_filtered = client.get("/api/v1/treasury/proposals?status=PENDING")
     bounty_filtered = client.get(f"/api/v1/treasury/proposals?bounty_id={first_bounty_id}")
     composed_filtered = client.get(
         "/api/v1/treasury/proposals",
@@ -569,11 +571,15 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
         second_payout["id"],
         first_payout["id"],
     ]
+    assert uppercase_action_filtered.status_code == 200
+    assert uppercase_action_filtered.json() == action_filtered.json()
     assert pending_filtered.status_code == 200
     assert [proposal["id"] for proposal in pending_filtered.json()] == [
         create_bounty_proposal["id"],
         second_payout["id"],
     ]
+    assert uppercase_pending_filtered.status_code == 200
+    assert uppercase_pending_filtered.json() == pending_filtered.json()
     assert bounty_filtered.status_code == 200
     assert [proposal["id"] for proposal in bounty_filtered.json()] == [first_payout["id"]]
     assert composed_filtered.status_code == 200
@@ -587,6 +593,8 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
     (
         ("action", "\tpay_bounty", "action must not contain control characters"),
         ("status", " ", "status is required"),
+        ("action", "paybounty", "action must be one of: close_bounty, create_bounty, pay_bounty"),
+        ("status", "complete", "status must be one of: pending, executed, blocked"),
     ),
 )
 def test_treasury_proposals_list_rejects_invalid_filters(

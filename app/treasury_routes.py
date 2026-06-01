@@ -13,6 +13,7 @@ from app.models import TreasuryProposal
 from app.openapi_request_bodies import TREASURY_CHALLENGE_BODY, TREASURY_PROPOSAL_BODY
 from app.path_params import SQLITE_INTEGER_MAX
 from app.treasury import (
+    TREASURY_ACTIONS,
     challenge_to_dict,
     create_treasury_challenge,
     proposal_to_dict,
@@ -20,6 +21,8 @@ from app.treasury import (
     treasury_status,
 )
 from app.treasury_executor import execute_treasury_proposal_with_finalization
+
+TREASURY_PROPOSAL_STATUSES = ("pending", "executed", "blocked")
 
 
 def _positive_proposal_id(proposal_id: int) -> int:
@@ -45,6 +48,8 @@ def _optional_query_filter(
     *,
     max_length: int,
     blank_detail: str | None = None,
+    allowed_values: tuple[str, ...] | None = None,
+    lower: bool = False,
 ) -> str | None:
     if value is None:
         return None
@@ -53,8 +58,15 @@ def _optional_query_filter(
     clean = value.strip()
     if not clean:
         raise HTTPException(status_code=400, detail=blank_detail or f"{field} is required")
+    if lower:
+        clean = clean.lower()
     if len(clean) > max_length:
         raise HTTPException(status_code=400, detail=f"{field} is too long")
+    if allowed_values is not None and clean not in allowed_values:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field} must be one of: {', '.join(allowed_values)}",
+        )
     return clean
 
 
@@ -109,8 +121,20 @@ def register_treasury_routes(
         to_account: Annotated[str | None, Query(max_length=128)] = None,
         bounty_id: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
     ) -> list[dict[str, Any]]:
-        action_filter = _optional_query_filter(action, "action", max_length=40)
-        status_filter = _optional_query_filter(status, "status", max_length=40)
+        action_filter = _optional_query_filter(
+            action,
+            "action",
+            max_length=40,
+            allowed_values=tuple(sorted(TREASURY_ACTIONS)),
+            lower=True,
+        )
+        status_filter = _optional_query_filter(
+            status,
+            "status",
+            max_length=40,
+            allowed_values=TREASURY_PROPOSAL_STATUSES,
+            lower=True,
+        )
         to_account_filter = _optional_query_filter(
             to_account,
             "to_account",
