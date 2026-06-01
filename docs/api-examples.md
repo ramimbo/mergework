@@ -301,13 +301,17 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 ```bash
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
+curl -s "$API_HOST/api/v1/activity?q=p3xill&limit=25"
 ```
 
 The optional `q` parameter filters proof-backed and pending activity rows by
 account, amount, submission URL, proof hash, proposal id, bounty repo, bounty
 issue URL, internal bounty id, or GitHub issue number. In other words, the
 same search can match bounty repo, bounty issue URL, proposal, proof, or
-submission evidence. The response groups
+submission evidence. The optional `limit` parameter defaults to `100`, accepts
+values from `1` to `200`, and caps the returned `contributors`,
+`pending_payouts`, and `recent` row arrays while the totals still describe the
+full matching activity set. The response groups
 matching proof-backed bounty payments into `totals`, contributor rollups, and
 the most recent payment rows. Accepted-but-not-yet-executed `pay_bounty`
 proposals appear separately in `pending_totals` and `pending_payouts`; they are
@@ -326,6 +330,7 @@ execution creates a ledger proof:
     "pending_mrwk": "50"
   },
   "query": "p3xill",
+  "limit": 25,
   "contributors": [
     {
       "account": "github:p3xill",

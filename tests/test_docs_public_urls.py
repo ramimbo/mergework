@@ -423,9 +423,14 @@ def test_api_examples_document_activity_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
     assert "/api/v1/activity?q=p3xill" in examples
+    assert "/api/v1/activity?q=p3xill&limit=25" in examples
+    assert "defaults to `100`" in examples
+    assert "values from `1` to `200`" in examples
+    assert "`contributors`,\n`pending_payouts`, and `recent` row arrays" in examples
     assert '"totals": {' in examples
     assert '"accepted_awards": 2' in examples
     assert '"accepted_mrwk": "115"' in examples
+    assert '"limit": 25' in examples
     assert '"contributors": [' in examples
     assert '"account": "github:p3xill"' in examples
     assert (

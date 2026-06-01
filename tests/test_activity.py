@@ -75,9 +75,14 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     response = client.get("/api/v1/activity")
+    limited = client.get("/api/v1/activity?limit=1")
+    invalid_limit = client.get("/api/v1/activity?limit=notanint")
+    too_low_limit = client.get("/api/v1/activity?limit=0")
+    too_high_limit = client.get("/api/v1/activity?limit=201")
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["limit"] == 100
     assert payload["totals"] == {
         "accepted_awards": 3,
         "accepted_mrwk": "90",
@@ -116,6 +121,19 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     assert payload["recent"][0]["bounty_url"] == f"/bounties/{second_bounty.id}"
     assert all("unproved" not in row["submission_url"] for row in payload["recent"])
 
+    assert limited.status_code == 200
+    limited_payload = limited.json()
+    assert limited_payload["limit"] == 1
+    assert limited_payload["totals"] == payload["totals"]
+    assert limited_payload["pending_totals"] == payload["pending_totals"]
+    assert len(limited_payload["contributors"]) == 1
+    assert len(limited_payload["recent"]) == 1
+    assert limited_payload["contributors"][0]["account"] == "github:alice"
+    assert limited_payload["recent"][0]["proof_hash"] == wallet_proof.hash
+    assert invalid_limit.status_code == 422
+    assert too_low_limit.status_code == 422
+    assert too_high_limit.status_code == 422
+
 
 def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     create_schema(sqlite_url)
@@ -151,6 +169,7 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     by_account = client.get("/api/v1/activity?q=ALICE").json()
+    by_account_limited = client.get("/api/v1/activity?q=ALICE&limit=1").json()
     by_repo = client.get("/api/v1/activity?q=ramimbo%2Fmergework").json()
     by_proof = client.get(f"/api/v1/activity?q={alice_proof.hash[:12]}").json()
     by_issue_ref = client.get("/api/v1/activity?q=%23164").json()
@@ -166,6 +185,11 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
         "accepted_mrwk": "100",
         "contributors": 1,
     }
+    assert by_account_limited["query"] == "alice"
+    assert by_account_limited["limit"] == 1
+    assert by_account_limited["totals"] == by_account["totals"]
+    assert len(by_account_limited["contributors"]) == 1
+    assert len(by_account_limited["recent"]) == 1
     assert by_account["contributors"][0]["account"] == "github:alice"
     assert by_account["recent"][0]["submission_url"].endswith("/pull/164")
     assert by_issue_ref["query"] == "#164"
@@ -349,6 +373,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "Pending accepted work" in paid.text
 
     filtered = client.get("/activity?q=bob")
+    limited_filtered = client.get("/activity?q=bob&limit=25")
     issue_ref = client.get("/activity?q=%2312")
 
     assert filtered.status_code == 200
@@ -358,6 +383,10 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
+    assert limited_filtered.status_code == 200
+    assert 'href="/api/v1/activity?q=bob&amp;limit=25">View JSON activity</a>' in (
+        limited_filtered.text
+    )
     assert issue_ref.status_code == 200
     assert 'value="#12"' in issue_ref.text
     assert "Showing accepted work matching “#12”." in issue_ref.text
