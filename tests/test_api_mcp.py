@@ -1090,12 +1090,7 @@ def test_mcp_rejects_noncanonical_integer_string_arguments(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id)
 
 
 def test_mcp_accepts_canonical_integer_string_arguments(sqlite_url: str) -> None:
