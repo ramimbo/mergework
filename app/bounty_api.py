@@ -26,6 +26,7 @@ from app.ledger.service import (
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
+from app.openapi_request_bodies import ADMIN_TOKEN_AUTH, with_openapi_auth
 from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, positive_bounty_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -242,7 +243,10 @@ def register_bounty_api_routes(
             )
         )
 
-    @app.get("/api/v1/admin/webhook-events")
+    @app.get(
+        "/api/v1/admin/webhook-events",
+        openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH),
+    )
     def api_admin_webhook_events(
         status: str | None = Query(None),
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -255,7 +259,7 @@ def register_bounty_api_routes(
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @app.post("/api/v1/bounties")
+    @app.post("/api/v1/bounties", openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH))
     async def api_create_bounty(
         request: Request, admin_login: str = Depends(require_admin_token)
     ) -> dict[str, Any]:
@@ -293,7 +297,10 @@ def register_bounty_api_routes(
             result["accepted_awards"] = bounty_awards_to_dict(session, bounty.id)
             return result
 
-    @app.get("/api/v1/reconciliation/payouts")
+    @app.get(
+        "/api/v1/reconciliation/payouts",
+        openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH),
+    )
     def api_payout_reconciliation(
         admin_login: str = Depends(require_admin_token),
     ) -> dict[str, Any]:
@@ -305,7 +312,10 @@ def register_bounty_api_routes(
                 "checks": [payout_reconciliation_to_dict(check) for check in checks],
             }
 
-    @app.post("/api/v1/bounties/{bounty_id}/pay")
+    @app.post(
+        "/api/v1/bounties/{bounty_id}/pay",
+        openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH),
+    )
     async def api_pay_bounty(
         bounty_id: str,
         request: Request,
@@ -366,7 +376,10 @@ def register_bounty_api_routes(
                 raise _ledger_http_error(exc) from exc
             return proposal_to_dict(proposal)
 
-    @app.post("/api/v1/bounties/{bounty_id}/close")
+    @app.post(
+        "/api/v1/bounties/{bounty_id}/close",
+        openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH),
+    )
     async def api_close_bounty(
         bounty_id: str,
         request: Request,

@@ -11,7 +11,13 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
-from app.openapi_request_bodies import TREASURY_CHALLENGE_BODY, TREASURY_PROPOSAL_BODY
+from app.openapi_request_bodies import (
+    ADMIN_TOKEN_AUTH,
+    GITHUB_SESSION_AUTH,
+    TREASURY_CHALLENGE_BODY,
+    TREASURY_PROPOSAL_BODY,
+    with_openapi_auth,
+)
 from app.path_params import SQLITE_INTEGER_MAX, positive_proposal_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -184,7 +190,10 @@ def register_treasury_routes(
                 raise HTTPException(status_code=404, detail="proposal not found")
             return proposal_to_dict(proposal)
 
-    @app.post("/api/v1/treasury/proposals", openapi_extra=TREASURY_PROPOSAL_BODY)
+    @app.post(
+        "/api/v1/treasury/proposals",
+        openapi_extra=with_openapi_auth(TREASURY_PROPOSAL_BODY, ADMIN_TOKEN_AUTH),
+    )
     async def api_create_treasury_proposal(
         request: Request,
         admin_login: str = Depends(require_admin_token),
@@ -208,7 +217,10 @@ def register_treasury_routes(
             except LedgerError as exc:
                 raise _proposal_error(exc) from exc
 
-    @app.post("/api/v1/treasury/proposals/{proposal_id}/execute")
+    @app.post(
+        "/api/v1/treasury/proposals/{proposal_id}/execute",
+        openapi_extra=with_openapi_auth(None, ADMIN_TOKEN_AUTH),
+    )
     def api_execute_treasury_proposal(
         proposal_id: str,
         admin_login: str = Depends(require_admin_token),
@@ -227,7 +239,7 @@ def register_treasury_routes(
 
     @app.post(
         "/api/v1/treasury/proposals/{proposal_id}/challenges",
-        openapi_extra=TREASURY_CHALLENGE_BODY,
+        openapi_extra=with_openapi_auth(TREASURY_CHALLENGE_BODY, GITHUB_SESSION_AUTH),
     )
     async def api_create_treasury_challenge(
         proposal_id: str,

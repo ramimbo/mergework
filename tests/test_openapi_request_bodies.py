@@ -118,3 +118,67 @@ def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None
 
     assert attempt_body.get("required") is not True
     assert release_body.get("required") is not True
+
+
+def test_openapi_documents_auth_for_protected_routes(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    security_schemes = openapi["components"]["securitySchemes"]
+    assert security_schemes["MergeWorkAdminToken"] == {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-mergework-admin-token",
+        "description": "Admin API token required for protected admin and treasury operations.",
+    }
+    assert security_schemes["MergeWorkGitHubSession"] == {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "mrwk_user",
+        "description": (
+            "GitHub login session cookie from /auth/github/login required for "
+            "authenticated contributor operations."
+        ),
+    }
+
+    expected_auth_error = {
+        "description": "Authentication required.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"detail": {"type": "string"}},
+                    "required": ["detail"],
+                },
+            },
+        },
+    }
+
+    admin_routes = [
+        ("/api/v1/admin/webhook-events", "get"),
+        ("/api/v1/bounties", "post"),
+        ("/api/v1/reconciliation/payouts", "get"),
+        ("/api/v1/bounties/{bounty_id}/pay", "post"),
+        ("/api/v1/bounties/{bounty_id}/close", "post"),
+        ("/api/v1/treasury/proposals", "post"),
+        ("/api/v1/treasury/proposals/{proposal_id}/execute", "post"),
+    ]
+    for path, method in admin_routes:
+        operation = openapi["paths"][path][method]
+        assert operation["security"] == [{"MergeWorkAdminToken": []}]
+        assert operation["responses"]["401"] == expected_auth_error
+
+    github_session_routes = [
+        ("/api/v1/bounties/{bounty_id}/attempts", "post"),
+        ("/api/v1/bounty-attempts/{attempt_id}/release", "post"),
+        ("/api/v1/wallets/link-github", "post"),
+        ("/api/v1/github/claim", "post"),
+        ("/api/v1/treasury/proposals/{proposal_id}/challenges", "post"),
+    ]
+    for path, method in github_session_routes:
+        operation = openapi["paths"][path][method]
+        assert operation["security"] == [{"MergeWorkGitHubSession": []}]
+        assert operation["responses"]["401"] == expected_auth_error
+
+    public_operation = openapi["paths"]["/api/v1/bounties"]["get"]
+    assert "security" not in public_operation
