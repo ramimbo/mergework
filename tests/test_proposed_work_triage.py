@@ -5,6 +5,8 @@ import subprocess
 import urllib.error
 from typing import Any
 
+import pytest
+
 from scripts.proposed_work_triage import _run_gh, analyze_proposed_work, format_markdown, main
 
 
@@ -386,6 +388,19 @@ def test_proposed_work_triage_markdown_and_json_cli(tmp_path, capsys) -> None:
     markdown = format_markdown(output)
     assert "# Proposed Work Triage" in markdown
     assert "#672 Read-only proposed-work intake triage report" in markdown
+
+
+def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
+    tmp_path, capsys
+) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps({"issues": []}), encoding="utf-8")
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--input", str(fixture), "--payment-bounty-issue", "722"])
+
+    assert excinfo.value.code == 2
+    assert "--payment-bounty-issue is only valid in live --repo mode" in capsys.readouterr().err
 
 
 def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -> None:

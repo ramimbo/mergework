@@ -513,6 +513,8 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    if args.input and args.payment_bounty_issue:
+        parser.error("--payment-bounty-issue is only valid in live --repo mode")
 
     data = (
         json.loads(args.input.read_text(encoding="utf-8"))
