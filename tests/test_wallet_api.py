@@ -624,6 +624,8 @@ def test_github_login_rejects_repeated_next_query(sqlite_url: str, monkeypatch) 
 
     assert response.status_code == 400
     assert response.json()["detail"] == "next must be provided at most once"
+    assert "location" not in response.headers
+    assert "mrwk_oauth_state" not in response.cookies
 
 
 class _OAuthResponse:
