@@ -387,6 +387,75 @@ def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -
     assert not any("comment" in call or "edit" in call for call in calls)
 
 
+def test_proposed_work_triage_live_mode_uses_selected_payment_bounty_issue(
+    monkeypatch, capsys
+) -> None:
+    def fake_run(args, **kwargs):  # noqa: ANN001, ANN202
+        if args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps([{"number": 791}])
+        else:
+            stdout = json.dumps(
+                {
+                    "number": 791,
+                    "title": "Expose bounty board data as public JSON",
+                    "url": "https://github.com/ramimbo/mergework/issues/791",
+                    "body": _complete_body("bounty board JSON"),
+                    "labels": [{"name": "proposed-work"}],
+                    "comments": [],
+                }
+            )
+        return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+
+    def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
+        url = request.full_url
+        if url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
+            return FakeResponse([{"id": 101}])
+        if url.endswith("/api/v1/bounties/101"):
+            return FakeResponse(
+                {
+                    "id": 101,
+                    "issue_number": 722,
+                    "pending_payout_proposals": [
+                        {
+                            "proposal_id": 124,
+                            "submission_url": "https://github.com/ramimbo/mergework/issues/791",
+                            "accepted_by": "ramimbo",
+                            "executes_after": "2026-06-03T10:58:13Z",
+                        }
+                    ],
+                    "accepted_awards": [],
+                }
+            )
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr("scripts.proposed_work_triage.subprocess.run", fake_run)
+    monkeypatch.setattr("scripts.proposed_work_triage.urllib.request.urlopen", fake_urlopen)
+
+    assert (
+        main(
+            [
+                "--repo",
+                "ramimbo/mergework",
+                "--payment-bounty-issue",
+                "722",
+                "--format",
+                "json",
+                "--limit",
+                "1",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    proposal = output["proposals"][0]
+
+    assert output["summary"]["payment_counts"] == {"pending": 1}
+    assert proposal["number"] == 791
+    assert proposal["payment_status"]["state"] == "pending"
+    assert proposal["payment_status"]["proposal_id"] == 124
+    assert "accepted_pending_payout" in proposal["warnings"]
+
+
 def test_proposed_work_triage_live_mode_warns_when_payment_state_is_incomplete(
     monkeypatch, capsys
 ) -> None:

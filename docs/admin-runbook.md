@@ -301,8 +301,15 @@ Use the read-only proposed-work triage report when maintainers need to review
 the intake queue before creating, rejecting, or consolidating future bounties:
 
 ```bash
-python scripts/proposed_work_triage.py --repo ramimbo/mergework --format markdown
+python scripts/proposed_work_triage.py \
+  --repo ramimbo/mergework \
+  --payment-bounty-issue 722 \
+  --format markdown
 ```
+
+During accepted-proposed-work round transitions, repeat
+`--payment-bounty-issue` for each intake bounty whose payment state should be
+included, such as `--payment-bounty-issue 649 --payment-bounty-issue 722`.
 
 For deterministic review or incident write-ups, use an offline fixture instead:
 
@@ -312,10 +319,11 @@ python scripts/proposed_work_triage.py --input proposed-work-fixture.json --form
 
 The report lists proposed-work issues, missing `proposed-work` labels, missing
 template sections, vague or rejected proposals, already-routed items, likely
-related groups, and #649 pending-versus-proof-backed payment status when that
-public data is present in the input or available from the public API. Use
-`--api-host` only for another public MergeWork API host. It does not label,
-comment, edit issues, create bounties, accept work, or pay claims.
+related groups, and pending-versus-proof-backed payment status for the selected
+payment bounty issue numbers when that public data is present in the input or
+available from the public API. Use `--api-host` only for another public
+MergeWork API host. It does not label, comment, edit issues, create bounties,
+accept work, or pay claims.
 
 For reviewer-specific review-bounty preflight, generate a candidate report with
 the reviewer login:

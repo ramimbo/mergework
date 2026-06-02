@@ -57,7 +57,7 @@ STOPWORDS = {
 GH_TIMEOUT_SECONDS = 30
 HTTP_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
-INTAKE_BOUNTY_ISSUE_NUMBER = 649
+DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (649,)
 LIVE_ISSUE_SEARCHES = (
     "label:proposed-work",
     '"proposed work"',
@@ -421,7 +421,36 @@ def _load_public_bounty_issue(
     return bounties, warnings
 
 
-def load_live_issues(repo: str, limit: int, api_host: str = DEFAULT_API_HOST) -> dict[str, Any]:
+def _load_public_bounty_issues(
+    api_host: str, issue_numbers: list[int] | tuple[int, ...]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    bounties: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for issue_number in issue_numbers:
+        issue_bounties, issue_warnings = _load_public_bounty_issue(api_host, issue_number)
+        bounties.extend(issue_bounties)
+        warnings.extend(issue_warnings)
+    return bounties, warnings
+
+
+def _positive_issue_number(value: str) -> int:
+    try:
+        issue_number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("payment bounty issue must be an integer") from exc
+    if issue_number <= 0:
+        raise argparse.ArgumentTypeError("payment bounty issue must be positive")
+    return issue_number
+
+
+def load_live_issues(
+    repo: str,
+    limit: int,
+    api_host: str = DEFAULT_API_HOST,
+    payment_bounty_issue_numbers: list[int] | tuple[int, ...] = (
+        DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS
+    ),
+) -> dict[str, Any]:
     rows_by_number: dict[int, dict[str, Any]] = {}
     per_search_limit = max(1, limit)
     for query in LIVE_ISSUE_SEARCHES:
@@ -444,7 +473,7 @@ def load_live_issues(repo: str, limit: int, api_host: str = DEFAULT_API_HOST) ->
             ]
         )
         issues.append(issue)
-    bounties, data_warnings = _load_public_bounty_issue(api_host, INTAKE_BOUNTY_ISSUE_NUMBER)
+    bounties, data_warnings = _load_public_bounty_issues(api_host, payment_bounty_issue_numbers)
     return {
         "issues": issues,
         "bounties": bounties,
@@ -460,12 +489,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--format", choices=("json", "markdown"), default="markdown")
     parser.add_argument("--api-host", default=DEFAULT_API_HOST)
+    parser.add_argument(
+        "--payment-bounty-issue",
+        action="append",
+        default=None,
+        type=_positive_issue_number,
+        help=(
+            "GitHub issue number for an accepted-proposed-work bounty whose public "
+            "payment state should be loaded. Repeat during round transitions."
+        ),
+    )
     args = parser.parse_args(argv)
 
     data = (
         json.loads(args.input.read_text(encoding="utf-8"))
         if args.input
-        else load_live_issues(args.repo, args.limit, api_host=args.api_host)
+        else load_live_issues(
+            args.repo,
+            args.limit,
+            api_host=args.api_host,
+            payment_bounty_issue_numbers=(
+                args.payment_bounty_issue or list(DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS)
+            ),
+        )
     )
     report = analyze_proposed_work(data)
     if args.format == "json":
