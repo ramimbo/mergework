@@ -71,6 +71,67 @@ def test_proposed_work_triage_accepts_complete_issue() -> None:
     assert report["proposals"][0]["missing_sections"] == []
 
 
+def test_proposed_work_triage_excludes_bounty_issues_from_broad_search() -> None:
+    report = analyze_proposed_work(
+        {
+            "issues": [
+                {
+                    "number": 722,
+                    "title": "MRWK bounty: 50 MRWK - accepted proposed-work requests, round 2",
+                    "url": "https://github.com/ramimbo/mergework/issues/722",
+                    "body": """
+## MRWK Bounty
+
+Reward: `50 MRWK per accepted award`
+Max awards: `10`
+
+Do not submit implementation work for proposed work unless a separate bounty is live.
+""",
+                    "labels": ["mrwk:bounty"],
+                    "comments": [
+                        {"body": "Reserved on MergeWork: https://mrwk.online/bounties/101"}
+                    ],
+                },
+                {
+                    "number": 800,
+                    "title": "MRWK bounty: 600 MRWK - public work discovery",
+                    "url": "https://github.com/ramimbo/mergework/issues/800",
+                    "body": """
+## MRWK Bounty
+
+Status: proposed bounty. This issue is not claimable yet.
+
+Do not submit implementation work for proposed work until finalization.
+""",
+                    "labels": [],
+                    "comments": [],
+                },
+                {
+                    "number": 803,
+                    "title": "Proposed work: filter bounty issues from proposed-work triage",
+                    "url": "https://github.com/ramimbo/mergework/issues/803",
+                    "body": _complete_body("filtering bounty issues from proposed-work triage"),
+                    "labels": ["proposed-work"],
+                    "comments": [],
+                },
+                {
+                    "number": 762,
+                    "title": "Proposed work: reject control-padded numeric path IDs",
+                    "url": "https://github.com/ramimbo/mergework/issues/762",
+                    "body": _complete_body("unlabeled CLI proposed-work intake"),
+                    "labels": [],
+                    "comments": [],
+                },
+            ]
+        }
+    )
+
+    assert [proposal["number"] for proposal in report["proposals"]] == [803, 762]
+    assert report["summary"]["proposed_work_issues"] == 2
+    unlabeled = next(item for item in report["proposals"] if item["number"] == 762)
+    assert "missing_proposed_work_label" in unlabeled["warnings"]
+
+
 def test_proposed_work_triage_flags_missing_label_and_template_sections() -> None:
     report = analyze_proposed_work(
         {
