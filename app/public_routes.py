@@ -26,6 +26,7 @@ from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
     reject_padded_query_param,
+    reject_padded_value,
     reject_repeated_query_param,
 )
 from app.serializers import bounty_list_summary, wallet_to_dict
@@ -182,10 +183,7 @@ def public_bounties_context(
 def wallets_page_context(session: Session, q: str | None = None) -> dict[str, Any]:
     if q is not None and contains_control_character(q):
         raise HTTPException(status_code=400, detail="q must not contain control characters")
-    if q is not None and q.strip() and q.strip() != q:
-        raise HTTPException(
-            status_code=400, detail="q must not include leading or trailing whitespace"
-        )
+    reject_padded_value("q", q)
     query_text = q.strip() if q is not None else ""
     query = select(Wallet)
     if query_text:
@@ -218,14 +216,7 @@ def wallet_page_context(
         raise HTTPException(
             status_code=400, detail="transaction type must not contain control characters"
         )
-    if (
-        transaction_type is not None
-        and transaction_type.strip()
-        and transaction_type.strip() != transaction_type
-    ):
-        raise HTTPException(
-            status_code=400, detail="type must not include leading or trailing whitespace"
-        )
+    reject_padded_value("type", transaction_type)
     selected_transaction_type = transaction_type.strip() if transaction_type is not None else ""
     if selected_transaction_type.lower() == "all":
         selected_transaction_type = ""

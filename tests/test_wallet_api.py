@@ -890,6 +890,16 @@ def test_prelinked_wallet_creates_github_account_row(sqlite_url: str) -> None:
     assert account.json()["exists"] is True
 
 
+def test_wallets_page_allows_whitespace_only_query(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/wallets?q=%20%20%20")
+
+    assert response.status_code == 200
+    assert "Search wallets" in response.text
+
+
 def test_wallet_page_context_rejects_padded_transaction_type(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()
