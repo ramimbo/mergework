@@ -112,6 +112,9 @@ async def handle_mcp_request(
         return JSONResponse(_jsonrpc_error(None, -32600, "invalid request"), status_code=400)
 
     response_id = payload.get("id")
+    if payload.get("jsonrpc") != "2.0":
+        return JSONResponse(_jsonrpc_error(response_id, -32600, "invalid request"), status_code=400)
+
     method = payload.get("method")
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}

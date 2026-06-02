@@ -711,6 +711,42 @@ def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("payload", "expected_id"),
+    [
+        ({"id": 1, "method": "tools/list"}, 1),
+        ({"jsonrpc": "1.0", "id": 2, "method": "tools/list"}, 2),
+        ({"jsonrpc": None, "id": 3, "method": "tools/list"}, 3),
+        ({"jsonrpc": 2.0, "id": 4, "method": "tools/list"}, 4),
+        (
+            {
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_balance",
+                    "arguments": {"account": "treasury:mrwk"},
+                },
+            },
+            5,
+        ),
+        ({"method": "tools/list"}, None),
+    ],
+)
+def test_mcp_rejects_missing_or_invalid_jsonrpc_version(
+    sqlite_url: str, payload: dict[str, object], expected_id: object
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post("/mcp", json=payload)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": expected_id,
+        "error": {"code": -32600, "message": "invalid request"},
+    }
+
+
+@pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
         ([], 8),
