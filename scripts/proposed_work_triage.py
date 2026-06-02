@@ -39,6 +39,8 @@ NON_LIVE_CONFUSION_RE = re.compile(
     r"(claimable now|already paid|guaranteed payout|cash[- ]?out|off[- ]?ramp)",
     re.IGNORECASE,
 )
+BOUNTY_TITLE_RE = re.compile(r"^\s*MRWK bounty\s*:", re.IGNORECASE)
+BOUNTY_TEMPLATE_HEADING_RE = re.compile(r"(^|\n)\s*#+\s*MRWK bounty\b", re.IGNORECASE)
 WORD_RE = re.compile(r"[a-z0-9]+")
 STOPWORDS = {
     "add",
@@ -94,6 +96,17 @@ def _combined_text(issue: dict[str, Any]) -> str:
     parts = [str(issue.get("title") or ""), str(issue.get("body") or "")]
     parts.extend(_comments(issue))
     return "\n".join(parts)
+
+
+def _is_non_intake_bounty_issue(issue: dict[str, Any]) -> bool:
+    labels = {label.lower() for label in _labels(issue)}
+    if "mrwk:bounty" in labels:
+        return True
+    title = str(issue.get("title") or "")
+    if BOUNTY_TITLE_RE.search(title):
+        return True
+    body = str(issue.get("body") or "")
+    return bool(BOUNTY_TEMPLATE_HEADING_RE.search(body))
 
 
 def _has_section(body: str, aliases: tuple[str, ...]) -> bool:
@@ -285,7 +298,7 @@ def analyze_proposed_work(data: dict[str, Any]) -> dict[str, Any]:
     proposals = [
         proposal
         for raw in data.get("issues", [])
-        if isinstance(raw, dict)
+        if isinstance(raw, dict) and not _is_non_intake_bounty_issue(raw)
         for proposal in [_normalize_issue(raw, payments)]
         if proposal is not None
     ]
