@@ -609,6 +609,136 @@ def test_github_login_redirects_when_oauth_is_configured(sqlite_url: str, monkey
     assert "mrwk_oauth_state" in response.cookies
 
 
+def test_github_login_rejects_repeated_next_query(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(
+        "/auth/github/login",
+        params=[("next", "/first"), ("next", "/second")],
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "next must be provided at most once"
+
+
+class _OAuthResponse:
+    def __init__(self, payload: dict[str, str]) -> None:
+        self._payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, str]:
+        return self._payload
+
+
+@pytest.mark.parametrize(
+    ("params", "detail"),
+    (
+        ([("code", "first"), ("code", "second")], "code must be provided at most once"),
+        ([("state", "bad"), ("state", "good")], "state must be provided at most once"),
+        (
+            [("code", "second"), ("state", "bad")],
+            "code must be provided at most once",
+        ),
+    ),
+)
+def test_github_callback_rejects_repeated_scalar_queries(
+    sqlite_url: str,
+    monkeypatch,
+    params: list[tuple[str, str]],
+    detail: str,
+) -> None:
+    exchange_calls: list[str] = []
+
+    class FailingOAuthClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            exchange_calls.append("init")
+
+        async def __aenter__(self) -> FailingOAuthClient:
+            raise AssertionError("duplicate OAuth callback queries must not exchange tokens")
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    monkeypatch.setattr("app.auth.httpx.AsyncClient", FailingOAuthClient)
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    state = _signed_value("nonce,/me", "test-cookie-secret")
+    client.cookies.set("mrwk_oauth_state", state)
+    query_params = [("code", "code"), ("state", state), *params]
+
+    response = client.get(
+        "/auth/github/callback",
+        params=query_params,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    assert exchange_calls == []
+    assert client.cookies.get("mrwk_oauth_state") == state
+
+
+def test_github_callback_exchanges_single_scalar_queries(sqlite_url: str, monkeypatch) -> None:
+    exchange_calls: list[tuple[str, str]] = []
+
+    class FakeOAuthClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        async def __aenter__(self) -> FakeOAuthClient:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def post(self, url: str, **kwargs: object) -> _OAuthResponse:
+            exchange_calls.append(("post", url))
+            assert kwargs["data"]["code"] == "code"
+            return _OAuthResponse({"access_token": "token"})
+
+        async def get(self, url: str, **_kwargs: object) -> _OAuthResponse:
+            exchange_calls.append(("get", url))
+            return _OAuthResponse({"login": "Alice"})
+
+    monkeypatch.setattr("app.auth.httpx.AsyncClient", FakeOAuthClient)
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    state = _signed_value("nonce,/me", "test-cookie-secret")
+    client.cookies.set("mrwk_oauth_state", state)
+
+    response = client.get(
+        "/auth/github/callback",
+        params={"code": "code", "state": state},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "/me"
+    assert exchange_calls == [
+        ("post", "https://github.com/login/oauth/access_token"),
+        ("get", "https://api.github.com/user"),
+    ]
+    assert client.cookies.get("mrwk_user") is not None
+    set_cookie_headers = response.headers.get_list("set-cookie")
+    assert any(
+        header.startswith("mrwk_oauth_state=") and "Max-Age=0" in header
+        for header in set_cookie_headers
+    )
+
+
 @pytest.mark.parametrize(
     "next_path",
     (
