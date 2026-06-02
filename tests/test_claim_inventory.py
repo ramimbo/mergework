@@ -293,7 +293,10 @@ def test_claim_inventory_classifies_required_statuses(tmp_path, capsys) -> None:
     (
         (["--input", ""], "--input must be a non-empty value"),
         (["--input", "   "], "--input must be a non-empty value"),
+        (["--input", " tests/fixtures/missing.json "], "--input must not include"),
+        (["--repo", ""], "--repo must be a non-empty value"),
         (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
     ),
 )
 def test_claim_inventory_rejects_empty_source_args(

@@ -512,8 +512,11 @@ def load_live_issues(
 
 
 def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, value: str) -> str:
-    if not value.strip():
+    stripped = value.strip()
+    if not stripped:
         parser.error(f"{option_name} must be a non-empty value")
+    if stripped != value:
+        parser.error(f"{option_name} must not include leading or trailing whitespace")
     return value
 
 

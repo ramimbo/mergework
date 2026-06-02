@@ -408,7 +408,10 @@ def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
     (
         (["--input", ""], "--input must be a non-empty value"),
         (["--input", "   "], "--input must be a non-empty value"),
+        (["--input", " tests/fixtures/missing.json "], "--input must not include"),
+        (["--repo", ""], "--repo must be a non-empty value"),
         (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
     ),
 )
 def test_proposed_work_triage_rejects_empty_source_args(
@@ -768,8 +771,6 @@ def test_proposed_work_triage_rejects_non_positive_limit(capsys) -> None:
     Regression for #809: `--limit 0`/`-1` previously returned status=ok with a
     silently truncated issue list via Python slice semantics.
     """
-    import pytest
-
     for bad in ("0", "-1"):
         with pytest.raises(SystemExit) as excinfo:
             main(["--repo", "ramimbo/mergework", "--format", "json", "--limit", bad])
@@ -779,8 +780,6 @@ def test_proposed_work_triage_rejects_non_positive_limit(capsys) -> None:
 
 
 def test_proposed_work_triage_rejects_non_integer_limit(capsys) -> None:
-    import pytest
-
     with pytest.raises(SystemExit) as excinfo:
         main(["--repo", "ramimbo/mergework", "--format", "json", "--limit", "abc"])
     assert excinfo.value.code == 2
