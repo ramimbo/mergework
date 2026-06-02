@@ -92,15 +92,14 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
         return clean or None
 
     def output_format_arg() -> str:
-        value = args.get("format", "text")
-        if value is None:
+        if "format" not in args:
             return "text"
+        value = args["format"]
         if not isinstance(value, str):
             raise ValueError("format must be a string")
-        normalized = value.strip().lower()
-        if normalized not in {"text", "json"}:
+        if value not in {"text", "json"}:
             raise ValueError("format must be text or json")
-        return normalized
+        return value
 
     def optional_repo_selector_arg() -> str | None:
         repo = optional_clean_str_arg("repo")
