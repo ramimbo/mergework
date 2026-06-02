@@ -456,6 +456,93 @@ def test_proposed_work_triage_live_mode_uses_selected_payment_bounty_issue(
     assert "accepted_pending_payout" in proposal["warnings"]
 
 
+def test_proposed_work_triage_live_mode_aggregates_selected_payment_bounty_issues(
+    monkeypatch, capsys
+) -> None:
+    def fake_run(args, **kwargs):  # noqa: ANN001, ANN202
+        if args[:3] == ["gh", "issue", "list"]:
+            stdout = json.dumps([{"number": 672}, {"number": 791}])
+        else:
+            number = int(args[3])
+            stdout = json.dumps(
+                {
+                    "number": number,
+                    "title": f"Proposed work: issue {number}",
+                    "url": f"https://github.com/ramimbo/mergework/issues/{number}",
+                    "body": _complete_body(f"issue {number}"),
+                    "labels": [{"name": "proposed-work"}],
+                    "comments": [],
+                }
+            )
+        return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+
+    def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
+        url = request.full_url
+        if url.endswith("/api/v1/bounties?issue_number=649&limit=5"):
+            return FakeResponse([{"id": 96}])
+        if url.endswith("/api/v1/bounties/96"):
+            return FakeResponse(
+                {
+                    "id": 96,
+                    "issue_number": 649,
+                    "accepted_awards": [
+                        {
+                            "submission_url": "https://github.com/ramimbo/mergework/issues/672",
+                            "proof_url": "https://mrwk.online/proofs/old-round",
+                            "ledger_sequence": 99,
+                        }
+                    ],
+                }
+            )
+        if url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
+            return FakeResponse([{"id": 101}])
+        if url.endswith("/api/v1/bounties/101"):
+            return FakeResponse(
+                {
+                    "id": 101,
+                    "issue_number": 722,
+                    "pending_payout_proposals": [
+                        {
+                            "proposal_id": 124,
+                            "submission_url": "https://github.com/ramimbo/mergework/issues/791",
+                            "accepted_by": "ramimbo",
+                            "executes_after": "2026-06-03T10:58:13Z",
+                        }
+                    ],
+                }
+            )
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr("scripts.proposed_work_triage.subprocess.run", fake_run)
+    monkeypatch.setattr("scripts.proposed_work_triage.urllib.request.urlopen", fake_urlopen)
+
+    assert (
+        main(
+            [
+                "--repo",
+                "ramimbo/mergework",
+                "--payment-bounty-issue",
+                "649",
+                "--payment-bounty-issue",
+                "722",
+                "--format",
+                "json",
+                "--limit",
+                "2",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    by_number = {item["number"]: item for item in output["proposals"]}
+
+    assert output["summary"]["payment_counts"] == {"paid": 1, "pending": 1}
+    assert by_number[672]["payment_status"]["state"] == "paid"
+    assert by_number[672]["payment_status"]["proof_url"] == "https://mrwk.online/proofs/old-round"
+    assert by_number[791]["payment_status"]["state"] == "pending"
+    assert by_number[791]["payment_status"]["proposal_id"] == 124
+
+
 def test_proposed_work_triage_live_mode_warns_when_payment_state_is_incomplete(
     monkeypatch, capsys
 ) -> None:
