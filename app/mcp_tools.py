@@ -363,3 +363,13 @@ def call_mcp_tool(
                 "and wait for a maintainer to apply mrwk:accepted."
             )
     raise ValueError("unknown tool")
+
+
+def call_mcp_resource(database_url: str, uri: str) -> str:
+    if uri == "bounties://active":
+        with session_scope(database_url) as session:
+            query = select(Bounty).where(Bounty.status == "open").order_by(Bounty.id.desc())
+            bounties = session.scalars(query).all()
+            return json.dumps(bounties_to_dict(bounties, session=session))
+    raise ValueError("unknown resource")
+

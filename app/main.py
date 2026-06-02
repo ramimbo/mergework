@@ -25,8 +25,9 @@ from app.json_payloads import json_object, optional_int, optional_str, required_
 from app.ledger.service import ensure_genesis, public_url_or_none
 from app.ledger_views import ledger_entry_to_dict, recent_ledger_entries
 from app.mcp import handle_mcp_request
-from app.mcp_tools import call_mcp_tool
+from app.mcp_tools import call_mcp_resource, call_mcp_tool
 from app.me import me_page_context
+
 from app.models import (
     Proof,
 )
@@ -308,9 +309,10 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.post("/mcp")
     async def mcp(request: Request) -> Any:
-        return await handle_mcp_request(request, db_url, call_mcp_tool)
+        return await handle_mcp_request(request, db_url, call_mcp_tool, call_mcp_resource)
 
     @app.get("/", response_class=HTMLResponse)
+
     def hub(request: Request) -> HTMLResponse:
         if is_ltc_lab_host(request.headers.get("host", "")):
             return templates.TemplateResponse(
