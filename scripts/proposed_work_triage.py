@@ -520,6 +520,13 @@ def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, va
     return value
 
 
+def _load_input(path: str) -> dict[str, Any]:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("proposed-work input must be a JSON object")
+    return data
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only proposed-work intake triage report")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -542,8 +549,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.input is not None:
         if args.payment_bounty_issue:
             parser.error("--payment-bounty-issue is only valid in live --repo mode")
-        input_path = Path(_require_non_empty_arg(parser, "--input", args.input))
-        data = json.loads(input_path.read_text(encoding="utf-8"))
+        data = _load_input(_require_non_empty_arg(parser, "--input", args.input))
     else:
         repo = _require_non_empty_arg(parser, "--repo", args.repo)
         data = load_live_issues(

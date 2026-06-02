@@ -390,6 +390,14 @@ def test_proposed_work_triage_markdown_and_json_cli(tmp_path, capsys) -> None:
     assert "#672 Read-only proposed-work intake triage report" in markdown
 
 
+def test_proposed_work_triage_rejects_non_object_offline_fixture(tmp_path) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps([]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="proposed-work input must be a JSON object"):
+        main(["--input", str(fixture), "--format", "json"])
+
+
 def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
     tmp_path, capsys
 ) -> None:
