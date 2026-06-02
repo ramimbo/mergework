@@ -380,6 +380,8 @@ def test_wallet_lookup_rejects_invalid_addresses_before_lookup(sqlite_url: str) 
     api_response = client.get("/api/v1/wallets/not-a-wallet")
     page_response = client.get("/wallets/%20%20%20")
     unknown_wallet = client.get("/api/v1/wallets/mrwk1" + ("0" * 40))
+    uppercase_wallet = client.get("/api/v1/wallets/MRWK1" + ("0" * 40))
+    uppercase_wallet_page = client.get("/wallets/MRWK1" + ("0" * 40))
 
     assert api_response.status_code == 400
     assert api_response.json()["detail"] == "invalid MRWK wallet address"
@@ -387,6 +389,12 @@ def test_wallet_lookup_rejects_invalid_addresses_before_lookup(sqlite_url: str) 
     assert "invalid MRWK wallet address" in page_response.text
     assert unknown_wallet.status_code == 404
     assert unknown_wallet.json()["detail"] == "wallet not found"
+    assert uppercase_wallet.status_code == 400
+    assert uppercase_wallet.json()["detail"] == (
+        "wallet address must be lowercase canonical MRWK address"
+    )
+    assert uppercase_wallet_page.status_code == 400
+    assert "wallet address must be lowercase canonical MRWK address" in uppercase_wallet_page.text
 
 
 @pytest.mark.parametrize(

@@ -66,7 +66,13 @@ def register_wallet_api_routes(
 
     @app.get("/api/v1/wallets/{address}")
     def api_wallet(address: str) -> dict[str, Any]:
-        address = normalized_wallet_address(address)
+        normalized_address = normalized_wallet_address(address)
+        if address != normalized_address:
+            raise HTTPException(
+                status_code=400,
+                detail="wallet address must be lowercase canonical MRWK address",
+            )
+        address = normalized_address
         with session_scope(db_url) as session:
             wallet = session.get(Wallet, address)
             if wallet is None:

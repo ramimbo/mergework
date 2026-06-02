@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.accounts import (
     ACCOUNT_TRANSACTION_TYPE_OPTIONS,
     ACCOUNT_TRANSACTION_TYPES,
-    normalized_wallet_address,
+    normalized_wallet_path_address,
 )
 from app.bounty_availability import normalize_bounty_availability_filter
 from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort
@@ -205,7 +205,7 @@ def wallets_page_context(session: Session, q: str | None = None) -> dict[str, An
 def wallet_page_context(
     session: Session, address: str, transaction_type: str | None = None
 ) -> dict[str, Any]:
-    normalized_address = normalized_wallet_address(address)
+    normalized_address = normalized_wallet_path_address(address)
     wallet = session.get(Wallet, normalized_address)
     if wallet is None:
         raise HTTPException(status_code=404, detail="wallet not found")
