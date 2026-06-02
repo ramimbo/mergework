@@ -989,10 +989,13 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert f'href="/activity?q={bounty.id}"' in proof_page.text
     assert 'href="/activity?q=https%3A//github.com/ramimbo/mergework/pull/99"' in proof_page.text
 
+    uppercase_api_proof = client.get(f"/api/v1/proofs/{proof_hash.upper()}")
     uppercase_proof_page = client.get(f"/proofs/{proof_hash.upper()}")
-    assert uppercase_proof_page.status_code == 200
-    assert f'<code class="hash">{proof_hash}</code>' in uppercase_proof_page.text
-    assert f'<code class="hash">{proof_hash.upper()}</code>' not in uppercase_proof_page.text
+    assert uppercase_api_proof.status_code == 400
+    assert uppercase_api_proof.json()["detail"] == (
+        "proof hash must be lowercase 64 hex characters"
+    )
+    assert uppercase_proof_page.status_code == 400
 
     missing_proof = client.get(f"/api/v1/proofs/{'0' * 64}")
     assert missing_proof.status_code == 404

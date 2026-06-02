@@ -52,8 +52,11 @@ def positive_proposal_id(proposal_id: int | str) -> int:
 
 def proof_hash_from_path(proof_hash: str) -> str:
     if proof_hash != proof_hash.strip():
-        raise HTTPException(status_code=400, detail="proof hash must be 64 hex characters")
-    clean = proof_hash.lower()
-    if not HEX_HASH_RE.fullmatch(clean):
-        raise HTTPException(status_code=400, detail="proof hash must be 64 hex characters")
-    return clean
+        raise HTTPException(
+            status_code=400, detail="proof hash must be lowercase 64 hex characters"
+        )
+    if not HEX_HASH_RE.fullmatch(proof_hash):
+        raise HTTPException(
+            status_code=400, detail="proof hash must be lowercase 64 hex characters"
+        )
+    return proof_hash
