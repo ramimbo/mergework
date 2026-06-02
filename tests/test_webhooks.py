@@ -69,6 +69,20 @@ def _proposed_work_issue_form_body() -> str:
     )
 
 
+def _proposed_work_value_body() -> str:
+    return "\n\n".join(
+        [
+            "## Problem\n\nStaging webhook dry-run checks need explicit identity validation.",
+            "## Evidence\n\nRecent dry-run setup issues used this heading shape.",
+            "## Proposed Work\n\nValidate the dry-run identity environment variables.",
+            "## Value\n\nMaintainers can catch misconfigured webhook identity before staging.",
+            "## Acceptance / Verification Notes\n\nWebhook tests cover the behavior.",
+            "## Duplicate Search\n\nNo existing proposed-work issue covers this exact validation.",
+            "## Out Of Scope\n\nNo production webhook execution or payout changes.",
+        ]
+    )
+
+
 def test_issue_webhook_adds_proposed_work_label_for_template_shaped_issue(
     sqlite_url: str,
 ) -> None:
@@ -164,6 +178,53 @@ def test_issue_webhook_adds_proposed_work_label_for_issue_form_headings(
     assert len(requests) == 1
     with session_scope(sqlite_url) as session:
         event = session.get(WebhookEvent, "delivery-proposed-work-issue-form")
+        assert event is not None
+        assert event.processed_status == "proposed_work_labeled"
+
+
+def test_issue_webhook_adds_proposed_work_label_for_value_heading(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    body = json.dumps(
+        {
+            "action": "opened",
+            "issue": {
+                "number": 813,
+                "title": "Proposed work: validate staging webhook dry-run identity env vars",
+                "body": _proposed_work_value_body(),
+                "html_url": "https://github.com/ramimbo/mergework/issues/813",
+                "labels": [],
+                "user": {"login": "contributor"},
+            },
+            "repository": {"full_name": "ramimbo/mergework"},
+            "sender": {"login": "contributor"},
+        },
+        separators=(",", ":"),
+    ).encode()
+    requests: list[Request] = []
+
+    def fake_opener(request: Request, timeout: float) -> _FakeResponse:
+        requests.append(request)
+        return _FakeResponse({})
+
+    result = handle_github_webhook(
+        sqlite_url,
+        {
+            "X-GitHub-Delivery": "delivery-proposed-work-value-heading",
+            "X-GitHub-Event": "issues",
+            "X-Hub-Signature-256": _signature("secret", body),
+        },
+        body,
+        "secret",
+        github_issue_token="github-issue-token",
+        opener=fake_opener,
+    )
+
+    assert result == {"status": "proposed_work_labeled", "label": "proposed-work"}
+    assert len(requests) == 1
+    with session_scope(sqlite_url) as session:
+        event = session.get(WebhookEvent, "delivery-proposed-work-value-heading")
         assert event is not None
         assert event.processed_status == "proposed_work_labeled"
 

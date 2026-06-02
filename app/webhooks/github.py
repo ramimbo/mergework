@@ -39,7 +39,7 @@ GITHUB_ISSUE_URL_RE = re.compile(
 PROPOSED_WORK_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(?P<heading>.+?)\s*#*\s*$", re.MULTILINE)
 PROPOSED_WORK_REQUIRED_HEADINGS = (
     ("problem",),
-    ("expected value",),
+    ("expected value", "value"),
     ("duplicate search",),
     ("out of scope",),
 )
