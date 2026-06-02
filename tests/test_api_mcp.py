@@ -282,6 +282,39 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert "100000000" in balance["result"]["content"][0]["text"]
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"jsonrpc": "2.0", "method": "tools/list"},
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {"name": "get_balance", "arguments": {"account": "treasury:mrwk"}},
+        },
+        {"jsonrpc": "2.0", "method": "definitely_unknown"},
+        {"jsonrpc": "2.0", "method": "tools/call", "params": []},
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {"name": "get_balance", "arguments": {"account": ""}},
+        },
+    ],
+)
+def test_mcp_notifications_do_not_return_jsonrpc_responses(
+    sqlite_url: str, payload: dict[str, object]
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post("/mcp", json=payload)
+
+    assert response.status_code == 202
+    assert response.content == b""
+
+
 def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     now = datetime.now(UTC)

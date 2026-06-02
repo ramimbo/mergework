@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.ledger.service import LedgerError
 
@@ -102,7 +102,7 @@ def _tool_result_response(response_id: Any, tool_result: str | dict[str, Any]) -
 
 async def handle_mcp_request(
     request: Request, database_url: str, call_tool: MCPToolHandler
-) -> dict[str, Any] | JSONResponse:
+) -> dict[str, Any] | JSONResponse | Response:
     try:
         payload = await request.json()
     except ValueError:
@@ -111,18 +111,25 @@ async def handle_mcp_request(
     if not isinstance(payload, dict):
         return JSONResponse(_jsonrpc_error(None, -32600, "invalid request"), status_code=400)
 
+    has_response_id = "id" in payload
     response_id = payload.get("id")
     method = payload.get("method")
     if method == "tools/list":
+        if not has_response_id:
+            return Response(status_code=202)
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}
 
     if method != "tools/call":
+        if not has_response_id:
+            return Response(status_code=202)
         return _jsonrpc_error(response_id, -32601, "unknown method")
 
     params = payload.get("params")
     if params is None:
         params = {}
     if not isinstance(params, dict):
+        if not has_response_id:
+            return Response(status_code=202)
         return _jsonrpc_error(response_id, -32602, "invalid params")
 
     name = params.get("name")
@@ -130,13 +137,21 @@ async def handle_mcp_request(
     if args is None:
         args = {}
     if not isinstance(args, dict):
+        if not has_response_id:
+            return Response(status_code=202)
         return _jsonrpc_error(response_id, -32602, "invalid params")
     if not isinstance(name, str):
+        if not has_response_id:
+            return Response(status_code=202)
         return _jsonrpc_error(response_id, -32602, "tool name is required")
 
     try:
         tool_result = call_tool(database_url, name, args)
     except (KeyError, TypeError, ValueError, LedgerError, HTTPException):
+        if not has_response_id:
+            return Response(status_code=202)
         return _jsonrpc_error(response_id, -32602, "invalid tool arguments")
 
+    if not has_response_id:
+        return Response(status_code=202)
     return _tool_result_response(response_id, tool_result)
