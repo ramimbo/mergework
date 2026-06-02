@@ -2,6 +2,59 @@ from __future__ import annotations
 
 from typing import Any
 
+OPENAPI_SECURITY_SCHEMES = {
+    "MergeWorkAdminToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-mergework-admin-token",
+        "description": "Admin API token required for protected admin and treasury operations.",
+    },
+    "MergeWorkGitHubSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "mrwk_user",
+        "description": (
+            "GitHub login session cookie from /auth/github/login required for "
+            "authenticated contributor operations."
+        ),
+    },
+}
+
+
+AUTH_ERROR_RESPONSE = {
+    "description": "Authentication required.",
+    "content": {
+        "application/json": {
+            "schema": {
+                "type": "object",
+                "properties": {"detail": {"type": "string"}},
+                "required": ["detail"],
+            },
+        },
+    },
+}
+
+
+ADMIN_TOKEN_AUTH = {
+    "security": [{"MergeWorkAdminToken": []}],
+    "responses": {"401": AUTH_ERROR_RESPONSE},
+}
+
+
+GITHUB_SESSION_AUTH = {
+    "security": [{"MergeWorkGitHubSession": []}],
+    "responses": {"401": AUTH_ERROR_RESPONSE},
+}
+
+
+def with_openapi_auth(extra: dict[str, Any] | None, auth: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(extra or {})
+    responses = dict(merged.get("responses", {}))
+    responses.update(auth["responses"])
+    merged["responses"] = responses
+    merged["security"] = auth["security"]
+    return merged
+
 
 def _request_body(schema: dict[str, Any], *, required: bool = True) -> dict[str, Any]:
     body: dict[str, Any] = {

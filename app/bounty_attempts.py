@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session
 from app.db import session_scope
 from app.ledger.service import CONTROL_CHAR_RE, LedgerError, validate_public_url
 from app.models import Bounty, BountyAttempt
-from app.openapi_request_bodies import OPTIONAL_ATTEMPT_BODY, OPTIONAL_ATTEMPT_RELEASE_BODY
+from app.openapi_request_bodies import (
+    GITHUB_SESSION_AUTH,
+    OPTIONAL_ATTEMPT_BODY,
+    OPTIONAL_ATTEMPT_RELEASE_BODY,
+    with_openapi_auth,
+)
 from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
@@ -182,7 +187,10 @@ def register_bounty_attempt_routes(
                 "attempts": listing["attempts"],
             }
 
-    @app.post("/api/v1/bounties/{bounty_id}/attempts", openapi_extra=OPTIONAL_ATTEMPT_BODY)
+    @app.post(
+        "/api/v1/bounties/{bounty_id}/attempts",
+        openapi_extra=with_openapi_auth(OPTIONAL_ATTEMPT_BODY, GITHUB_SESSION_AUTH),
+    )
     async def api_create_bounty_attempt(
         bounty_id: str,
         request: Request,
@@ -292,7 +300,7 @@ def register_bounty_attempt_routes(
 
     @app.post(
         "/api/v1/bounty-attempts/{attempt_id}/release",
-        openapi_extra=OPTIONAL_ATTEMPT_RELEASE_BODY,
+        openapi_extra=with_openapi_auth(OPTIONAL_ATTEMPT_RELEASE_BODY, GITHUB_SESSION_AUTH),
     )
     async def api_release_bounty_attempt(
         attempt_id: int,

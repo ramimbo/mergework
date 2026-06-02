@@ -15,9 +15,11 @@ from app.ledger.service import (
 )
 from app.models import Wallet
 from app.openapi_request_bodies import (
+    GITHUB_SESSION_AUTH,
     SIGNED_WALLET_ACTION_BODY,
     WALLET_REGISTER_BODY,
     WALLET_TRANSFER_BODY,
+    with_openapi_auth,
 )
 from app.serializers import ledger_to_dict, wallet_to_dict, wallet_transfer_to_dict
 
@@ -73,7 +75,10 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=404, detail="wallet not found")
             return wallet_to_dict(session, wallet)
 
-    @app.post("/api/v1/wallets/link-github", openapi_extra=SIGNED_WALLET_ACTION_BODY)
+    @app.post(
+        "/api/v1/wallets/link-github",
+        openapi_extra=with_openapi_auth(SIGNED_WALLET_ACTION_BODY, GITHUB_SESSION_AUTH),
+    )
     async def api_link_wallet_github(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
@@ -91,7 +96,10 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return wallet_to_dict(session, wallet)
 
-    @app.post("/api/v1/github/claim", openapi_extra=SIGNED_WALLET_ACTION_BODY)
+    @app.post(
+        "/api/v1/github/claim",
+        openapi_extra=with_openapi_auth(SIGNED_WALLET_ACTION_BODY, GITHUB_SESSION_AUTH),
+    )
     async def api_github_claim(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:

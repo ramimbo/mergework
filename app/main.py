@@ -30,6 +30,7 @@ from app.me import me_page_context
 from app.models import (
     Proof,
 )
+from app.openapi_request_bodies import OPENAPI_SECURITY_SCHEMES
 from app.path_params import (
     SQLITE_INTEGER_MAX,
     positive_bounty_id,
@@ -91,6 +92,23 @@ API_DOCS_CSP = (
     "worker-src 'self' blob:"
 )
 API_DOCS_PATHS = {"/api/docs", "/api/redoc"}
+
+
+def _install_openapi_security_schemes(app: FastAPI) -> None:
+    default_openapi = app.openapi
+
+    def custom_openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = default_openapi()
+        components = schema.setdefault("components", {})
+        security_schemes = components.setdefault("securitySchemes", {})
+        for name, scheme in OPENAPI_SECURITY_SCHEMES.items():
+            security_schemes.setdefault(name, scheme)
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 def _request_was_forwarded_https(request: Request) -> bool:
@@ -413,6 +431,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         verify_csrf_token=_verify_csrf_token,
     )
 
+    _install_openapi_security_schemes(app)
     return app
 
 
