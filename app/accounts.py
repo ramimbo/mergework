@@ -48,6 +48,16 @@ def normalized_wallet_address(address: str) -> str:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def normalized_wallet_path_address(address: str) -> str:
+    normalized = normalized_wallet_address(address)
+    if address != normalized:
+        raise HTTPException(
+            status_code=400,
+            detail="wallet address must be lowercase canonical MRWK address",
+        )
+    return normalized
+
+
 def normalized_account(account: str) -> str:
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
