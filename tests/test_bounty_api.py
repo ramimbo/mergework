@@ -122,6 +122,37 @@ def test_admin_webhook_events_api_rejects_c1_control_status(monkeypatch):
     assert resp.json()["detail"] == "webhook_status must not contain control characters"
 
 
+def test_admin_webhook_events_api_rejects_ambiguous_scalar_query_params(monkeypatch):
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(create_app(webhook_secret="secret"))
+    headers = {"x-mergework-admin-token": "admin-token-for-tests"}
+
+    repeated_status = client.get(
+        "/api/v1/admin/webhook-events?status=paid&status=missing_submitter",
+        headers=headers,
+    )
+    repeated_limit = client.get(
+        "/api/v1/admin/webhook-events?limit=1&limit=2",
+        headers=headers,
+    )
+    padded_limit = client.get(
+        "/api/v1/admin/webhook-events?limit=01",
+        headers=headers,
+    )
+    clean_filter = client.get(
+        "/api/v1/admin/webhook-events?status=missing_submitter&limit=1",
+        headers=headers,
+    )
+
+    assert repeated_status.status_code == 400
+    assert repeated_status.json()["detail"] == "status must be provided at most once"
+    assert repeated_limit.status_code == 400
+    assert repeated_limit.json()["detail"] == "limit must be provided at most once"
+    assert padded_limit.status_code == 400
+    assert padded_limit.json()["detail"] == "limit must be a canonical positive integer"
+    assert clean_filter.status_code == 200
+
+
 class TestBountyCloseRoute:
     """Bounty close requires admin token."""
 

@@ -251,6 +251,8 @@ def register_bounty_api_routes(
     ) -> list[dict[str, Any]]:
         del admin_login
         reject_repeated_query_param(request, "status")
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
         with session_scope(db_url) as session:
             try:
                 return webhook_events_to_dict(list_webhook_events(session, status, limit))
