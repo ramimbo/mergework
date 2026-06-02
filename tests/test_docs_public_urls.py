@@ -360,7 +360,9 @@ def test_api_examples_document_mcp_lookup_response_shapes() -> None:
     assert '\\"address\\":\\"<wallet_address>\\"' in examples
     assert '\\"label\\":\\"MCP wallet\\"' in examples
     assert '\\"next_nonce\\":1' in examples
-    assert "numeric ids and limits accept JSON integers or integer strings" in examples
+    assert "numeric ids and limits accept JSON integers or canonical integer" in examples
+    assert "no whitespace, no leading `+`, and no" in examples
+    assert "leading zeroes except the single string" in examples
     assert "MCP `list_bounties` and" in examples
     assert "limit` argument is capped at `100`" in examples
 

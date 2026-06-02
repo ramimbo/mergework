@@ -11,20 +11,20 @@ from app.ledger.service import LedgerError
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 
-INTEGER_STRING_PADDING = r"(?!.*[\u0000-\u001f\u007f-\u009f])\s*"
+INTEGER_STRING_GUARD = r"(?!.*[\u0000-\u001f\u007f-\u009f])"
 POSITIVE_INTEGER_SCHEMA: dict[str, Any] = {
     "anyOf": [
         {"type": "integer", "minimum": 1},
         {
             "type": "string",
-            "pattern": rf"^{INTEGER_STRING_PADDING}\+?(?:0*[1-9][0-9]*)\s*$",
+            "pattern": rf"^{INTEGER_STRING_GUARD}[1-9][0-9]*$",
         },
     ]
 }
 NONNEGATIVE_INTEGER_SCHEMA: dict[str, Any] = {
     "anyOf": [
         {"type": "integer", "minimum": 0},
-        {"type": "string", "pattern": rf"^{INTEGER_STRING_PADDING}\+?[0-9]+\s*$"},
+        {"type": "string", "pattern": rf"^{INTEGER_STRING_GUARD}(?:0|[1-9][0-9]*)$"},
     ]
 }
 LIST_LIMIT_SCHEMA: dict[str, Any] = {
@@ -32,7 +32,7 @@ LIST_LIMIT_SCHEMA: dict[str, Any] = {
         {"type": "integer", "minimum": 1, "maximum": 100},
         {
             "type": "string",
-            "pattern": rf"^{INTEGER_STRING_PADDING}\+?0*(?:[1-9]|[1-9][0-9]|100)\s*$",
+            "pattern": rf"^{INTEGER_STRING_GUARD}(?:[1-9][0-9]?|100)$",
         },
     ]
 }
@@ -210,7 +210,35 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
             },
             "additionalProperties": False,
-            "not": {"required": ["bounty_id", "issue_number"]},
+            "oneOf": [
+                {
+                    "description": "Generic submission guidance without a bounty selector.",
+                    "not": {
+                        "anyOf": [
+                            {"required": ["bounty_id"]},
+                            {"required": ["issue_number"]},
+                            {"required": ["repo"]},
+                        ]
+                    },
+                },
+                {
+                    "description": "Submission guidance by internal MRWK bounty id.",
+                    "required": ["bounty_id"],
+                    "not": {
+                        "anyOf": [
+                            {"required": ["issue_number"]},
+                            {"required": ["repo"]},
+                        ]
+                    },
+                },
+                {
+                    "description": (
+                        "Submission guidance by GitHub issue number, optionally scoped by repo."
+                    ),
+                    "required": ["issue_number"],
+                    "not": {"required": ["bounty_id"]},
+                },
+            ],
         },
     },
 ]
