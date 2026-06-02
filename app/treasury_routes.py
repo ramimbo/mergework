@@ -16,6 +16,7 @@ from app.path_params import SQLITE_INTEGER_MAX, positive_proposal_id
 from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
+    reject_padded_query_param,
     reject_repeated_query_param,
 )
 from app.treasury import (
@@ -124,6 +125,7 @@ def register_treasury_routes(
             reject_repeated_query_param(request, name)
         for name in ("action", "status", "to_account"):
             reject_control_char_query_param(request, name)
+            reject_padded_query_param(request, name)
         for name in ("limit", "bounty_id"):
             reject_noncanonical_int_query_param(request, name)
         action_filter = _optional_query_filter(

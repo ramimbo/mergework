@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_control_char_query_param,
+    reject_padded_query_param,
+    reject_repeated_query_param,
+)
 from app.serializers import activity_to_dict
 
 
@@ -23,6 +27,7 @@ def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Temp
     @app.get("/api/v1/activity")
     def api_activity(request: Request, q: str | None = Query(None)) -> dict[str, Any]:
         reject_control_char_query_param(request, "q")
+        reject_padded_query_param(request, "q")
         reject_repeated_query_param(request, "q")
         with session_scope(db_url) as session:
             return activity_context(session, q)

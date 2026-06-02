@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import app.serializers as serializers_module
@@ -266,6 +268,7 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     invalid = client.get("/accounts/github:alice?tx_type=bogus")
     control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment")
     masked_control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment&tx_type=all")
+    padded = client.get("/accounts/github:alice?tx_type=%20bounty_payment%20")
     repeated = client.get("/accounts/github:alice?tx_type=bounty_payment&tx_type=all")
 
     assert all_rows.status_code == 200
@@ -291,8 +294,22 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     assert control.json()["detail"] == "transaction type must not contain control characters"
     assert masked_control.status_code == 400
     assert masked_control.json()["detail"] == "transaction type must not contain control characters"
+    assert padded.status_code == 400
+    assert padded.json()["detail"] == "tx_type must not include leading or trailing whitespace"
     assert repeated.status_code == 400
     assert repeated.json()["detail"] == "tx_type must be provided at most once"
+
+
+def test_account_page_context_rejects_padded_transaction_type(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        with pytest.raises(HTTPException) as exc:
+            account_page_context(session, "github:alice", " bounty_payment ")
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "transaction type must not include leading or trailing whitespace"
 
 
 def test_account_api_does_not_advertise_wallet_transfers_for_plain_accounts(

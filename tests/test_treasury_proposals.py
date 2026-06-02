@@ -470,7 +470,7 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
         params={
             "status": "pending",
             "action": "pay_bounty",
-            "to_account": " GitHub:Alice ",
+            "to_account": "GitHub:Alice",
             "limit": "1",
         },
     )
@@ -498,7 +498,10 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
             "to_account=github%3Aalice%0Abad",
             "to_account must not contain control characters",
         ),
-        ("to_account=github%3A%20", "github login must be valid"),
+        (
+            "to_account=github%3A%20",
+            "to_account must not include leading or trailing whitespace",
+        ),
     ],
 )
 def test_treasury_proposals_list_rejects_invalid_recipient_filter(
@@ -619,6 +622,21 @@ def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
         ("limit", "+1", "limit must be a canonical positive integer"),
         ("limit", "01", "limit must be a canonical positive integer"),
         ("status", " ", "status is required"),
+        (
+            "action",
+            " pay_bounty ",
+            "action must not include leading or trailing whitespace",
+        ),
+        (
+            "status",
+            " pending ",
+            "status must not include leading or trailing whitespace",
+        ),
+        (
+            "to_account",
+            " github:alice ",
+            "to_account must not include leading or trailing whitespace",
+        ),
         ("action", "paybounty", "action must be one of: close_bounty, create_bounty, pay_bounty"),
         ("status", "complete", "status must be one of: pending, executed, blocked"),
     ),

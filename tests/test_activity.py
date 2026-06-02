@@ -225,6 +225,19 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert repeated_page_response.json()["detail"] == "q must be provided at most once"
 
 
+def test_activity_api_rejects_padded_query_filter(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/activity?q=%20github%20")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "q must not include leading or trailing whitespace"
+
+
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:
