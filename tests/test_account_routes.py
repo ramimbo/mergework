@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+import app.serializers as serializers_module
 from app.accounts import account_api_context, account_page_context, normalized_account
 from app.db import create_schema, session_scope
 from app.ledger.service import (
@@ -12,6 +13,8 @@ from app.ledger.service import (
     pay_bounty,
 )
 from app.main import create_app
+from app.serializers import public_utc_timestamp
+from app.treasury import propose_treasury_action
 
 
 def test_account_contexts_include_balance_status_and_proof_backed_rows(
@@ -96,6 +99,127 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
 
+def test_account_routes_expose_pending_payouts_separately_from_paid_work(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        pending_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=180,
+            issue_url="https://github.com/ramimbo/mergework/issues/180",
+            title="Pending account payout",
+            reward_mrwk="75",
+            acceptance="Pending payouts should be visible but not counted as paid.",
+        )
+        paid_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=181,
+            issue_url="https://github.com/ramimbo/mergework/issues/181",
+            title="Paid account payout",
+            reward_mrwk="25",
+            acceptance="Paid work remains proof-backed.",
+        )
+        proposal = propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": pending_bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/180",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=paid_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/181",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    account_api = client.get("/api/v1/accounts/github:alice").json()
+    accepted_api = client.get("/api/v1/accounts/github:alice/accepted-work").json()
+    page = client.get("/accounts/github:alice").text
+
+    assert account_api["balance_mrwk"] == "25"
+    assert account_api["accepted_work"] == {
+        "accepted_awards": 1,
+        "accepted_mrwk": "25",
+        "latest_ledger_sequence": proof.ledger_sequence,
+        "latest_submission_url": "https://github.com/ramimbo/mergework/pull/181",
+        "latest_proof_hash": proof.hash,
+        "latest_proof_url": f"/proofs/{proof.hash}",
+    }
+    assert account_api["pending_summary"] == {
+        "pending_awards": 1,
+        "pending_mrwk": "75",
+        "next_executes_after": public_utc_timestamp(proposal.executes_after),
+    }
+    assert accepted_api["summary"] == account_api["accepted_work"]
+    assert accepted_api["pending_summary"] == account_api["pending_summary"]
+    assert account_api["pending_payouts"] == accepted_api["pending_payouts"]
+    assert accepted_api["pending_payouts"] == [
+        {
+            "proposal_id": proposal.id,
+            "proposal_url": f"/api/v1/treasury/proposals/{proposal.id}",
+            "status": "pending",
+            "amount_mrwk": "75",
+            "bounty_id": pending_bounty.id,
+            "bounty_url": f"/bounties/{pending_bounty.id}",
+            "repo": "ramimbo/mergework",
+            "issue_number": 180,
+            "issue_url": "https://github.com/ramimbo/mergework/issues/180",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/180",
+            "accepted_by": "maintainer",
+            "proposed_at": public_utc_timestamp(proposal.proposed_at),
+            "executes_after": public_utc_timestamp(proposal.executes_after),
+        }
+    ]
+    assert account_api["pending_summary"]["next_executes_after"].endswith("Z")
+    assert len(accepted_api["accepted_work"]) == 1
+    assert accepted_api["accepted_work"][0]["proof_hash"] == proof.hash
+    assert accepted_api["accepted_work"][0]["created_at"].endswith("Z")
+    assert "Pending payouts" in page
+    assert "Accepted work queued for treasury execution, not proof-backed paid work." in page
+    assert f'href="/api/v1/treasury/proposals/{proposal.id}"' in page
+    assert "75 MRWK" in page
+    assert "25 MRWK" in page
+    assert "Â" not in page
+    assert "&middot;" in page
+
+
+def test_account_pages_fall_back_when_pending_payouts_fail(sqlite_url: str, monkeypatch) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    def fail_pending_payouts(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+        raise RuntimeError("pending payout serializer unavailable")
+
+    monkeypatch.setattr(serializers_module, "pending_payouts_for_account", fail_pending_payouts)
+
+    with session_scope(sqlite_url) as session:
+        api_context = account_api_context(session, "github:alice")
+        page_context = account_page_context(session, "github:alice")
+
+    assert api_context["pending_summary"] == {
+        "pending_awards": 0,
+        "pending_mrwk": "0",
+        "next_executes_after": None,
+    }
+    assert api_context["pending_payouts"] == []
+    assert page_context["pending_summary"] == api_context["pending_summary"]
+    assert page_context["pending_payouts"] == []
+
+
 def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -140,6 +264,9 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
     payments = client.get("/accounts/github:alice?tx_type=bounty_payment")
     claims = client.get("/accounts/github:alice?tx_type=github_claim")
     invalid = client.get("/accounts/github:alice?tx_type=bogus")
+    control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment")
+    masked_control = client.get("/accounts/github:alice?tx_type=%C2%85bounty_payment&tx_type=all")
+    repeated = client.get("/accounts/github:alice?tx_type=bounty_payment&tx_type=all")
 
     assert all_rows.status_code == 200
     assert "Transaction type filters" in all_rows.text
@@ -159,6 +286,13 @@ def test_account_page_filters_transactions_by_type(sqlite_url: str) -> None:
 
     assert invalid.status_code == 400
     assert "transaction type must be one of" in invalid.text
+
+    assert control.status_code == 400
+    assert control.json()["detail"] == "transaction type must not contain control characters"
+    assert masked_control.status_code == 400
+    assert masked_control.json()["detail"] == "transaction type must not contain control characters"
+    assert repeated.status_code == 400
+    assert repeated.json()["detail"] == "tx_type must be provided at most once"
 
 
 def test_account_api_does_not_advertise_wallet_transfers_for_plain_accounts(

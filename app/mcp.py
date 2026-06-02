@@ -40,7 +40,9 @@ LIST_LIMIT_SCHEMA: dict[str, Any] = {
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
-        "description": "List MRWK bounties with optional status, q, sort, and limit filters",
+        "description": (
+            "List MRWK bounties with optional status, q, sort, limit, and availability filters"
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -56,6 +58,11 @@ MCP_TOOLS: list[dict[str, Any]] = [
                     "default": "newest",
                 },
                 "limit": LIST_LIMIT_SCHEMA,
+                "availability": {
+                    "type": "string",
+                    "enum": ["all", "effectively_open"],
+                    "default": "all",
+                },
             },
             "additionalProperties": False,
         },

@@ -20,4 +20,4 @@
 
 ## MRWK
 
-Related bounty or issue (`Bounty #N` or `Refs #N` for multi-award bounties):
+Related bounty or issue (`Bounty #N` for MergeWork tracking, `Refs #N` for GitHub-linked issue visibility):

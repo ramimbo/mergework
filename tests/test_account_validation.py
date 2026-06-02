@@ -36,6 +36,27 @@ def test_api_account_rejects_tab(sqlite_url: str) -> None:
     assert "control character" in resp.json()["detail"].lower()
 
 
+@pytest.mark.parametrize("encoded_control", ["%C2%80", "%C2%85", "%C2%9F"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/accounts/{encoded_control}github:alice",
+        "/api/v1/accounts/github:alice{encoded_control}",
+        "/api/v1/accounts/{encoded_control}github:alice/accepted-work",
+        "/accounts/{encoded_control}github:alice",
+    ],
+)
+def test_account_views_reject_c1_controls_before_normalizing(
+    sqlite_url: str, path: str, encoded_control: str
+) -> None:
+    client = _setup_app(sqlite_url)
+
+    resp = client.get(path.format(encoded_control=encoded_control))
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "account must not contain control characters"
+
+
 def test_api_account_accepts_valid(sqlite_url: str) -> None:
     client = _setup_app(sqlite_url)
     resp = client.get("/api/v1/accounts/github:alice")
@@ -95,6 +116,24 @@ def test_mcp_get_balance_rejects_null_byte_account(sqlite_url: str) -> None:
             "params": {"name": "get_balance", "arguments": {"account": "test\x00account"}},
         },
     )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "error" in body
+    assert body["error"]["code"] == -32602
+
+
+def test_mcp_get_balance_rejects_c1_control_account(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 1,
+            "params": {"name": "get_balance", "arguments": {"account": "\x85github:alice"}},
+        },
+    )
+
     assert resp.status_code == 200
     body = resp.json()
     assert "error" in body

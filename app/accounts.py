@@ -8,16 +8,21 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.path_params import SQLITE_INTEGER_MAX
+from app.query_validation import reject_repeated_query_param
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
+    pending_payout_summary,
+    pending_payouts_for_account,
     safe_accepted_work_for_account,
     safe_account_accepted_summary,
+    safe_pending_payouts_for_account,
 )
 from app.wallets import WalletError, normalize_wallet_address
 
@@ -46,7 +51,7 @@ def normalized_wallet_address(address: str) -> str:
 def normalized_account(account: str) -> str:
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
-    if re.search(r"[\x00-\x1f\x7f]", account):
+    if contains_control_character(account):
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
     lower = clean.lower()
@@ -105,6 +110,7 @@ def account_transfer_status(account: str) -> str:
 def account_api_context(session: Session, account: str) -> dict[str, Any]:
     account = normalized_account(account)
     account_row = session.get(Account, account)
+    pending_payouts = safe_pending_payouts_for_account(session, account)
     return {
         "account": account,
         "ledger_address": account,
@@ -113,19 +119,28 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
         "balance_mrwk": format_mrwk(get_balance(session, account)),
         "transfer_status": account_transfer_status(account),
         "accepted_work": safe_account_accepted_summary(session, account),
+        "pending_summary": pending_payout_summary(pending_payouts),
+        "pending_payouts": pending_payouts,
     }
 
 
 def account_accepted_work_context(session: Session, account: str) -> dict[str, Any]:
     account = normalized_account(account)
+    pending_payouts = pending_payouts_for_account(session, account)
     return {
         "account": account,
         "summary": account_accepted_summary(session, account),
         "accepted_work": accepted_work_for_account(session, account),
+        "pending_summary": pending_payout_summary(pending_payouts),
+        "pending_payouts": pending_payouts,
     }
 
 
 def _transaction_type_filter(tx_type: str | None) -> tuple[str, str | None]:
+    if tx_type is not None and contains_control_character(tx_type):
+        raise HTTPException(
+            status_code=400, detail="transaction type must not contain control characters"
+        )
     selected = (tx_type or "all").strip().lower()
     if selected in {"", "all"}:
         return "all", None
@@ -143,10 +158,13 @@ def account_page_context(
 ) -> dict[str, Any]:
     account = normalized_account(account)
     selected_transaction_type, transaction_filter = _transaction_type_filter(transaction_type)
+    pending_payouts = safe_pending_payouts_for_account(session, account)
     return {
         "account": account_api_context(session, account),
         "accepted_summary": safe_account_accepted_summary(session, account),
         "accepted_work": safe_accepted_work_for_account(session, account),
+        "pending_summary": pending_payout_summary(pending_payouts),
+        "pending_payouts": pending_payouts,
         "selected_transaction_type": selected_transaction_type,
         "transaction_type_options": ACCOUNT_TRANSACTION_TYPE_OPTIONS,
         "transactions": account_ledger_transactions(
@@ -170,6 +188,12 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
     def account_page(
         request: Request, account: str, tx_type: str | None = Query(None)
     ) -> HTMLResponse:
+        for value in request.query_params.getlist("tx_type"):
+            if contains_control_character(value):
+                raise HTTPException(
+                    status_code=400, detail="transaction type must not contain control characters"
+                )
+        reject_repeated_query_param(request, "tx_type")
         with session_scope(db_url) as session:
             context = account_page_context(session, account, tx_type)
         return templates.TemplateResponse(request, "account.html", context)

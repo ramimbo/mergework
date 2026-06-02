@@ -39,8 +39,10 @@ def test_recent_ledger_entries_attach_payment_proof_hash(sqlite_url: str) -> Non
     payment_rows = [row for row in rows if row["sequence"] == proof.ledger_sequence]
     assert len(payment_rows) == 1
     assert payment_rows[0]["proof_hash"] == proof.hash
+    assert payment_rows[0]["created_at"].endswith("Z")
     assert detail is not None
     assert detail["proof_hash"] == proof.hash
+    assert detail["created_at"].endswith("Z")
     assert missing is None
 
 

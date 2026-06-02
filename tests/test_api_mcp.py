@@ -11,6 +11,8 @@ from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
 from app.models import BountyAttempt, Proof
+from app.serializers import public_utc_timestamp
+from app.treasury import propose_treasury_action
 
 
 def _assert_integer_or_string_schema(
@@ -63,6 +65,56 @@ def test_ledger_api_rejects_out_of_range_limits(sqlite_url: str, limit: str) -> 
     response = client.get(f"/api/v1/ledger?limit={limit}")
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_detail"),
+    (
+        ("%C2%8550", "limit must not contain control characters"),
+        ("50.0", "limit must be a canonical positive integer"),
+        ("%2B50", "limit must be a canonical positive integer"),
+        ("050", "limit must be a canonical positive integer"),
+    ),
+)
+def test_ledger_api_rejects_noncanonical_limit(
+    sqlite_url: str, query: str, expected_detail: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/api/v1/ledger?limit={query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
+
+
+def test_ledger_api_applies_default_limit_when_omitted(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/ledger")
+
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_ledger_api_rejects_repeated_limit_before_using_later_value(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/ledger?limit=not-an-int&limit=1")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "limit must be provided at most once"
 
 
 def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:
@@ -209,7 +261,10 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
 
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
     assert tools["result"]["tools"][0]["name"] == "list_bounties"
-    assert "status, q, sort, and limit filters" in tools["result"]["tools"][0]["description"]
+    assert (
+        "status, q, sort, limit, and availability filters"
+        in tools["result"]["tools"][0]["description"]
+    )
     tools_by_name = {tool["name"]: tool for tool in tools["result"]["tools"]}
     assert len(tools_by_name) == len(tools["result"]["tools"])
     assert all("inputSchema" in tool for tool in tools["result"]["tools"])
@@ -225,6 +280,8 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "awards",
     ]
     _assert_integer_or_string_schema(list_schema["properties"]["limit"], minimum=1, maximum=100)
+    assert list_schema["properties"]["availability"]["enum"] == ["all", "effectively_open"]
+    assert list_schema["properties"]["availability"]["default"] == "all"
 
     bounty_schema = tools_by_name["get_bounty"]["inputSchema"]
     assert bounty_schema["required"] == ["id"]
@@ -597,6 +654,58 @@ def test_mcp_list_bounties_honors_sort_argument(sqlite_url: str) -> None:
     assert [item["id"] for item in limited_payload] == [large_bounty.id]
 
 
+def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        open_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=303,
+            issue_url="https://github.com/ramimbo/mergework/issues/303",
+            title="MCP visible open bounty",
+            reward_mrwk="100",
+            acceptance="This row should remain visible.",
+        )
+        full_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=304,
+            issue_url="https://github.com/ramimbo/mergework/issues/304",
+            title="MCP raw-open full bounty",
+            reward_mrwk="100",
+            acceptance="This row should be hidden by effective availability.",
+        )
+        propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": full_bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/304",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {"availability": "effectively_open"},
+            },
+        },
+    ).json()
+
+    payload = json.loads(result["result"]["content"][0]["text"])
+    assert [item["id"] for item in payload] == [open_bounty.id]
+
+
 @pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
@@ -606,6 +715,7 @@ def test_mcp_list_bounties_honors_sort_argument(sqlite_url: str) -> None:
         ({"limit": 0}, 34),
         ({"limit": 101}, 35),
         ({"sort": "invalid"}, 36),
+        ({"availability": "maybe"}, 37),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
@@ -787,7 +897,7 @@ def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
             "amount_mrwk": "75",
             "submission_url": "https://github.com/ramimbo/mergework/pull/284",
             "accepted_by": "maintainer",
-            "created_at": proof.created_at.replace(tzinfo=None).isoformat(),
+            "created_at": public_utc_timestamp(proof.created_at),
         }
     ]
 
@@ -1005,6 +1115,79 @@ def test_mcp_rejects_oversized_integer_arguments_without_500(
         "id": request_id,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "request_id"),
+    [
+        ("list_bounties", {"limit": "03"}, 21),
+        ("list_bounties", {"limit": "+3"}, 22),
+        ("list_bounties", {"limit": " 3"}, 23),
+        ("list_bounties", {"limit": "3 "}, 24),
+        ("get_bounty", {"id": "099"}, 25),
+        ("get_bounty", {"id": "+99"}, 26),
+        ("get_bounty", {"id": "99 "}, 27),
+        ("get_ledger_entry", {"sequence": "01"}, 28),
+        ("submit_work_proof", {"bounty_id": "099"}, 29),
+        ("submit_work_proof", {"issue_number": "0656"}, 30),
+    ],
+)
+def test_mcp_rejects_noncanonical_integer_string_arguments(
+    sqlite_url: str, tool_name: str, arguments: dict[str, object], request_id: int
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_accepts_canonical_integer_string_arguments(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=656,
+            issue_url="https://github.com/ramimbo/mergework/issues/656",
+            title="MCP canonical integer args",
+            reward_mrwk="75",
+            acceptance="MCP should keep canonical numeric string compatibility.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 29,
+            "method": "tools/call",
+            "params": {"name": "get_bounty", "arguments": {"id": str(bounty_id)}},
+        },
+    )
+
+    payload = json.loads(response.json()["result"]["content"][0]["text"])
+    assert payload["id"] == bounty_id
 
 
 @pytest.mark.parametrize(

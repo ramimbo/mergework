@@ -24,6 +24,7 @@ from app.ledger.service import (
 from app.main import create_app
 from app.models import Bounty, LedgerEntry, Submission, TreasuryChallenge, TreasuryProposal, utc_now
 from app.path_params import SQLITE_INTEGER_MAX
+from app.serializers import public_utc_timestamp
 
 ADMIN_HEADERS = {"x-mergework-admin-token": "admin-token-for-tests"}
 
@@ -100,6 +101,8 @@ def test_admin_bounty_creation_creates_public_delayed_proposal(
     assert body["payload"]["repo"] == "ramimbo/mergework"
     assert body["payload"]["reward_mrwk"] == "25"
     assert body["executes_after"] > body["proposed_at"]
+    assert body["proposed_at"].endswith("Z")
+    assert body["executes_after"].endswith("Z")
     with session_scope(sqlite_url) as session:
         assert session.scalar(select(func.count(Bounty.id))) == 0
         assert get_balance(session, TREASURY_ACCOUNT) == 100_000_000_000_000
@@ -111,6 +114,10 @@ def test_admin_bounty_creation_creates_public_delayed_proposal(
     assert [proposal["id"] for proposal in listed.json()] == [body["id"]]
     assert detail.status_code == 200
     assert detail.json()["payload_hash"] == body["payload_hash"]
+    for noncanonical_id in (f"{body['id']}.0", f"+{body['id']}", f"%C2%85{body['id']}"):
+        noncanonical_detail = client.get(f"/api/v1/treasury/proposals/{noncanonical_id}")
+        assert noncanonical_detail.status_code == 400
+        assert noncanonical_detail.json()["detail"] == "proposal id must be a positive integer"
 
 
 def test_admin_bounty_creation_rejects_control_character_reward_amount(
@@ -201,9 +208,8 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
     assert body["executed_reserve_24h_mrwk"] == "9000"
     assert body["pending_create_reserve_mrwk"] == "500"
     assert body["available_create_reserve_mrwk"] == "500"
-    assert (
-        body["next_capacity_release_at"]
-        == (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat()
+    assert body["next_capacity_release_at"] == public_utc_timestamp(
+        recent_time + timedelta(hours=24)
     )
     assert body["pending_create_bounties"] == [
         {
@@ -216,9 +222,9 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
             "reserve_mrwk": "500",
             "proposed_at": proposal.json()["proposed_at"],
             "executes_after": proposal.json()["executes_after"],
-            "capacity_releases_at": (
+            "capacity_releases_at": public_utc_timestamp(
                 datetime.fromisoformat(proposal.json()["executes_after"]) + timedelta(hours=24)
-            ).isoformat(),
+            ),
         }
     ]
     assert body["recent_reserves"] == [
@@ -226,8 +232,8 @@ def test_treasury_status_reports_reserve_capacity_and_pending_create_proposals(
             "ledger_sequence": recent_entry.sequence,
             "amount_mrwk": "9000",
             "reference": "https://github.com/ramimbo/mergework/issues/1",
-            "created_at": recent_time.replace(tzinfo=None).isoformat(),
-            "expires_at": (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "created_at": public_utc_timestamp(recent_time),
+            "expires_at": public_utc_timestamp(recent_time + timedelta(hours=24)),
         }
     ]
 
@@ -269,8 +275,8 @@ def test_treasury_status_includes_reserve_at_exact_24h_boundary(
             "ledger_sequence": entry.sequence,
             "amount_mrwk": "1",
             "reference": "https://github.com/ramimbo/mergework/issues/42",
-            "created_at": boundary_time.replace(tzinfo=None).isoformat(),
-            "expires_at": fixed_now.replace(tzinfo=None).isoformat(),
+            "created_at": public_utc_timestamp(boundary_time),
+            "expires_at": public_utc_timestamp(fixed_now),
         }
     ]
     assert body["next_capacity_release_at"] is None
@@ -313,37 +319,36 @@ def test_treasury_status_projects_pending_create_capacity_events(
     assert proposal.status_code == 200
     assert response.status_code == 200
     body = response.json()
-    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=48)
+    pending_release_at = fixed_now + timedelta(hours=48)
     assert body["available_create_reserve_mrwk"] == "1000"
     assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
-        pending_release_at.isoformat()
+        public_utc_timestamp(pending_release_at)
     )
     assert body["projected_capacity_events"] == [
         {
-            "at": (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "at": public_utc_timestamp(recent_time + timedelta(hours=24)),
             "event_type": "recent_reserve_releases",
             "amount_mrwk": "8000",
             "available_create_reserve_mrwk": "9000",
             "note": "Executed reserve leaves the 24h cap window.",
         },
         {
-            "at": (fixed_now.replace(tzinfo=None) + timedelta(hours=24)).isoformat(),
+            "at": public_utc_timestamp(fixed_now + timedelta(hours=24)),
             "event_type": "pending_create_executes",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "9000",
             "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
         },
         {
-            "at": pending_release_at.isoformat(),
+            "at": public_utc_timestamp(pending_release_at),
             "event_type": "pending_create_releases",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "10000",
             "note": "Executed reserve from this pending create leaves the 24h cap window.",
         },
     ]
-    assert (
-        body["next_projected_capacity_release_at"]
-        == (recent_time.replace(tzinfo=None) + timedelta(hours=24)).isoformat()
+    assert body["next_projected_capacity_release_at"] == public_utc_timestamp(
+        recent_time + timedelta(hours=24)
     )
 
 
@@ -368,31 +373,30 @@ def test_treasury_status_clamps_overdue_pending_create_projection_to_now(
 
     assert response.status_code == 200
     body = response.json()
-    pending_release_at = fixed_now.replace(tzinfo=None) + timedelta(hours=24)
-    assert (
-        body["pending_create_bounties"][0]["executes_after"]
-        == (fixed_now.replace(tzinfo=None) - timedelta(hours=2)).isoformat()
+    pending_release_at = fixed_now + timedelta(hours=24)
+    assert body["pending_create_bounties"][0]["executes_after"] == public_utc_timestamp(
+        fixed_now - timedelta(hours=2)
     )
     assert body["pending_create_bounties"][0]["capacity_releases_at"] == (
-        pending_release_at.isoformat()
+        public_utc_timestamp(pending_release_at)
     )
     assert body["projected_capacity_events"] == [
         {
-            "at": fixed_now.replace(tzinfo=None).isoformat(),
+            "at": public_utc_timestamp(fixed_now),
             "event_type": "pending_create_executes",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "9000",
             "note": "Pending create reserve becomes executed reserve; capacity does not increase.",
         },
         {
-            "at": pending_release_at.isoformat(),
+            "at": public_utc_timestamp(pending_release_at),
             "event_type": "pending_create_releases",
             "amount_mrwk": "1000",
             "available_create_reserve_mrwk": "10000",
             "note": "Executed reserve from this pending create leaves the 24h cap window.",
         },
     ]
-    assert body["next_projected_capacity_release_at"] == pending_release_at.isoformat()
+    assert body["next_projected_capacity_release_at"] == public_utc_timestamp(pending_release_at)
 
 
 def test_treasury_proposals_list_honors_limit(
@@ -409,12 +413,251 @@ def test_treasury_proposals_list_honors_limit(
     limited = client.get("/api/v1/treasury/proposals?limit=1")
     too_small = client.get("/api/v1/treasury/proposals?limit=0")
     too_large = client.get("/api/v1/treasury/proposals?limit=201")
+    controlled_limit = client.get("/api/v1/treasury/proposals?limit=%C2%8550")
 
     assert limited.status_code == 200
     assert [proposal["id"] for proposal in limited.json()] == [second["id"]]
     assert first["id"] not in [proposal["id"] for proposal in limited.json()]
     assert too_small.status_code == 422
     assert too_large.status_code == 422
+    assert controlled_limit.status_code == 400
+    assert controlled_limit.json()["detail"] == "limit must not contain control characters"
+
+
+def test_treasury_proposals_list_filters_by_recipient_before_limit(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=74,
+            issue_url="https://github.com/ramimbo/mergework/issues/74",
+            title="Recipient filter proposal",
+            reward_mrwk="5",
+            max_awards=2,
+            acceptance="Contributor comments with proof.",
+        )
+        bounty_id = bounty.id
+
+    alice = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:alice",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/7401",
+            "accepted_by": "maintainer",
+        },
+    )
+    bob = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:bob",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/7402",
+            "accepted_by": "maintainer",
+        },
+    )
+
+    filtered = client.get(
+        "/api/v1/treasury/proposals"
+        "?status=pending&action=pay_bounty&to_account=github%3Aalice&limit=1"
+    )
+    uppercase_recipient_filtered = client.get(
+        "/api/v1/treasury/proposals",
+        params={
+            "status": "pending",
+            "action": "pay_bounty",
+            "to_account": " GitHub:Alice ",
+            "limit": "1",
+        },
+    )
+    bob_filtered = client.get(
+        "/api/v1/treasury/proposals"
+        "?status=pending&action=pay_bounty&to_account=github%3Abob&limit=1"
+    )
+
+    assert alice.status_code == 200
+    assert bob.status_code == 200
+    assert filtered.status_code == 200
+    assert [proposal["id"] for proposal in filtered.json()] == [alice.json()["id"]]
+    assert filtered.json()[0]["payload"]["to_account"] == "github:alice"
+    assert uppercase_recipient_filtered.status_code == 200
+    assert uppercase_recipient_filtered.json() == filtered.json()
+    assert bob_filtered.status_code == 200
+    assert [proposal["id"] for proposal in bob_filtered.json()] == [bob.json()["id"]]
+
+
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        ("to_account=%20%20", "to_account must not be blank"),
+        (
+            "to_account=github%3Aalice%0Abad",
+            "to_account must not contain control characters",
+        ),
+        ("to_account=github%3A%20", "github login must be valid"),
+    ],
+)
+def test_treasury_proposals_list_rejects_invalid_recipient_filter(
+    sqlite_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+    detail: str,
+) -> None:
+    response = _client(sqlite_url, monkeypatch).get(f"/api/v1/treasury/proposals?{query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+
+
+def test_treasury_proposals_list_filters_by_action_status_and_bounty_id(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        first_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=90,
+            issue_url="https://github.com/ramimbo/mergework/issues/90",
+            title="First filtered payout",
+            reward_mrwk="5",
+            acceptance="Contributor comments with proof.",
+        )
+        second_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=91,
+            issue_url="https://github.com/ramimbo/mergework/issues/91",
+            title="Second filtered payout",
+            reward_mrwk="5",
+            acceptance="Contributor comments with proof.",
+        )
+        first_bounty_id = first_bounty.id
+        second_bounty_id = second_bounty.id
+
+    first_payout = client.post(
+        f"/api/v1/bounties/{first_bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:alice",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/90",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+    second_payout = client.post(
+        f"/api/v1/bounties/{second_bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:bob",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/91",
+            "accepted_by": "maintainer",
+        },
+    ).json()
+    create_bounty_proposal = client.post(
+        "/api/v1/bounties",
+        headers=ADMIN_HEADERS,
+        json=_bounty_payload(issue_number=92),
+    ).json()
+    _make_executable(sqlite_url, first_payout["id"])
+    executed = client.post(
+        f"/api/v1/treasury/proposals/{first_payout['id']}/execute",
+        headers=ADMIN_HEADERS,
+    )
+    assert executed.status_code == 200
+
+    action_filtered = client.get("/api/v1/treasury/proposals?action=pay_bounty")
+    uppercase_action_filtered = client.get("/api/v1/treasury/proposals?action=PAY_BOUNTY")
+    pending_filtered = client.get("/api/v1/treasury/proposals?status=pending")
+    uppercase_pending_filtered = client.get("/api/v1/treasury/proposals?status=PENDING")
+    bounty_filtered = client.get(f"/api/v1/treasury/proposals?bounty_id={first_bounty_id}")
+    composed_filtered = client.get(
+        "/api/v1/treasury/proposals",
+        params={
+            "action": "pay_bounty",
+            "status": "pending",
+            "bounty_id": second_bounty_id,
+        },
+    )
+    limited_after_filter = client.get("/api/v1/treasury/proposals?action=pay_bounty&limit=1")
+
+    assert action_filtered.status_code == 200
+    assert [proposal["id"] for proposal in action_filtered.json()] == [
+        second_payout["id"],
+        first_payout["id"],
+    ]
+    assert uppercase_action_filtered.status_code == 200
+    assert uppercase_action_filtered.json() == action_filtered.json()
+    assert pending_filtered.status_code == 200
+    assert [proposal["id"] for proposal in pending_filtered.json()] == [
+        create_bounty_proposal["id"],
+        second_payout["id"],
+    ]
+    assert uppercase_pending_filtered.status_code == 200
+    assert uppercase_pending_filtered.json() == pending_filtered.json()
+    assert bounty_filtered.status_code == 200
+    assert [proposal["id"] for proposal in bounty_filtered.json()] == [first_payout["id"]]
+    assert composed_filtered.status_code == 200
+    assert [proposal["id"] for proposal in composed_filtered.json()] == [second_payout["id"]]
+    assert limited_after_filter.status_code == 200
+    assert [proposal["id"] for proposal in limited_after_filter.json()] == [second_payout["id"]]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected_detail"),
+    (
+        ("action", "\tpay_bounty", "action must not contain control characters"),
+        ("bounty_id", "\x8599", "bounty_id must not contain control characters"),
+        ("bounty_id", "99.0", "bounty_id must be a canonical positive integer"),
+        ("bounty_id", "+99", "bounty_id must be a canonical positive integer"),
+        ("bounty_id", "099", "bounty_id must be a canonical positive integer"),
+        ("limit", "1.0", "limit must be a canonical positive integer"),
+        ("limit", "+1", "limit must be a canonical positive integer"),
+        ("limit", "01", "limit must be a canonical positive integer"),
+        ("status", " ", "status is required"),
+        ("action", "paybounty", "action must be one of: close_bounty, create_bounty, pay_bounty"),
+        ("status", "complete", "status must be one of: pending, executed, blocked"),
+    ),
+)
+def test_treasury_proposals_list_rejects_invalid_filters(
+    sqlite_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+    expected_detail: str,
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+
+    response = client.get("/api/v1/treasury/proposals", params={field: value})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
+
+
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        ("limit=not-an-int&limit=2", "limit must be provided at most once"),
+        ("status=invalid&status=pending", "status must be provided at most once"),
+        ("action=invalid&action=pay_bounty", "action must be provided at most once"),
+        ("to_account=bad&to_account=github%3Aalice", "to_account must be provided at most once"),
+        ("bounty_id=not-an-int&bounty_id=1", "bounty_id must be provided at most once"),
+    ],
+)
+def test_treasury_proposals_list_rejects_repeated_scalar_filters(
+    sqlite_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+    detail: str,
+) -> None:
+    response = _client(sqlite_url, monkeypatch).get(f"/api/v1/treasury/proposals?{query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
 
 
 def test_direct_proposal_creation_requires_admin_token(

@@ -124,6 +124,16 @@ def test_admin_runbook_documents_webhook_event_limit_cap() -> None:
     assert "/api/v1/admin/webhook-events?status=missing_submitter&limit=100" not in runbook
 
 
+def test_admin_runbook_documents_review_bounty_candidate_report() -> None:
+    runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
+
+    assert "scripts/review_bounty_candidates.py" in runbook
+    assert "--reviewer reviewer-login" in runbook
+    assert "fresh review candidates" in runbook
+    assert "already reviewed at the current head" in runbook
+    assert "It is advisory and read-only" in runbook
+
+
 def test_proposed_work_template_is_not_a_live_bounty_template() -> None:
     template = Path(".github/ISSUE_TEMPLATE/proposed-work.yml").read_text(encoding="utf-8")
     lowered = template.lower()
@@ -209,7 +219,9 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
 
     assert "/api/v1/bounties?status=open" in examples
     assert "/api/v1/bounties?status=open&sort=available&limit=5" in examples
+    assert "/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=649" in examples
     assert "/api/v1/bounties/summary?status=open&q=proof" in examples
+    assert "/api/v1/bounties/summary?repo=ramimbo%2Fmergework" in examples
     assert "/api/v1/bounties/summary?status=open&sort=awards&limit=5" in examples
     assert "status` can be omitted or set to" in examples
     assert "`newest` is the default" in examples
@@ -231,7 +243,9 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "Award counters can change" in examples
     assert "capacity totals" in examples
     assert "full bounty" in examples
-    assert "same optional `status`, `q`, `sort`, and" in examples
+    assert "same optional `status`, `q`, `repo`," in examples
+    assert "`issue_number`, `sort`, `limit`, and `availability` filters" in examples
+    assert "availability=effectively_open" in examples
     assert "Use `id` for the single-bounty API path" in examples
 
 

@@ -37,6 +37,7 @@ from app.path_params import (
     proof_hash_from_path,
 )
 from app.public_routes import register_public_routes
+from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
 from app.status import health_status, system_status
 from app.treasury_routes import register_treasury_routes
 from app.wallet_api import register_wallet_api_routes
@@ -305,16 +306,24 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         post_only_route=post_only_route,
     )
 
-    @app.get("/api/v1/ledger")
-    def api_ledger(limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[dict[str, Any]]:
+    def ledger_rows(limit: int = 50) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
             return recent_ledger_entries(session, limit)
 
+    @app.get("/api/v1/ledger")
+    def api_ledger(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ) -> list[dict[str, Any]]:
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
+        return ledger_rows(limit)
+
     @app.get("/api/v1/ledger/{sequence}")
-    def api_ledger_entry(sequence: int) -> dict[str, Any]:
-        sequence = positive_ledger_sequence(sequence)
+    def api_ledger_entry(sequence: int | str) -> dict[str, Any]:
+        sequence_id = positive_ledger_sequence(sequence)
         with session_scope(db_url) as session:
-            entry = ledger_entry_to_dict(session, sequence)
+            entry = ledger_entry_to_dict(session, sequence_id)
             if entry is None:
                 raise HTTPException(status_code=404, detail="ledger entry not found")
             return entry
@@ -376,7 +385,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         templates=templates,
         list_bounties_by_status=list_bounties_by_status,
         api_bounty=api_bounty,
-        api_ledger=api_ledger,
+        api_ledger=ledger_rows,
         api_ledger_entry=api_ledger_entry,
         api_proof=api_proof,
     )

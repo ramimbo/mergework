@@ -10,6 +10,12 @@ MCP_HOST=https://mcp.mrwk.online
 The legacy-compatible hosts remain available for existing clients:
 `https://api.mrwk.ltclab.site` and `https://mcp.mrwk.ltclab.site`.
 
+Machine-readable REST docs are available at `$API_HOST/openapi.json`,
+`$API_HOST/api/docs`, and `$API_HOST/api/redoc`. Public JSON POST endpoints
+publish `requestBody` schemas for attempt reservations, wallet actions,
+transfers, and treasury challenges so clients can discover payload fields
+without reading source code.
+
 ## Status And Bounties
 
 Check service status and list bounties:
@@ -19,7 +25,9 @@ curl -s "$API_HOST/api/v1/status"
 curl -s "$API_HOST/api/v1/bounties"
 curl -s "$API_HOST/api/v1/bounties?status=open"
 curl -s "$API_HOST/api/v1/bounties?status=open&sort=available&limit=5"
+curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=649"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
+curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
 ```
 
@@ -66,9 +74,19 @@ by per-award reward, `available` sorts by the remaining MRWK pool, and `awards`
 sorts by remaining award slots. Use `limit` from `1` to `200` to cap returned
 rows after filtering and sorting.
 
-Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `sort`, and
-`limit` filters when an agent only needs capacity totals instead of full bounty
-rows:
+Use exact source filters when starting from a GitHub issue URL: `repo=owner/name`
+matches the normalized source repository, `issue_number=N` matches the GitHub
+issue number across repos, and the two together identify one source issue. Keep
+`q` for broad text search.
+
+Use `availability=effectively_open` when discovery should hide raw-open rows
+whose remaining awards are fully covered by pending payout or close proposals.
+The default `availability=all` keeps the existing raw list behavior.
+
+Use `/api/v1/bounties/summary` with the same optional `status`, `q`, `repo`,
+`issue_number`, `sort`, `limit`, and `availability` filters when an agent only
+needs capacity totals
+instead of full bounty rows:
 
 ```json
 {
@@ -108,8 +126,14 @@ Read proposals:
 ```bash
 curl -s "$API_HOST/api/v1/treasury/status"
 curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals?action=pay_bounty&status=pending&bounty_id=<bounty_id>"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
+
+Use the optional `action`, `status`, and `bounty_id` filters to inspect one
+queue slice without client-side scanning. The `bounty_id` filter matches
+proposal payloads such as pending payout or close-bounty proposals, not GitHub
+issue numbers.
 
 The treasury status endpoint reports the 24-hour create-bounty reserve cap,
 recent executed reserves, pending create-bounty proposal reserves, remaining
@@ -156,7 +180,7 @@ work.
 List active attempts for a bounty:
 
 ```bash
-curl -s "$API_HOST/api/v1/bounties/<bounty_id>/attempts"
+curl -s "$API_HOST/api/v1/bounties/<bounty_id>/attempts?limit=25"
 ```
 
 The list response returns the bounty id, advisory warnings, and active attempt reservations:
@@ -279,10 +303,16 @@ curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
 ```
 
-The optional `q` parameter filters activity rows by account, amount, submission
-URL, proof hash, bounty repo, bounty issue URL, internal bounty id, or GitHub
-issue number. The response groups matching proof-backed bounty payments into
-`totals`, contributor rollups, and the most recent payment rows:
+The optional `q` parameter filters proof-backed and pending activity rows by
+account, amount, submission URL, proof hash, proposal id, bounty repo, bounty
+issue URL, internal bounty id, or GitHub issue number. In other words, the
+same search can match bounty repo, bounty issue URL, proposal, proof, or
+submission evidence. The response groups
+matching proof-backed bounty payments into `totals`, contributor rollups, and
+the most recent payment rows. Accepted-but-not-yet-executed `pay_bounty`
+proposals appear separately in `pending_totals` and `pending_payouts`; they are
+not counted as paid, proof-backed, received, or withdrawable work until treasury
+execution creates a ledger proof:
 
 ```json
 {
@@ -290,6 +320,10 @@ issue number. The response groups matching proof-backed bounty payments into
     "accepted_awards": 2,
     "accepted_mrwk": "115",
     "contributors": 1
+  },
+  "pending_totals": {
+    "pending_awards": 1,
+    "pending_mrwk": "50"
   },
   "query": "p3xill",
   "contributors": [
@@ -303,6 +337,24 @@ issue number. The response groups matching proof-backed bounty payments into
       "latest_bounty_issue_url": "https://github.com/ramimbo/mergework/issues/219",
       "latest_proof_hash": "99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f",
       "latest_proof_url": "/proofs/99f78d41b9a493ba2e6136cba0b0762f013a913c9d90c562976282e93d00b81f"
+    }
+  ],
+  "pending_payouts": [
+    {
+      "proposal_id": 67,
+      "proposal_url": "/api/v1/treasury/proposals/67",
+      "status": "pending",
+      "account": "github:p3xill",
+      "amount_mrwk": "50",
+      "submission_url": "https://github.com/ramimbo/mergework/pull/226#pullrequestreview-4354910919",
+      "bounty_repo": "ramimbo/mergework",
+      "bounty_id": 91,
+      "bounty_issue_number": 643,
+      "bounty_issue_url": "https://github.com/ramimbo/mergework/issues/643",
+      "bounty_url": "/bounties/91",
+      "accepted_by": "ramimbo",
+      "proposed_at": "2026-05-31T11:41:45.307945",
+      "executes_after": "2026-06-01T11:41:45.307945"
     }
   ],
   "recent": [
@@ -582,6 +634,9 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
+
+Pass `{"availability":"effectively_open"}` to `list_bounties` when an agent only
+wants bounty rows with positive effective award capacity.
 
 Call `get_bounty` with the internal bounty `id` returned by `list_bounties`,
 not the GitHub issue number:

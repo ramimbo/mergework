@@ -5,7 +5,13 @@ from datetime import timedelta
 from sqlalchemy import func, select
 
 from app.db import create_schema, session_scope
-from app.ledger.service import create_bounty, ensure_genesis, get_balance, register_wallet
+from app.ledger.service import (
+    create_bounty,
+    ensure_genesis,
+    get_balance,
+    pay_bounty,
+    register_wallet,
+)
 from app.models import Bounty, TreasuryProposal, utc_now
 from app.treasury import canonical_json, proposal_result, propose_treasury_action
 from app.treasury_executor import execute_due_treasury_proposals
@@ -158,6 +164,215 @@ def test_executor_executes_due_manual_payout(sqlite_url: str) -> None:
     assert report["results"][0]["result"]["payout"]["proof_url"].startswith("/proofs/")
     with session_scope(sqlite_url) as session:
         assert get_balance(session, wallet_address) == 15_000_000
+
+
+def test_executor_finalizes_github_issue_for_paid_bounty(sqlite_url: str) -> None:
+    _init_db(sqlite_url)
+    finalizer_calls: list[dict[str, object]] = []
+
+    def fake_paid_finalizer(
+        *,
+        github_token: str,
+        public_base_url: str,
+        bounty: dict[str, object],
+    ) -> dict[str, object]:
+        finalizer_calls.append(
+            {
+                "github_token": github_token,
+                "public_base_url": public_base_url,
+                "bounty": bounty,
+            }
+        )
+        return {
+            "status": "updated",
+            "label": "mrwk:paid",
+            "bounty_url": "https://mrwk.example/bounties/1",
+            "comment_url": "https://github.com/ramimbo/mergework/issues/95#issuecomment-2",
+            "closed": True,
+        }
+
+    with session_scope(sqlite_url) as session:
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=95,
+            issue_url="https://github.com/ramimbo/mergework/issues/95",
+            title="Paid issue finalization bounty",
+            reward_mrwk="15",
+            acceptance="Accepted work fills this bounty.",
+        )
+        proposal = propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/95",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+        proposal_id = int(proposal.id)
+    _make_due(sqlite_url, proposal_id)
+
+    report = execute_due_treasury_proposals(
+        sqlite_url,
+        github_issue_token="github-issue-token",
+        public_base_url="https://mrwk.example",
+        executed_by="treasury-executor",
+        paid_issue_finalizer=fake_paid_finalizer,
+    )
+
+    assert report["attempted"] == 1
+    assert report["executed"] == 1
+    assert report["paid_issue_finalization"]["attempted"] == 1
+    assert report["paid_issue_finalization"]["updated"] == 1
+    assert len(finalizer_calls) == 1
+    assert finalizer_calls[0]["github_token"] == "github-issue-token"
+    assert finalizer_calls[0]["public_base_url"] == "https://mrwk.example"
+    assert finalizer_calls[0]["bounty"]["issue_number"] == 95
+
+    with session_scope(sqlite_url) as session:
+        bounty = session.scalar(select(Bounty).where(Bounty.issue_number == 95))
+        assert bounty is not None
+        assert bounty.status == "paid"
+        assert bounty.github_paid_issue_finalized_at is not None
+        assert "mrwk:paid" in bounty.github_paid_issue_finalization
+
+    second_report = execute_due_treasury_proposals(
+        sqlite_url,
+        github_issue_token="github-issue-token",
+        public_base_url="https://mrwk.example",
+        executed_by="treasury-executor",
+        paid_issue_finalizer=fake_paid_finalizer,
+    )
+    assert second_report["attempted"] == 0
+    assert second_report["paid_issue_finalization"]["attempted"] == 0
+    assert len(finalizer_calls) == 1
+
+
+def test_executor_does_not_finalize_pending_payout_full_bounty(sqlite_url: str) -> None:
+    _init_db(sqlite_url)
+    finalizer_calls = 0
+
+    def fake_paid_finalizer(
+        *,
+        github_token: str,
+        public_base_url: str,
+        bounty: dict[str, object],
+    ) -> dict[str, object]:
+        nonlocal finalizer_calls
+        finalizer_calls += 1
+        return {"status": "updated"}
+
+    with session_scope(sqlite_url) as session:
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=96,
+            issue_url="https://github.com/ramimbo/mergework/issues/96",
+            title="Pending payout is not paid",
+            reward_mrwk="15",
+            acceptance="Accepted work has a pending proposal.",
+        )
+        propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/96",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    report = execute_due_treasury_proposals(
+        sqlite_url,
+        github_issue_token="github-issue-token",
+        public_base_url="https://mrwk.example",
+        executed_by="treasury-executor",
+        paid_issue_finalizer=fake_paid_finalizer,
+    )
+
+    assert report["attempted"] == 0
+    assert report["paid_issue_finalization"]["attempted"] == 0
+    assert finalizer_calls == 0
+    with session_scope(sqlite_url) as session:
+        bounty = session.scalar(select(Bounty).where(Bounty.issue_number == 96))
+        assert bounty is not None
+        assert bounty.status == "open"
+        assert bounty.github_paid_issue_finalized_at is None
+
+
+def test_executor_keeps_retrying_failed_paid_issue_finalization(sqlite_url: str) -> None:
+    _init_db(sqlite_url)
+    finalizer_calls = 0
+
+    def fake_paid_finalizer(
+        *,
+        github_token: str,
+        public_base_url: str,
+        bounty: dict[str, object],
+    ) -> dict[str, object]:
+        nonlocal finalizer_calls
+        finalizer_calls += 1
+        return {"status": "failed", "reason": "github unavailable"}
+
+    with session_scope(sqlite_url) as session:
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=97,
+            issue_url="https://github.com/ramimbo/mergework/issues/97",
+            title="Failed paid issue finalization",
+            reward_mrwk="15",
+            acceptance="Accepted work fills this bounty.",
+        )
+        bounty_id = int(bounty.id)
+    with session_scope(sqlite_url) as session:
+        pay_bounty(
+            session,
+            bounty_id=bounty_id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/97",
+            accepted_by="maintainer",
+            verifier_result={"source": "test"},
+        )
+
+    report = execute_due_treasury_proposals(
+        sqlite_url,
+        github_issue_token="github-issue-token",
+        public_base_url="https://mrwk.example",
+        executed_by="treasury-executor",
+        paid_issue_finalizer=fake_paid_finalizer,
+    )
+
+    assert report["paid_issue_finalization"]["attempted"] == 1
+    assert report["paid_issue_finalization"]["failed"] == 1
+    assert finalizer_calls == 1
+    with session_scope(sqlite_url) as session:
+        bounty = session.scalar(select(Bounty).where(Bounty.issue_number == 97))
+        assert bounty is not None
+        assert bounty.status == "paid"
+        assert bounty.github_paid_issue_finalized_at is None
+
+    retry_report = execute_due_treasury_proposals(
+        sqlite_url,
+        github_issue_token="github-issue-token",
+        public_base_url="https://mrwk.example",
+        executed_by="treasury-executor",
+        paid_issue_finalizer=fake_paid_finalizer,
+    )
+
+    assert retry_report["paid_issue_finalization"]["attempted"] == 1
+    assert retry_report["paid_issue_finalization"]["failed"] == 1
+    assert finalizer_calls == 2
+    with session_scope(sqlite_url) as session:
+        bounty = session.scalar(select(Bounty).where(Bounty.issue_number == 97))
+        assert bounty is not None
+        assert bounty.status == "paid"
+        assert bounty.github_paid_issue_finalized_at is None
 
 
 def test_executor_continues_after_failed_due_proposal(sqlite_url: str) -> None:

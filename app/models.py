@@ -51,6 +51,8 @@ class Bounty(Base):
     status: Mapped[str] = mapped_column(String(40), default="open", index=True)
     acceptance: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    github_paid_issue_finalized_at: Mapped[datetime | None] = mapped_column(default=None)
+    github_paid_issue_finalization: Mapped[str | None] = mapped_column(Text, default=None)
     submissions: Mapped[list[Submission]] = relationship(back_populates="bounty")
     attempts: Mapped[list[BountyAttempt]] = relationship(back_populates="bounty")
 

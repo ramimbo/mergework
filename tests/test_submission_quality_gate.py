@@ -38,6 +38,7 @@ def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_pa
     assert result["bounty_reference"] == 319
     assert {check["name"]: check["status"] for check in result["checks"]} == {
         "bounty_reference": "pass",
+        "github_linked_issue": "pass",
         "bounty_payable": "pass",
         "summary_present": "pass",
         "evidence_present": "pass",
@@ -80,12 +81,21 @@ def test_submission_quality_gate_accepts_claim_command_reference() -> None:
         }
     )
 
-    assert result["status"] == "pass"
+    assert result["status"] == "warn"
     assert result["bounty_reference"] == 319
     assert {
         "name": "bounty_reference",
         "status": "pass",
         "message": "found bounty reference #319",
+    } in result["checks"]
+    assert {
+        "name": "github_linked_issue",
+        "status": "warn",
+        "message": (
+            "MergeWork bounty reference #319 is valid, but GitHub or bot linked-issue "
+            "checks may stay skipped without `Refs #319`; use closing keywords only "
+            "when the bounty should close"
+        ),
     } in result["checks"]
 
 
@@ -112,11 +122,44 @@ def test_submission_quality_gate_ignores_oversized_numeric_bounty_refs() -> None
     } in result["checks"]
 
 
-def test_submission_quality_gate_accepts_github_linking_keywords() -> None:
+def test_submission_quality_gate_warns_for_mergework_only_bounty_keywords() -> None:
     references = (
         "Bounty #319",
         "Claim #319",
         "Claims #319",
+    )
+    for reference in references:
+        result = evaluate_submission(
+            {
+                "submission_text": f"""
+                Summary:
+                Harden the bounty reference parser.
+
+                {reference}
+
+                Validation:
+                - pytest passed.
+                """,
+                "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+                "pull_requests": [],
+            }
+        )
+
+        assert result["status"] == "warn", reference
+        assert result["bounty_reference"] == 319
+        assert {
+            "name": "github_linked_issue",
+            "status": "warn",
+            "message": (
+                "MergeWork bounty reference #319 is valid, but GitHub or bot linked-issue "
+                "checks may stay skipped without `Refs #319`; use closing keywords only "
+                "when the bounty should close"
+            ),
+        } in result["checks"]
+
+
+def test_submission_quality_gate_accepts_github_linking_keywords() -> None:
+    references = (
         "Ref #319",
         "Refs #319",
         "Reference #319",

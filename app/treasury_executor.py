@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -7,9 +8,9 @@ from typing import Any
 from sqlalchemy import select
 
 from app.db import session_scope
-from app.github_issue_finalization import finalize_created_bounty_issue
+from app.github_issue_finalization import finalize_created_bounty_issue, finalize_paid_bounty_issue
 from app.ledger.service import LedgerError
-from app.models import TreasuryProposal, utc_now
+from app.models import Bounty, TreasuryProposal, utc_now
 from app.treasury import (
     execute_treasury_proposal,
     proposal_to_dict,
@@ -17,6 +18,8 @@ from app.treasury import (
 )
 
 Finalizer = Callable[..., dict[str, Any]]
+PaidIssueFinalizer = Callable[..., dict[str, Any]]
+PAID_ISSUE_FINALIZED_STATUSES = {"updated", "closed", "already_finalized"}
 
 
 def _db_utc(value: datetime) -> datetime:
@@ -40,6 +43,32 @@ def due_treasury_proposal_ids(db_url: str, *, limit: int = 25) -> list[int]:
                 .limit(limit)
             ).all()
         ]
+
+
+def paid_bounty_ids_needing_github_finalization(db_url: str, *, limit: int = 25) -> list[int]:
+    with session_scope(db_url) as session:
+        return [
+            int(bounty_id)
+            for bounty_id in session.scalars(
+                select(Bounty.id)
+                .where(
+                    Bounty.status == "paid",
+                    Bounty.github_paid_issue_finalized_at.is_(None),
+                )
+                .order_by(Bounty.id.asc())
+                .limit(limit)
+            ).all()
+        ]
+
+
+def _paid_bounty_finalization_payload(bounty: Bounty) -> dict[str, object]:
+    return {
+        "id": int(bounty.id),
+        "repo": bounty.repo,
+        "issue_number": int(bounty.issue_number),
+        "issue_url": bounty.issue_url,
+        "title": bounty.title,
+    }
 
 
 def execute_treasury_proposal_with_finalization(
@@ -83,6 +112,76 @@ def execute_treasury_proposal_with_finalization(
         return proposal_to_dict(proposal)
 
 
+def finalize_paid_bounty_issues(
+    db_url: str,
+    *,
+    github_issue_token: str,
+    public_base_url: str,
+    limit: int = 25,
+    finalizer: PaidIssueFinalizer | None = None,
+) -> dict[str, Any]:
+    bounty_ids = paid_bounty_ids_needing_github_finalization(db_url, limit=limit)
+    issue_finalizer = finalizer or finalize_paid_bounty_issue
+    results: list[dict[str, Any]] = []
+    updated = 0
+    failed = 0
+    skipped = 0
+    for bounty_id in bounty_ids:
+        with session_scope(db_url) as session:
+            bounty = session.get(Bounty, bounty_id)
+            if (
+                bounty is None
+                or bounty.status != "paid"
+                or bounty.github_paid_issue_finalized_at is not None
+            ):
+                continue
+            bounty_payload = _paid_bounty_finalization_payload(bounty)
+        try:
+            finalization = issue_finalizer(
+                github_token=github_issue_token,
+                public_base_url=public_base_url,
+                bounty=bounty_payload,
+            )
+        except Exception as exc:
+            finalization = {
+                "status": "failed",
+                "reason": f"github paid issue finalization failed: {type(exc).__name__}",
+            }
+        status = str(finalization.get("status") or "")
+        if status in PAID_ISSUE_FINALIZED_STATUSES:
+            with session_scope(db_url) as session:
+                bounty = session.get(Bounty, bounty_id)
+                if (
+                    bounty is not None
+                    and bounty.status == "paid"
+                    and bounty.github_paid_issue_finalized_at is None
+                ):
+                    bounty.github_paid_issue_finalized_at = utc_now()
+                    bounty.github_paid_issue_finalization = json.dumps(
+                        finalization, sort_keys=True, separators=(",", ":")
+                    )
+            updated += 1
+        elif status == "skipped":
+            skipped += 1
+        else:
+            failed += 1
+        results.append(
+            {
+                "bounty_id": int(bounty_id),
+                "status": status or "unknown",
+                "result": finalization,
+            }
+        )
+    return {
+        "type": "paid_bounty_issue_finalization",
+        "attempted": len(bounty_ids),
+        "updated": updated,
+        "failed": failed,
+        "skipped": skipped,
+        "results": results,
+    }
+
+
 def execute_due_treasury_proposals(
     db_url: str,
     *,
@@ -91,6 +190,7 @@ def execute_due_treasury_proposals(
     executed_by: str = "treasury-executor",
     limit: int = 25,
     finalizer: Finalizer | None = None,
+    paid_issue_finalizer: PaidIssueFinalizer | None = None,
 ) -> dict[str, Any]:
     proposal_ids = due_treasury_proposal_ids(db_url, limit=limit)
     results: list[dict[str, Any]] = []
@@ -133,10 +233,18 @@ def execute_due_treasury_proposals(
         if finalization is not None:
             item["github_issue_finalization"] = finalization
         results.append(item)
+    paid_issue_report = finalize_paid_bounty_issues(
+        db_url,
+        github_issue_token=github_issue_token,
+        public_base_url=public_base_url,
+        limit=limit,
+        finalizer=paid_issue_finalizer,
+    )
     return {
         "type": "treasury_executor_run",
         "attempted": len(proposal_ids),
         "executed": executed,
         "failed": failed,
         "results": results,
+        "paid_issue_finalization": paid_issue_report,
     }

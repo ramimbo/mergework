@@ -15,6 +15,11 @@ def test_activity_context_preserves_empty_feed_shape(sqlite_url: str) -> None:
                 "accepted_mrwk": "0",
                 "contributors": 0,
             },
+            "pending_totals": {
+                "pending_awards": 0,
+                "pending_mrwk": "0",
+            },
             "contributors": [],
+            "pending_payouts": [],
             "recent": [],
         }

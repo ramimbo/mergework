@@ -11,18 +11,27 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.admin import list_webhook_events, webhook_events_to_dict
+from app.bounty_availability import (
+    BOUNTY_AVAILABILITY_ERROR,
+    filter_bounties_by_availability,
+    normalize_bounty_availability_filter,
+)
 from app.bounty_sorting import BOUNTY_SORT_ERROR, normalize_bounty_sort, sort_bounties
 from app.config import Settings
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
 from app.ledger.service import (
-    CONTROL_CHAR_RE,
     LedgerError,
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
-from app.path_params import issue_number_search_value, positive_bounty_id
+from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, positive_bounty_id
+from app.query_validation import (
+    reject_control_char_query_param,
+    reject_noncanonical_int_query_param,
+    reject_repeated_query_param,
+)
 from app.serializers import (
     bounties_to_dict,
     bounty_awards_to_dict,
@@ -102,12 +111,21 @@ def register_bounty_api_routes(
         query_text: str | None = None,
         sort: str | None = None,
         limit: int | None = None,
+        repo: str | None = None,
+        issue_number: int | None = None,
+        availability: str | None = None,
     ) -> list[dict[str, Any]]:
         try:
             normalized_sort = normalize_bounty_sort(sort)
+            normalized_availability = normalize_bounty_availability_filter(availability)
         except ValueError as exc:
             detail = str(exc)
-            if "control characters" not in detail:
+            if detail not in {
+                BOUNTY_SORT_ERROR,
+                BOUNTY_AVAILABILITY_ERROR,
+                "sort must not contain control characters",
+                "availability must not contain control characters",
+            }:
                 detail = BOUNTY_SORT_ERROR
             raise HTTPException(status_code=400, detail=detail) from exc
         with session_scope(db_url) as session:
@@ -124,6 +142,10 @@ def register_bounty_api_routes(
                     )
                 query = query.where(Bounty.status == normalized_status)
             if query_text is not None:
+                if contains_control_character(query_text):
+                    raise HTTPException(
+                        status_code=400, detail="q must not contain control characters"
+                    )
                 normalized_query = query_text.strip()
                 if normalized_query:
                     escaped_query = (
@@ -133,18 +155,31 @@ def register_bounty_api_routes(
                         .replace("_", "\\_")
                     )
                     like_query = f"%{escaped_query}%"
-                    issue_number = issue_number_search_value(normalized_query)
+                    query_issue_number = issue_number_search_value(normalized_query)
                     text_filter = or_(
                         func.lower(Bounty.repo).like(like_query, escape="\\"),
                         func.lower(Bounty.title).like(like_query, escape="\\"),
                         func.lower(Bounty.acceptance).like(like_query, escape="\\"),
                     )
-                    if issue_number is not None:
-                        text_filter = or_(text_filter, Bounty.issue_number == issue_number)
+                    if query_issue_number is not None:
+                        text_filter = or_(text_filter, Bounty.issue_number == query_issue_number)
                     query = query.where(text_filter)
+            if repo is not None:
+                if contains_control_character(repo):
+                    raise HTTPException(
+                        status_code=400, detail="repo must not contain control characters"
+                    )
+                normalized_repo = repo.strip().lower()
+                if normalized_repo:
+                    query = query.where(func.lower(Bounty.repo) == normalized_repo)
+            if issue_number is not None:
+                query = query.where(Bounty.issue_number == issue_number)
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             sorted_bounties = sort_bounties(
-                bounties_to_dict(bounties, session=session),
+                filter_bounties_by_availability(
+                    bounties_to_dict(bounties, session=session),
+                    normalized_availability,
+                ),
                 normalized_sort,
             )
             if limit is not None:
@@ -153,21 +188,59 @@ def register_bounty_api_routes(
 
     @app.get("/api/v1/bounties")
     def api_bounties(
+        request: Request,
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
         sort: str | None = Query(None),
+        repo: str | None = Query(None),
+        issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
+        availability: str | None = Query(None),
     ) -> list[dict[str, Any]]:
-        return _list_bounties_by_status(status, q, sort=sort, limit=limit)
+        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
+            reject_repeated_query_param(request, name)
+        for name in ("status", "q", "sort", "repo", "availability"):
+            reject_control_char_query_param(request, name)
+        for name in ("limit", "issue_number"):
+            reject_noncanonical_int_query_param(request, name)
+        return _list_bounties_by_status(
+            status,
+            q,
+            sort=sort,
+            limit=limit,
+            repo=repo,
+            issue_number=issue_number,
+            availability=availability,
+        )
 
     @app.get("/api/v1/bounties/summary")
     def api_bounties_summary(
+        request: Request,
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
         sort: str | None = Query(None),
+        repo: str | None = Query(None),
+        issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
+        availability: str | None = Query(None),
     ) -> dict[str, Any]:
-        return bounty_list_summary(_list_bounties_by_status(status, q, sort=sort, limit=limit))
+        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
+            reject_repeated_query_param(request, name)
+        for name in ("status", "q", "sort", "repo", "availability"):
+            reject_control_char_query_param(request, name)
+        for name in ("limit", "issue_number"):
+            reject_noncanonical_int_query_param(request, name)
+        return bounty_list_summary(
+            _list_bounties_by_status(
+                status,
+                q,
+                sort=sort,
+                limit=limit,
+                repo=repo,
+                issue_number=issue_number,
+                availability=availability,
+            )
+        )
 
     @app.get("/api/v1/admin/webhook-events")
     def api_admin_webhook_events(
@@ -210,10 +283,10 @@ def register_bounty_api_routes(
             return proposal_to_dict(proposal)
 
     @app.get("/api/v1/bounties/{bounty_id}")
-    def api_bounty(bounty_id: int) -> dict[str, Any]:
-        bounty_id = positive_bounty_id(bounty_id)
+    def api_bounty(bounty_id: str) -> dict[str, Any]:
+        bounty_id_int = positive_bounty_id(bounty_id)
         with session_scope(db_url) as session:
-            bounty = session.get(Bounty, bounty_id)
+            bounty = session.get(Bounty, bounty_id_int)
             if bounty is None:
                 raise HTTPException(status_code=404, detail="bounty not found")
             result = bounty_to_dict(bounty, session=session)
@@ -234,11 +307,11 @@ def register_bounty_api_routes(
 
     @app.post("/api/v1/bounties/{bounty_id}/pay")
     async def api_pay_bounty(
-        bounty_id: int,
+        bounty_id: str,
         request: Request,
         admin_login: str = Depends(require_admin_token),
     ) -> Any:
-        bounty_id = positive_bounty_id(bounty_id)
+        bounty_id_int = positive_bounty_id(bounty_id)
         data = await json_object(request)
         try:
             requested_account = required_str(data, "to_account")
@@ -261,7 +334,7 @@ def register_bounty_api_routes(
         if data.get("note") is not None:
             note = optional_str(data, "note").strip()
             if note:
-                if CONTROL_CHAR_RE.search(note):
+                if contains_control_character(note):
                     raise HTTPException(
                         status_code=400,
                         detail="verifier_result.note must not contain control characters",
@@ -269,7 +342,7 @@ def register_bounty_api_routes(
                 verifier_result["note"] = note[:240]
         with session_scope(db_url) as session:
             existing_proof = _existing_payout_proof_for_submission(
-                session, bounty_id, clean_submission_url
+                session, bounty_id_int, clean_submission_url
             )
             if existing_proof is not None:
                 return JSONResponse(
@@ -281,7 +354,7 @@ def register_bounty_api_routes(
                     session,
                     action="pay_bounty",
                     payload={
-                        "bounty_id": bounty_id,
+                        "bounty_id": bounty_id_int,
                         "to_account": requested_account,
                         "submission_url": clean_submission_url,
                         "accepted_by": accepted_by,
@@ -295,11 +368,11 @@ def register_bounty_api_routes(
 
     @app.post("/api/v1/bounties/{bounty_id}/close")
     async def api_close_bounty(
-        bounty_id: int,
+        bounty_id: str,
         request: Request,
         admin_login: str = Depends(require_admin_token),
     ) -> dict[str, Any]:
-        bounty_id = positive_bounty_id(bounty_id)
+        bounty_id_int = positive_bounty_id(bounty_id)
         data = await json_object(request)
         reference = optional_str(data, "reference") if data.get("reference") is not None else None
         closed_by = optional_str(data, "closed_by", admin_login)
@@ -309,7 +382,7 @@ def register_bounty_api_routes(
                     session,
                     action="close_bounty",
                     payload={
-                        "bounty_id": bounty_id,
+                        "bounty_id": bounty_id_int,
                         "closed_by": closed_by,
                         "reference": reference,
                     },

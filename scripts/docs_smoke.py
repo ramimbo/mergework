@@ -273,11 +273,17 @@ def main() -> int:
             'labels: ["proposed-work"]',
             "not a live mrwk bounty",
             "do not submit `/claim`",
+            "id: related_bounty_or_source",
+            "related bounty or source issue",
+            "link the intake bounty, source issue, pr, discussion, api route, docs page",
             "id: duplicate_search",
         ]:
             if phrase not in proposed_template:
                 print(f"proposed work issue template missing required phrase: {phrase}")
                 ok = False
+        if not _template_field_is_required(proposed_template, "related_bounty_or_source"):
+            print("proposed work issue template related_bounty_or_source field must be required")
+            ok = False
         if "mrwk:bounty" in proposed_template:
             print("proposed work issue template must not mention or apply mrwk:bounty")
             ok = False

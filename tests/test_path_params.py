@@ -5,6 +5,7 @@ from app.path_params import (
     issue_number_search_value,
     positive_bounty_id,
     positive_ledger_sequence,
+    positive_proposal_id,
     proof_hash_from_path,
 )
 
@@ -34,13 +35,33 @@ def test_issue_number_search_value_rejects_non_numeric_or_overflow_query():
 
 
 def test_positive_bounty_id_and_ledger_sequence_validate_bounds():
+    oversized_digit_string = "9" * 5000
+
     assert positive_bounty_id(1) == 1
+    assert positive_bounty_id("1") == 1
     assert positive_ledger_sequence(SQLITE_INTEGER_MAX) == SQLITE_INTEGER_MAX
+    assert positive_ledger_sequence(str(SQLITE_INTEGER_MAX)) == SQLITE_INTEGER_MAX
+    assert positive_proposal_id("42") == 42
 
     assert_bad_request(positive_bounty_id, 0)
     assert_bad_request(positive_bounty_id, SQLITE_INTEGER_MAX + 1)
+    assert_bad_request(positive_bounty_id, "+1")
+    assert_bad_request(positive_bounty_id, "1.0")
+    assert_bad_request(positive_bounty_id, " 1")
+    assert_bad_request(positive_bounty_id, "\u00851")
+    assert_bad_request(positive_bounty_id, oversized_digit_string)
     assert_bad_request(positive_ledger_sequence, -1)
     assert_bad_request(positive_ledger_sequence, SQLITE_INTEGER_MAX + 1)
+    assert_bad_request(positive_ledger_sequence, "+1")
+    assert_bad_request(positive_ledger_sequence, "1.0")
+    assert_bad_request(positive_ledger_sequence, " 1")
+    assert_bad_request(positive_ledger_sequence, "\u00851")
+    assert_bad_request(positive_ledger_sequence, oversized_digit_string)
+    assert_bad_request(positive_proposal_id, "+42")
+    assert_bad_request(positive_proposal_id, "99.0")
+    assert_bad_request(positive_proposal_id, " 42")
+    assert_bad_request(positive_proposal_id, "\u008542")
+    assert_bad_request(positive_proposal_id, oversized_digit_string)
 
 
 def test_proof_hash_from_path_normalizes_hex_hash():

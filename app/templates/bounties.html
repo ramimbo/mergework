@@ -4,6 +4,8 @@
 <h1>Bounties</h1>
 <form method="get" action="/bounties" aria-label="Search bounties">
   {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+  {% if selected_repo %}<input type="hidden" name="repo" value="{{ selected_repo }}">{% endif %}
+  {% if selected_issue_number %}<input type="hidden" name="issue_number" value="{{ selected_issue_number }}">{% endif %}
   <label for="bounty-search">Search bounties</label>
   <input id="bounty-search" name="q" type="search" value="{{ query_text }}" placeholder="repo, title, issue number, or acceptance text">
   <label for="bounty-sort">Sort</label>
@@ -19,16 +21,24 @@
     <option value="{{ limit_option }}"{% if selected_limit == limit_option %} selected{% endif %}>{{ limit_option }}</option>
     {% endfor %}
   </select>
+  <label for="bounty-availability">Availability</label>
+  <select id="bounty-availability" name="availability">
+    <option value="all"{% if selected_availability == "all" %} selected{% endif %}>All visible rows</option>
+    <option value="effectively_open"{% if selected_availability == "effectively_open" %} selected{% endif %}>Effectively open</option>
+  </select>
   <button type="submit">Search</button>
-  {% if query_text %}<a href="/bounties{% if selected_status or selected_sort != "newest" or selected_limit %}?{% if selected_status %}status={{ selected_status }}{% endif %}{% if selected_status and (selected_sort != "newest" or selected_limit) %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% if selected_sort != "newest" and selected_limit %}&{% endif %}{% if selected_limit %}limit={{ selected_limit }}{% endif %}{% endif %}">Clear search</a>{% endif %}
+  {% if query_text %}<a href="{{ clear_search_url | safe }}">Clear search</a>{% endif %}
 </form>
 <nav aria-label="Bounty status filters">
-  <a href="/bounties{% if query_text or selected_sort != "newest" or selected_limit %}?{% if query_text %}q={{ query_text | urlencode }}{% endif %}{% if query_text and (selected_sort != "newest" or selected_limit) %}&{% endif %}{% if selected_sort != "newest" %}sort={{ selected_sort }}{% endif %}{% if selected_sort != "newest" and selected_limit %}&{% endif %}{% if selected_limit %}limit={{ selected_limit }}{% endif %}{% endif %}"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
-  <a href="/bounties?status=open{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
-  <a href="/bounties?status=paid{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
-  <a href="/bounties?status=closed{% if query_text %}&q={{ query_text | urlencode }}{% endif %}{% if selected_sort != "newest" %}&sort={{ selected_sort }}{% endif %}{% if selected_limit %}&limit={{ selected_limit }}{% endif %}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
+  <a href="{{ status_filter_urls.all | safe }}"{% if not selected_status %} aria-current="page"{% endif %}>All</a>
+  <a href="{{ status_filter_urls.open | safe }}"{% if selected_status == "open" %} aria-current="page"{% endif %}>Open</a>
+  <a href="{{ status_filter_urls.paid | safe }}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
+  <a href="{{ status_filter_urls.closed | safe }}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
 </nav>
 {% if query_text %}<p>Showing matches for “{{ query_text }}”.</p>{% endif %}
+{% if selected_repo or selected_issue_number %}
+<p>Source filter:{% if selected_repo %} {{ selected_repo }}{% endif %}{% if selected_issue_number %} #{{ selected_issue_number }}{% endif %}.</p>
+{% endif %}
 <section class="bounty-list-summary" aria-label="Bounty list summary">
   <article>
     <span>Bounties shown</span>
@@ -80,7 +90,7 @@
     <p>{{ bounty.acceptance }}</p>
   </article>
   {% else %}
-  {% if query_text or selected_status %}
+  {% if query_text or selected_status or selected_availability != "all" %}
   <p>No bounties match these filters.</p>
   <p><a href="/bounties">Clear filters</a></p>
   {% else %}

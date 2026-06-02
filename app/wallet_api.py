@@ -14,6 +14,11 @@ from app.ledger.service import (
     submit_wallet_transfer,
 )
 from app.models import Wallet
+from app.openapi_request_bodies import (
+    SIGNED_WALLET_ACTION_BODY,
+    WALLET_REGISTER_BODY,
+    WALLET_TRANSFER_BODY,
+)
 from app.serializers import ledger_to_dict, wallet_to_dict, wallet_transfer_to_dict
 
 JsonObjectLoader = Callable[[Request], Awaitable[dict[str, Any]]]
@@ -37,7 +42,7 @@ def register_wallet_api_routes(
     normalized_wallet_address: NormalizeWalletAddress,
     post_only_route: PostOnlyRoute,
 ) -> None:
-    @app.post("/api/v1/wallets/register")
+    @app.post("/api/v1/wallets/register", openapi_extra=WALLET_REGISTER_BODY)
     async def api_register_wallet(request: Request) -> dict[str, Any]:
         data = await json_object(request)
         with session_scope(db_url) as session:
@@ -68,7 +73,7 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=404, detail="wallet not found")
             return wallet_to_dict(session, wallet)
 
-    @app.post("/api/v1/wallets/link-github")
+    @app.post("/api/v1/wallets/link-github", openapi_extra=SIGNED_WALLET_ACTION_BODY)
     async def api_link_wallet_github(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
@@ -86,7 +91,7 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return wallet_to_dict(session, wallet)
 
-    @app.post("/api/v1/github/claim")
+    @app.post("/api/v1/github/claim", openapi_extra=SIGNED_WALLET_ACTION_BODY)
     async def api_github_claim(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:
@@ -104,7 +109,7 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return ledger_to_dict(entry)
 
-    @app.post("/api/v1/transfers")
+    @app.post("/api/v1/transfers", openapi_extra=WALLET_TRANSFER_BODY)
     async def api_submit_transfer(request: Request) -> dict[str, Any]:
         data = await json_object(request)
         with session_scope(db_url) as session:

@@ -15,7 +15,7 @@ from urllib.request import urlopen
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.bounty_refs import BOUNTY_REF_RE, LEADING_BOUNTY_REF_RE
+from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
 
 EVIDENCE_RE = re.compile(
     r"\b(pytest|ruff|mypy|validation|verified|test evidence|checks? passed)\b",
@@ -35,10 +35,10 @@ def _check(name: str, status: str, message: str) -> dict[str, str]:
     return {"name": name, "status": status, "message": message}
 
 
-def _bounty_refs(text: str) -> list[int]:
+def _extract_issue_refs(text: str, pattern: re.Pattern[str]) -> list[int]:
     refs: list[int] = []
     seen: set[int] = set()
-    for match in BOUNTY_REF_RE.findall(text):
+    for match in pattern.findall(text):
         try:
             ref = int(match)
         except ValueError:
@@ -50,6 +50,14 @@ def _bounty_refs(text: str) -> list[int]:
         seen.add(ref)
         refs.append(ref)
     return refs
+
+
+def _bounty_refs(text: str) -> list[int]:
+    return _extract_issue_refs(text, BOUNTY_REF_RE)
+
+
+def _github_linked_issue_refs(text: str) -> list[int]:
+    return _extract_issue_refs(text, GITHUB_LINKED_ISSUE_RE)
 
 
 def _bounty_is_payable(raw: dict[str, Any]) -> bool:
@@ -252,6 +260,24 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
         )
     else:
         checks.append(_check("bounty_reference", "pass", f"found bounty reference #{bounty_ref}"))
+        if bounty_ref in _github_linked_issue_refs(text):
+            checks.append(
+                _check(
+                    "github_linked_issue",
+                    "pass",
+                    f"GitHub-linking reference found for bounty #{bounty_ref}",
+                )
+            )
+        else:
+            checks.append(
+                _check(
+                    "github_linked_issue",
+                    "warn",
+                    f"MergeWork bounty reference #{bounty_ref} is valid, but GitHub or bot "
+                    "linked-issue checks may stay skipped without `Refs #"
+                    f"{bounty_ref}`; use closing keywords only when the bounty should close",
+                )
+            )
         if len(refs) > 1:
             joined_refs = ", ".join(f"#{ref}" for ref in refs)
             checks.append(

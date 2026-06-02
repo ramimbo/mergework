@@ -10,6 +10,17 @@ body:
 
         Do not submit `/claim` for this issue unless maintainers later post a live reserved bounty comment and the public bounty page exists.
   - type: textarea
+    id: related_bounty_or_source
+    attributes:
+      label: Related bounty or source issue
+      description: Link the intake bounty, source issue, PR, discussion, API route, docs page, or observed workflow that prompted this proposal.
+      placeholder: |
+        Bounty #649
+        Source issue: #123
+        Route: GET /api/v1/bounties
+    validations:
+      required: true
+  - type: textarea
     id: problem
     attributes:
       label: Problem

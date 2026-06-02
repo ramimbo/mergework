@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 SQLITE_INTEGER_MAX = 2**63 - 1
 HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+POSITIVE_INTEGER_RE = re.compile(r"^[0-9]+$")
 
 
 def issue_number_search_value(query: str) -> int | None:
@@ -20,20 +21,33 @@ def issue_number_search_value(query: str) -> int | None:
     return issue_number if issue_number <= SQLITE_INTEGER_MAX else None
 
 
-def positive_bounty_id(bounty_id: int) -> int:
-    if bounty_id <= 0:
-        raise HTTPException(status_code=400, detail="bounty id must be positive")
-    if bounty_id > SQLITE_INTEGER_MAX:
-        raise HTTPException(status_code=400, detail="bounty id is too large")
-    return bounty_id
+def positive_path_int(value: int | str, field: str) -> int:
+    if isinstance(value, str):
+        if not POSITIVE_INTEGER_RE.fullmatch(value):
+            raise HTTPException(status_code=400, detail=f"{field} must be a positive integer")
+        try:
+            parsed = int(value)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"{field} is too large") from exc
+    else:
+        parsed = value
+    if parsed <= 0:
+        raise HTTPException(status_code=400, detail=f"{field} must be positive")
+    if parsed > SQLITE_INTEGER_MAX:
+        raise HTTPException(status_code=400, detail=f"{field} is too large")
+    return parsed
 
 
-def positive_ledger_sequence(sequence: int) -> int:
-    if sequence <= 0:
-        raise HTTPException(status_code=400, detail="ledger sequence must be positive")
-    if sequence > SQLITE_INTEGER_MAX:
-        raise HTTPException(status_code=400, detail="ledger sequence is too large")
-    return sequence
+def positive_bounty_id(bounty_id: int | str) -> int:
+    return positive_path_int(bounty_id, "bounty id")
+
+
+def positive_ledger_sequence(sequence: int | str) -> int:
+    return positive_path_int(sequence, "ledger sequence")
+
+
+def positive_proposal_id(proposal_id: int | str) -> int:
+    return positive_path_int(proposal_id, "proposal id")
 
 
 def proof_hash_from_path(proof_hash: str) -> str:

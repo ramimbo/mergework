@@ -58,6 +58,70 @@
   {% endif %}
 </section>
 
+<section aria-labelledby="pending-payouts">
+  <div class="section-head">
+    <h2 id="pending-payouts">Pending payouts</h2>
+    <p>Accepted work queued for treasury execution, not proof-backed paid work.</p>
+  </div>
+  <div class="grid">
+    <article>
+      <strong>{{ pending_summary.pending_awards }}</strong>
+      <span>pending awards</span>
+    </article>
+    <article>
+      <strong>{{ pending_summary.pending_mrwk }} MRWK</strong>
+      <span>pending MRWK</span>
+    </article>
+    <article>
+      <strong>{{ pending_summary.next_executes_after or "-" }}</strong>
+      <span>next execution</span>
+    </article>
+  </div>
+  {% if pending_payouts %}
+  <div class="ledger-list">
+    {% for payout in pending_payouts %}
+    <article class="ledger-row">
+      <div class="ledger-entry-card">
+        <div class="ledger-card-head">
+          <div class="ledger-card-title">
+            <a class="ledger-entry-link" href="{{ payout.proposal_url }}">Proposal #{{ payout.proposal_id }}</a>
+            <span class="ledger-type">Pending</span>
+          </div>
+          <strong class="ledger-amount">{{ payout.amount_mrwk or "-" }}{% if payout.amount_mrwk %} MRWK{% endif %}</strong>
+        </div>
+        <dl class="ledger-card-grid">
+          <div class="ledger-field ledger-field--reference reference-cell">
+            <dt>Bounty</dt>
+            {% set pending_issue_url = safe_public_url(payout.issue_url) %}
+            <dd>
+              {% if payout.bounty_url %}<a href="{{ payout.bounty_url }}">Bounty #{{ payout.bounty_id }}</a>{% endif %}
+              {% if payout.bounty_url and pending_issue_url %} &middot; {% endif %}
+              {% if pending_issue_url %}<a href="{{ pending_issue_url }}">{{ payout.repo }} #{{ payout.issue_number }}</a>{% elif not payout.bounty_url %}-{% endif %}
+            </dd>
+          </div>
+          <div class="ledger-field ledger-field--reference reference-cell">
+            <dt>Submission</dt>
+            {% set pending_submission_url = safe_public_url(payout.submission_url) %}
+            <dd>{% if pending_submission_url %}<a href="{{ pending_submission_url }}">{{ payout.submission_url | replace("https://github.com/", "") }}</a>{% elif payout.submission_url %}<code>{{ payout.submission_url }}</code>{% else %}-{% endif %}</dd>
+          </div>
+          <div class="ledger-field">
+            <dt>Accepted by</dt>
+            <dd>{{ payout.accepted_by or "-" }}</dd>
+          </div>
+          <div class="ledger-field">
+            <dt>Executes after</dt>
+            <dd>{{ payout.executes_after }}</dd>
+          </div>
+        </dl>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No pending payout proposals for this account.</p>
+  {% endif %}
+</section>
+
 <section>
   <div class="section-head">
     <h2>Accepted work</h2>
@@ -81,7 +145,7 @@
             {% set issue_url = safe_public_url(work.issue_url) %}
             <dd>
               {% if work.bounty_url %}<a href="{{ work.bounty_url }}">Bounty #{{ work.bounty_id }}</a>{% endif %}
-              {% if work.bounty_url and issue_url %} · {% endif %}
+              {% if work.bounty_url and issue_url %} &middot; {% endif %}
               {% if issue_url %}<a href="{{ issue_url }}">{{ work.repo }} #{{ work.issue_number }}</a>{% elif not work.bounty_url %}-{% endif %}
             </dd>
           </div>

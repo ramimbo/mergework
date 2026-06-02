@@ -35,7 +35,7 @@ from app.models import (
     utc_now,
 )
 from app.path_params import SQLITE_INTEGER_MAX
-from app.serializers import bounty_to_dict
+from app.serializers import bounty_to_dict, public_utc_timestamp
 
 TREASURY_PROPOSAL_DELAY = timedelta(hours=24)
 TREASURY_EPOCH_WINDOW = timedelta(hours=24)
@@ -369,7 +369,7 @@ def challenge_to_dict(challenge: TreasuryChallenge) -> dict[str, Any]:
         "challenge_type": challenge.challenge_type,
         "status": challenge.status,
         "reason": challenge.reason,
-        "created_at": challenge.created_at.isoformat(),
+        "created_at": public_utc_timestamp(challenge.created_at),
     }
 
 
@@ -383,9 +383,11 @@ def proposal_to_dict(proposal: TreasuryProposal) -> dict[str, Any]:
         "payload": proposal_payload(proposal),
         "proposed_by": proposal.proposed_by,
         "executed_by": proposal.executed_by,
-        "proposed_at": proposal.proposed_at.isoformat(),
-        "executes_after": proposal.executes_after.isoformat(),
-        "executed_at": proposal.executed_at.isoformat() if proposal.executed_at else None,
+        "proposed_at": public_utc_timestamp(proposal.proposed_at),
+        "executes_after": public_utc_timestamp(proposal.executes_after),
+        "executed_at": (
+            public_utc_timestamp(proposal.executed_at) if proposal.executed_at else None
+        ),
         "executed_ledger_sequence": proposal.executed_ledger_sequence,
         "result": proposal_result(proposal),
         "challenges": [challenge_to_dict(challenge) for challenge in proposal.challenges],
@@ -530,7 +532,7 @@ def _projected_capacity_events(
         )
         events.append(
             {
-                "at": at.isoformat(),
+                "at": public_utc_timestamp(at),
                 "event_type": event_type,
                 "amount_mrwk": format_mrwk(amount),
                 "available_create_reserve_mrwk": format_mrwk(available),
@@ -562,9 +564,9 @@ def treasury_status(session: Session) -> dict[str, Any]:
                 "reward_mrwk": str(payload["reward_mrwk"]),
                 "max_awards": int(payload["max_awards"]),
                 "reserve_mrwk": format_mrwk(reserve),
-                "proposed_at": _db_utc(proposal.proposed_at).isoformat(),
-                "executes_after": executes_after.isoformat(),
-                "capacity_releases_at": capacity_releases_at.isoformat(),
+                "proposed_at": public_utc_timestamp(proposal.proposed_at),
+                "executes_after": public_utc_timestamp(executes_after),
+                "capacity_releases_at": public_utc_timestamp(capacity_releases_at),
             }
         )
         pending_create_projection.append(
@@ -579,7 +581,7 @@ def treasury_status(session: Session) -> dict[str, Any]:
         for entry in recent_reserves
         if _db_utc(entry.created_at) + TREASURY_EPOCH_WINDOW > now
     ]
-    next_capacity_release_at = min(release_times).isoformat() if release_times else None
+    next_capacity_release_at = public_utc_timestamp(min(release_times)) if release_times else None
     projected_capacity_events = _projected_capacity_events(
         now=now,
         executed_reserve=executed_reserve,
@@ -610,8 +612,10 @@ def treasury_status(session: Session) -> dict[str, Any]:
                 "ledger_sequence": entry.sequence,
                 "amount_mrwk": format_mrwk(entry.amount_microunits),
                 "reference": entry.reference,
-                "created_at": _db_utc(entry.created_at).isoformat(),
-                "expires_at": (_db_utc(entry.created_at) + TREASURY_EPOCH_WINDOW).isoformat(),
+                "created_at": public_utc_timestamp(entry.created_at),
+                "expires_at": public_utc_timestamp(
+                    _db_utc(entry.created_at) + TREASURY_EPOCH_WINDOW
+                ),
             }
             for entry in recent_reserves
         ],

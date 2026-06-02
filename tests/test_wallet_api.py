@@ -644,7 +644,11 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     detail = client.get(f"/wallets/{address}").text
     funded_detail = client.get(f"/wallets/{funded_address}").text
     funded_type_filter = client.get(f"/wallets/{funded_address}?type=test_funding").text
+    funded_all_type_filter = client.get(f"/wallets/{funded_address}?type=all").text
+    funded_all_type_filter_upper = client.get(f"/wallets/{funded_address}?type=ALL").text
+    funded_all_type_filter_spaced = client.get(f"/wallets/{funded_address}?type=%20all%20").text
     funded_missing_type = client.get(f"/wallets/{funded_address}?type=bounty_payment").text
+    funded_unknown_type = client.get(f"/wallets/{funded_address}?type=not_a_real_type")
     transfer = client.get("/transfer").text
     me = client.get("/me").text
 
@@ -679,11 +683,55 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Filter wallet transactions" in funded_detail
     assert 'value="test_funding" selected' in funded_type_filter
     assert "Showing test_funding transactions." in funded_type_filter
+    assert "Showing all transactions." not in funded_all_type_filter
+    assert "wallet_transfer" in funded_all_type_filter
+    assert "test_funding" in funded_all_type_filter
+    assert "No wallet transactions match this type." not in funded_all_type_filter
+    assert "wallet_transfer" in funded_all_type_filter_upper
+    assert "test_funding" in funded_all_type_filter_upper
+    assert "wallet_transfer" in funded_all_type_filter_spaced
+    assert "test_funding" in funded_all_type_filter_spaced
     assert "No wallet transactions match this type." in funded_missing_type
+    assert funded_unknown_type.status_code == 400
+    assert funded_unknown_type.json()["detail"] == (
+        "transaction type must be one of: all, bounty_payment, bounty_reserve, "
+        "bounty_release, github_claim, wallet_transfer, genesis, test_funding"
+    )
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
+
+
+def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex, "Main smoke wallet")
+    _fund_wallet(sqlite_url, address)
+
+    search_response = client.get("/wallets", params={"q": "\u0085Main"})
+    type_response = client.get(f"/wallets/{address}", params={"type": "test_funding\t"})
+    masked_search_response = client.get("/wallets?q=%C2%85Main&q=Main")
+    repeated_search_response = client.get("/wallets?q=Main&q=smoke")
+    masked_type_response = client.get(f"/wallets/{address}?type=%C2%85test_funding&type=all")
+    repeated_type_response = client.get(f"/wallets/{address}?type=test_funding&type=all")
+
+    assert search_response.status_code == 400
+    assert search_response.json()["detail"] == "q must not contain control characters"
+    assert type_response.status_code == 400
+    assert type_response.json()["detail"] == "transaction type must not contain control characters"
+    assert masked_search_response.status_code == 400
+    assert masked_search_response.json()["detail"] == "q must not contain control characters"
+    assert repeated_search_response.status_code == 400
+    assert repeated_search_response.json()["detail"] == "q must be provided at most once"
+    assert masked_type_response.status_code == 400
+    assert (
+        masked_type_response.json()["detail"]
+        == "transaction type must not contain control characters"
+    )
+    assert repeated_type_response.status_code == 400
+    assert repeated_type_response.json()["detail"] == "type must be provided at most once"
 
 
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:

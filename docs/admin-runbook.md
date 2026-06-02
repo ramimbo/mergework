@@ -44,8 +44,12 @@ Public reads:
 ```bash
 curl -s https://api.mrwk.online/api/v1/treasury/status
 curl -s https://api.mrwk.online/api/v1/treasury/proposals
+curl -s "https://api.mrwk.online/api/v1/treasury/proposals?status=pending&action=pay_bounty&to_account=github%3Aalice"
 curl -s https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>
 ```
+
+Use the filtered proposal list to reconcile pending payouts for one recipient
+without mixing unrelated `pay_bounty` proposals from busy review rounds.
 
 Legacy-compatible admin API reads remain available at
 `https://api.mrwk.ltclab.site` for existing scripts, but new examples should use
@@ -137,6 +141,13 @@ on the proposal and confirm the issue has both `mrwk:bounty` and the
 `Reserved on MergeWork` claims-open comment. If finalization is skipped, failed,
 or partial, use the manual fallback rules above after confirming the public
 bounty row exists.
+
+The production treasury executor also finalizes fully paid bounty issues. It
+only acts on bounty rows whose stored status is `paid`; it must not close rounds
+that are merely full because pending payout proposals consume effective
+capacity. Successful paid-issue finalization adds `mrwk:paid`, posts a concise
+filled-and-paid comment when needed, closes the GitHub issue, and records a
+local finalization marker so later executor passes do not repeat the comment.
 
 ## Accept Work
 
@@ -270,6 +281,44 @@ The command only reads PRs and issues; it does not close PRs, label issues, or
 post comments. It reports missing bounty references, closed or exhausted bounty
 references, dirty or unknown merge state, `mrwk:needs-info`, and likely duplicate
 PR scope within the same bounty issue.
+
+### Proposed Work Triage
+
+Use the read-only proposed-work triage report when maintainers need to review
+the intake queue before creating, rejecting, or consolidating future bounties:
+
+```bash
+python scripts/proposed_work_triage.py --repo ramimbo/mergework --format markdown
+```
+
+For deterministic review or incident write-ups, use an offline fixture instead:
+
+```bash
+python scripts/proposed_work_triage.py --input proposed-work-fixture.json --format json
+```
+
+The report lists proposed-work issues, missing `proposed-work` labels, missing
+template sections, vague or rejected proposals, already-routed items, likely
+related groups, and #649 pending-versus-proof-backed payment status when that
+public data is present in the input or available from the public API. Use
+`--api-host` only for another public MergeWork API host. It does not label,
+comment, edit issues, create bounties, accept work, or pay claims.
+
+For reviewer-specific review-bounty preflight, generate a candidate report with
+the reviewer login:
+
+```bash
+python scripts/review_bounty_candidates.py \
+  --repo ramimbo/mergework \
+  --reviewer reviewer-login \
+  --format markdown
+```
+
+The report classifies open PRs as fresh review candidates, self-authored,
+already reviewed at the current head by that reviewer, already covered by
+current-head human reviews, waiting for author update, dirty/conflicted, missing
+the standard quality check, or `mrwk:needs-info`. It is advisory and read-only:
+it does not comment, label, close, accept claims, or pay anything.
 
 ### Claim Inventory
 

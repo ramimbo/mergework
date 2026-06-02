@@ -53,7 +53,12 @@ filters:
 curl -s "$API_HOST/api/v1/bounties/summary"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open"
 curl -s "$API_HOST/api/v1/bounties/summary?q=docs"
+curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework&issue_number=649"
 ```
+
+When your workflow starts from a GitHub issue URL, prefer exact
+`repo=owner/name` and `issue_number=N` filters on `/api/v1/bounties` or
+`/api/v1/bounties/summary`. Use `q` only for broader text discovery.
 
 Inspect one bounty, accepted-work activity, a ledger page, and a proof:
 
@@ -79,12 +84,21 @@ Inspect treasury proposals:
 ```bash
 curl -s "$API_HOST/api/v1/treasury/status"
 curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals?status=pending&action=pay_bounty&to_account=github%3Aalice"
+curl -s "$API_HOST/api/v1/treasury/proposals?action=pay_bounty&status=pending&bounty_id=<bounty_id>"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
+
+Use `to_account` with `status=pending` and `action=pay_bounty` when reconciling
+which delayed payout proposals target one GitHub account or MRWK wallet.
+Use `bounty_id` when you need the proposal slice for one internal MergeWork
+bounty id rather than a GitHub issue number.
 
 Use `/api/v1/treasury/status` before proposing fresh bounty rounds. It reports
 the rolling 24-hour reserve cap, recent reserve usage, pending create-bounty
 reserve, remaining create capacity, and the next capacity release time.
+Use proposal-list filters when you need one queue slice, such as pending
+`pay_bounty` proposals for one internal MergeWork bounty id.
 Use [docs/bounty-lifecycle.md](bounty-lifecycle.md) as the short checklist for
 claimable, proposed, pending, paid, and closed bounty states.
 
@@ -210,6 +224,10 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_bounties","arguments":{}}}'
 ```
 
+Use `{"availability":"effectively_open"}` with `list_bounties` when you only want
+raw-open bounties that still have positive effective award capacity after
+pending payout or close proposals are considered.
+
 Inspect active attempt reservations for a bounty before opening overlapping
 work:
 
@@ -246,8 +264,10 @@ Tools:
 - Read `AGENTS.md` before starting.
 - Use focused branches and focused PRs.
 - Run tests, lint, and type checks before submitting.
-- Link bounty PRs with `Bounty #<issue>` or `Refs #<issue>` unless the bounty
-  asks for a closing reference.
+- Link bounty PRs with `Bounty #<issue>` for MergeWork bounty tracking. Use
+  `Refs #<issue>` when you also want GitHub or bot linked-issue checks to see
+  the issue reference. Use closing keywords only when the bounty asks for a
+  closing reference.
 - Do not put private security details in public issues, PRs, or ledger metadata.
 - Do not claim acceptance until a maintainer applies `mrwk:accepted`.
 
@@ -261,7 +281,8 @@ Use this checklist before opening a PR for `mrwk:bounty` issues:
 3. Write the claim-window scope before coding: exact bounty, intended files or
    surfaces, expected PR size, test plan, and what is out of scope.
 4. Keep changes small and directly tied to one bounty issue.
-5. Include `Bounty #<issue>` or `Refs #<issue>` in PR body.
+5. Include `Bounty #<issue>` in the PR body, or `Refs #<issue>` when GitHub
+   linked-issue visibility is also desired.
 6. Explain the exact user or maintainer pain point you fixed.
 7. Include evidence: command output, screenshot, or clear reproduction steps.
 8. Run the required checks from the issue text (for docs work, run
@@ -324,15 +345,18 @@ python scripts/submission_quality_gate.py --text-file pr-body.md --repo ramimbo/
 
 The gate is advisory. It does not reserve work, claim acceptance, make payments,
 or block maintainer decisions. It checks for a `Bounty #<issue>` or
-`Refs #<issue>` reference, whether the referenced bounty appears open, whether
-the bounty has recent maintainer activity, whether active attempt reservations
-already exist for the referenced bounty, whether the draft includes a concise
-summary and validation evidence, whether multiple bounty references are mixed
-into one draft, and whether a similar open PR already references the same
-bounty. The active-attempt lookup is read-only and uses the internal bounty id
-from `/api/v1/bounties`; if the attempts API is unavailable, the gate keeps
-other checks and reports an advisory warning instead of crashing or hiding
-payability results.
+`Refs #<issue>` reference, whether GitHub-linked-issue semantics are present,
+whether the referenced bounty appears open, whether the bounty has recent
+maintainer activity, whether active attempt reservations already exist for the
+referenced bounty, whether the draft includes a concise summary and validation
+evidence, whether multiple bounty references are mixed into one draft, and
+whether a similar open PR already references the same bounty. `Bounty #<issue>`
+is valid MergeWork bounty tracking even when GitHub or bot linked-issue checks
+stay skipped; use `Refs #<issue>` for non-closing GitHub issue visibility and
+closing keywords only when the bounty should close. The active-attempt lookup is
+read-only and uses the internal bounty id from `/api/v1/bounties`; if the
+attempts API is unavailable, the gate keeps other checks and reports an
+advisory warning instead of crashing or hiding payability results.
 
 Results:
 

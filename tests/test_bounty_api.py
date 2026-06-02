@@ -40,6 +40,16 @@ class TestBountyListRoutes:
         assert resp.status_code == 400
         assert resp.json()["detail"] == "sort must not contain control characters"
 
+    def test_list_bounties_rejects_invalid_availability_filter(self, client):
+        resp = client.get("/api/v1/bounties?availability=maybe")
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "availability must be one of: all, effectively_open"
+
+    def test_list_bounties_rejects_c1_control_availability_before_normalizing(self, client):
+        resp = client.get("/api/v1/bounties?availability=%C2%85effectively_open")
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "availability must not contain control characters"
+
     def test_list_bounties_with_query(self, client):
         resp = client.get("/api/v1/bounties?q=test")
         assert resp.status_code == 200

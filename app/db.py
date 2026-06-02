@@ -61,6 +61,14 @@ def _migrate_schema(engine: Engine) -> None:
                 text("ALTER TABLE bounties ADD COLUMN awards_paid INTEGER NOT NULL DEFAULT 0")
             )
             connection.execute(text("UPDATE bounties SET awards_paid = 1 WHERE status = 'paid'"))
+        if "github_paid_issue_finalized_at" not in bounty_columns:
+            connection.execute(
+                text("ALTER TABLE bounties ADD COLUMN github_paid_issue_finalized_at TIMESTAMP")
+            )
+        if "github_paid_issue_finalization" not in bounty_columns:
+            connection.execute(
+                text("ALTER TABLE bounties ADD COLUMN github_paid_issue_finalization TEXT")
+            )
         if "submissions" in inspector.get_table_names():
             connection.execute(
                 text(
