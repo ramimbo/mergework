@@ -442,6 +442,12 @@ def _load_input(path: str) -> dict[str, Any]:
     return data
 
 
+def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, value: str) -> str:
+    if not value.strip():
+        parser.error(f"{option_name} must be a non-empty value")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Summarize MergeWork open PR queue health.")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -454,7 +460,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fail-on-issues", action="store_true")
     args = parser.parse_args(argv)
 
-    data = _load_input(args.input) if args.input else load_live_queue(args.repo)
+    if args.input is not None:
+        data = _load_input(_require_non_empty_arg(parser, "--input", args.input))
+    else:
+        data = load_live_queue(_require_non_empty_arg(parser, "--repo", args.repo))
     report = analyze_queue(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))

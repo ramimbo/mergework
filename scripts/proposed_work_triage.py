@@ -511,10 +511,16 @@ def load_live_issues(
     }
 
 
+def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, value: str) -> str:
+    if not value.strip():
+        parser.error(f"{option_name} must be a non-empty value")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only proposed-work intake triage report")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", type=Path, help="Offline JSON fixture with issues/payments")
+    source.add_argument("--input", help="Offline JSON fixture with issues/payments")
     source.add_argument("--repo", help="GitHub repo for read-only gh live mode")
     parser.add_argument("--limit", type=_positive_int, default=50)
     parser.add_argument("--format", choices=("json", "markdown"), default="markdown")
@@ -530,21 +536,21 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    if args.input and args.payment_bounty_issue:
-        parser.error("--payment-bounty-issue is only valid in live --repo mode")
-
-    data = (
-        json.loads(args.input.read_text(encoding="utf-8"))
-        if args.input
-        else load_live_issues(
-            args.repo,
+    if args.input is not None:
+        if args.payment_bounty_issue:
+            parser.error("--payment-bounty-issue is only valid in live --repo mode")
+        input_path = Path(_require_non_empty_arg(parser, "--input", args.input))
+        data = json.loads(input_path.read_text(encoding="utf-8"))
+    else:
+        repo = _require_non_empty_arg(parser, "--repo", args.repo)
+        data = load_live_issues(
+            repo,
             args.limit,
             api_host=args.api_host,
             payment_bounty_issue_numbers=(
                 args.payment_bounty_issue or list(DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS)
             ),
         )
-    )
     report = analyze_proposed_work(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))

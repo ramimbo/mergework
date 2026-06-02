@@ -403,6 +403,29 @@ def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
     assert "--payment-bounty-issue is only valid in live --repo mode" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "--input must be a non-empty value"),
+        (["--input", "   "], "--input must be a non-empty value"),
+        (["--repo", "   "], "--repo must be a non-empty value"),
+    ),
+)
+def test_proposed_work_triage_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([*source_args, "--format", "json"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
+
+
 def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -> None:
     calls: list[list[str]] = []
 
