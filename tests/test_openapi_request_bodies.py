@@ -131,9 +131,28 @@ def test_openapi_documents_auth_for_protected_routes(sqlite_url: str) -> None:
         "name": "x-mergework-admin-token",
         "description": "Admin API token required for protected admin and treasury operations.",
     }
-    assert security_schemes["MergeWorkGitHubSession"]["type"] == "apiKey"
-    assert security_schemes["MergeWorkGitHubSession"]["in"] == "cookie"
-    assert security_schemes["MergeWorkGitHubSession"]["name"] == "mrwk_user"
+    assert security_schemes["MergeWorkGitHubSession"] == {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "mrwk_user",
+        "description": (
+            "GitHub login session cookie from /auth/github/login required for "
+            "authenticated contributor operations."
+        ),
+    }
+
+    expected_auth_error = {
+        "description": "Authentication required.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"detail": {"type": "string"}},
+                    "required": ["detail"],
+                },
+            },
+        },
+    }
 
     admin_routes = [
         ("/api/v1/admin/webhook-events", "get"),
@@ -147,7 +166,7 @@ def test_openapi_documents_auth_for_protected_routes(sqlite_url: str) -> None:
     for path, method in admin_routes:
         operation = openapi["paths"][path][method]
         assert operation["security"] == [{"MergeWorkAdminToken": []}]
-        assert "401" in operation["responses"]
+        assert operation["responses"]["401"] == expected_auth_error
 
     github_session_routes = [
         ("/api/v1/bounties/{bounty_id}/attempts", "post"),
@@ -159,7 +178,7 @@ def test_openapi_documents_auth_for_protected_routes(sqlite_url: str) -> None:
     for path, method in github_session_routes:
         operation = openapi["paths"][path][method]
         assert operation["security"] == [{"MergeWorkGitHubSession": []}]
-        assert "401" in operation["responses"]
+        assert operation["responses"]["401"] == expected_auth_error
 
     public_operation = openapi["paths"]["/api/v1/bounties"]["get"]
     assert "security" not in public_operation
