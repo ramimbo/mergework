@@ -39,7 +39,6 @@ def register_wallet_api_routes(
     required_str: RequiredString,
     required_int: RequiredInteger,
     optional_str: OptionalString,
-    normalized_wallet_address: NormalizeWalletAddress,
     normalized_wallet_path_address: NormalizeWalletAddress,
     post_only_route: PostOnlyRoute,
 ) -> None:

@@ -13,7 +13,6 @@ from fastapi.templating import Jinja2Templates
 from app import auth as auth_module
 from app.accounts import (
     normalized_account,
-    normalized_wallet_address,
     normalized_wallet_path_address,
     register_account_routes,
 )
@@ -307,7 +306,6 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         required_str=_required_str,
         required_int=_required_int,
         optional_str=_optional_str,
-        normalized_wallet_address=normalized_wallet_address,
         normalized_wallet_path_address=normalized_wallet_path_address,
         post_only_route=post_only_route,
     )
