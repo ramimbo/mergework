@@ -1821,10 +1821,13 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
         ({"bounty_id": 1, "issue_number": 1}, 25),
         ({"format": "xml"}, 26),
         ({"format": 1}, 27),
+        ({"format": None}, 28),
         ({"repo": "ramimbo/mergework"}, 29),
         ({"bounty_id": 1, "repo": "ramimbo/mergework"}, 30),
         ({"issue_number": 1, "repo": 1}, 31),
         ({"issue_number": 1, "repo": "a" * 201}, 32),
+        ({"format": "JSON"}, 33),
+        ({"format": " json "}, 34),
     ],
 )
 def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
