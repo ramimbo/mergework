@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -12,6 +13,19 @@ from app.main import create_app
 from app.models import BountyAttempt, Proof
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
+
+
+def assert_mcp_argument_error(response: object, request_id: int, reason: str | None = None) -> None:
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] == request_id
+    error = payload["error"]
+    assert error["code"] == -32602
+    assert error["message"] == "invalid tool arguments"
+    if reason is not None:
+        assert error["data"]["reason"] == reason
+    assert "traceback" not in json.dumps(error).lower()
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -405,12 +419,7 @@ def test_mcp_list_bounty_attempts_rejects_invalid_arguments(sqlite_url: str) -> 
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 23,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 23, "include_expired must be a boolean")
 
 
 def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> None:
@@ -640,19 +649,19 @@ def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> No
 
 
 @pytest.mark.parametrize(
-    ("arguments", "request_id"),
+    ("arguments", "request_id", "reason"),
     [
-        ({"status": "all"}, 31),
-        ({"status": True}, 32),
-        ({"q": 284}, 33),
-        ({"limit": 0}, 34),
-        ({"limit": 101}, 35),
-        ({"sort": "invalid"}, 36),
-        ({"availability": "maybe"}, 37),
+        ({"status": "all"}, 31, "status must be one of: open, paid, closed"),
+        ({"status": True}, 32, "status must be a string"),
+        ({"q": 284}, 33, "q must be a string"),
+        ({"limit": 0}, 34, "limit must be positive"),
+        ({"limit": 101}, 35, "limit must be at most 100"),
+        ({"sort": "invalid"}, 36, "sort must be one of: newest, reward, available, awards"),
+        ({"availability": "maybe"}, 37, "availability must be one of: all, effectively_open"),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
-    sqlite_url: str, arguments: dict[str, object], request_id: int
+    sqlite_url: str, arguments: dict[str, object], request_id: int, reason: str
 ) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -670,12 +679,7 @@ def test_mcp_list_bounties_rejects_invalid_filters(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id, reason)
 
 
 def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
@@ -758,11 +762,36 @@ def test_mcp_rejects_unknown_tool_name(sqlite_url: str) -> None:
         },
     )
 
+    assert_mcp_argument_error(response, 12)
+
+
+def test_mcp_internal_http_exception_stays_generic(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing_tool(database_url: str, name: str, args: dict[str, object]) -> str:
+        raise HTTPException(status_code=500, detail="database connection failed")
+
+    monkeypatch.setattr("app.main.call_mcp_tool", failing_tool)
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        raise_server_exceptions=False,
+    )
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 13,
+            "method": "tools/call",
+            "params": {"name": "get_bounty", "arguments": {"id": 1}},
+        },
+    )
+
     assert response.status_code == 200
     assert response.json() == {
         "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
+        "id": 13,
+        "error": {"code": -32603, "message": "internal error"},
     }
 
 
@@ -911,12 +940,7 @@ def test_mcp_get_bounty_rejects_fractional_id(sqlite_url: str) -> None:
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 12, "id must be an integer")
 
 
 @pytest.mark.parametrize("include_awards", ["true", 1, []])
@@ -952,12 +976,7 @@ def test_mcp_get_bounty_rejects_non_boolean_include_awards(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 12, "include_awards must be a boolean")
 
 
 @pytest.mark.parametrize("bounty_id", [0, -1])
@@ -978,12 +997,7 @@ def test_mcp_get_bounty_rejects_non_positive_id(sqlite_url: str, bounty_id: int)
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 12, "id must be positive")
 
 
 def test_mcp_get_wallet_returns_not_found_for_unregistered_wallet(sqlite_url: str) -> None:
@@ -1044,12 +1058,7 @@ def test_mcp_rejects_oversized_integer_arguments_without_500(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id)
 
 
 @pytest.mark.parametrize(
@@ -1086,12 +1095,7 @@ def test_mcp_rejects_noncanonical_integer_string_arguments(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id)
 
 
 def test_mcp_accepts_canonical_integer_string_arguments(sqlite_url: str) -> None:
@@ -1155,12 +1159,7 @@ def test_mcp_rejects_invalid_string_arguments(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id)
 
 
 def test_mcp_get_ledger_entry_includes_payment_proof_hash(sqlite_url: str) -> None:
@@ -1225,12 +1224,7 @@ def test_mcp_get_ledger_entry_rejects_non_positive_sequence(sqlite_url: str) -> 
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 2,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 2, "sequence must be positive")
 
 
 def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:
@@ -1392,12 +1386,7 @@ def test_mcp_get_proof_rejects_malformed_hash(sqlite_url: str) -> None:
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 3,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 3, "proof hash must be 64 hex characters")
 
 
 def test_mcp_submit_work_proof_returns_bounty_specific_guidance(sqlite_url: str) -> None:
@@ -1812,23 +1801,27 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
 
 
 @pytest.mark.parametrize(
-    ("arguments", "request_id"),
+    ("arguments", "request_id", "reason"),
     [
-        ({"bounty_id": 0}, 21),
-        ({"bounty_id": True}, 22),
-        ({"issue_number": 0}, 23),
-        ({"issue_number": 1.5}, 24),
-        ({"bounty_id": 1, "issue_number": 1}, 25),
-        ({"format": "xml"}, 26),
-        ({"format": 1}, 27),
-        ({"repo": "ramimbo/mergework"}, 29),
-        ({"bounty_id": 1, "repo": "ramimbo/mergework"}, 30),
-        ({"issue_number": 1, "repo": 1}, 31),
-        ({"issue_number": 1, "repo": "a" * 201}, 32),
+        ({"bounty_id": 0}, 21, "bounty_id must be positive"),
+        ({"bounty_id": True}, 22, "bounty_id must be an integer"),
+        ({"issue_number": 0}, 23, "issue_number must be positive"),
+        ({"issue_number": 1.5}, 24, "issue_number must be an integer"),
+        ({"bounty_id": 1, "issue_number": 1}, 25, "use bounty_id or issue_number, not both"),
+        ({"format": "xml"}, 26, "format must be text or json"),
+        ({"format": 1}, 27, "format must be a string"),
+        ({"repo": "ramimbo/mergework"}, 29, "repo can only be used with issue_number"),
+        (
+            {"bounty_id": 1, "repo": "ramimbo/mergework"},
+            30,
+            "repo can only be used with issue_number",
+        ),
+        ({"issue_number": 1, "repo": 1}, 31, "repo must be a string"),
+        ({"issue_number": 1, "repo": "a" * 201}, 32, "repo is too long"),
     ],
 )
 def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
-    sqlite_url: str, arguments: dict[str, object], request_id: int
+    sqlite_url: str, arguments: dict[str, object], request_id: int, reason: str
 ) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -1846,12 +1839,7 @@ def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, request_id, reason)
 
 
 def test_mcp_submit_work_proof_rejects_ambiguous_issue_number(sqlite_url: str) -> None:
@@ -1889,12 +1877,7 @@ def test_mcp_submit_work_proof_rejects_ambiguous_issue_number(sqlite_url: str) -
         },
     )
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 26,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    assert_mcp_argument_error(response, 26, "issue_number matches multiple bounties")
 
 
 def test_host_specific_homepages(sqlite_url: str) -> None:
