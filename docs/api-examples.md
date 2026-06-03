@@ -671,6 +671,15 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+The `tools/list` response includes an `inputSchema` for each argument-taking
+tool. Agent callers can use those schemas as the preflight argument contract,
+while the server-side validators remain authoritative at call time.
+For MCP tools, numeric ids and limits accept JSON integers or canonical integer
+strings that match the runtime parsers: no whitespace, no leading `+`, and no
+leading zeroes except the single string `"0"` where zero is allowed. The MCP `list_bounties` and
+`list_bounty_attempts` `limit` argument is capped at `100`; REST bounty list
+endpoints described earlier on this page still accept limits up to `200`.
+
 Call `get_balance`:
 
 ```bash

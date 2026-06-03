@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +14,34 @@ from app.main import create_app
 from app.models import BountyAttempt, Proof
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
+
+
+def _assert_integer_or_string_schema(
+    schema: dict[str, Any], *, minimum: int, maximum: int | None = None
+) -> None:
+    integer_branch, string_branch = schema["anyOf"]
+    assert integer_branch["type"] == "integer"
+    assert integer_branch["minimum"] == minimum
+    if maximum is not None:
+        assert integer_branch["maximum"] == maximum
+    else:
+        assert "maximum" not in integer_branch
+    assert string_branch["type"] == "string"
+    pattern = string_branch["pattern"]
+    assert r"(?!.*[\u0000-\u001f\u007f-\u009f])" in pattern
+    if minimum == 0:
+        accepted_strings = ["0", "1", "99"]
+        rejected_strings = ["-1", "00", "01", "+1", " 1", "1 ", "\u00851"]
+    elif maximum == 100:
+        accepted_strings = ["1", "99", "100"]
+        rejected_strings = ["0", "101", "001", "+1", " 1", "1 ", "\u00851"]
+    else:
+        accepted_strings = ["1", "99", "100"]
+        rejected_strings = ["0", "01", "+1", " 1", "1 ", "-1", "\u00851"]
+    for value in accepted_strings:
+        assert re.fullmatch(pattern, value), value
+    for value in rejected_strings:
+        assert not re.fullmatch(pattern, value), value
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -250,6 +280,61 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "status, q, sort, limit, and availability filters"
         in tools["result"]["tools"][0]["description"]
     )
+    tools_by_name = {tool["name"]: tool for tool in tools["result"]["tools"]}
+    assert len(tools_by_name) == len(tools["result"]["tools"])
+    assert all("inputSchema" in tool for tool in tools["result"]["tools"])
+
+    list_schema = tools_by_name["list_bounties"]["inputSchema"]
+    assert list_schema["additionalProperties"] is False
+    assert list_schema["properties"]["status"]["enum"] == ["open", "paid", "closed"]
+    assert list_schema["properties"]["status"]["default"] == "open"
+    assert list_schema["properties"]["sort"]["enum"] == [
+        "newest",
+        "reward",
+        "available",
+        "awards",
+    ]
+    _assert_integer_or_string_schema(list_schema["properties"]["limit"], minimum=1, maximum=100)
+    assert list_schema["properties"]["availability"]["enum"] == ["all", "effectively_open"]
+    assert list_schema["properties"]["availability"]["default"] == "all"
+
+    bounty_schema = tools_by_name["get_bounty"]["inputSchema"]
+    assert bounty_schema["required"] == ["id"]
+    _assert_integer_or_string_schema(bounty_schema["properties"]["id"], minimum=1)
+    assert bounty_schema["properties"]["include_awards"]["type"] == "boolean"
+
+    attempt_schema = tools_by_name["list_bounty_attempts"]["inputSchema"]
+    assert attempt_schema["required"] == ["bounty_id"]
+    _assert_integer_or_string_schema(attempt_schema["properties"]["bounty_id"], minimum=1)
+    assert attempt_schema["properties"]["include_expired"]["default"] is False
+    _assert_integer_or_string_schema(attempt_schema["properties"]["limit"], minimum=1, maximum=100)
+
+    assert tools_by_name["get_balance"]["inputSchema"]["required"] == ["account"]
+    assert tools_by_name["register_wallet"]["inputSchema"]["required"] == ["public_key_hex"]
+    register_schema = tools_by_name["register_wallet"]["inputSchema"]
+    assert register_schema["properties"]["label"]["maxLength"] == 160
+    assert tools_by_name["get_wallet"]["inputSchema"]["required"] == ["address"]
+    transfer_schema = tools_by_name["submit_wallet_transfer"]["inputSchema"]
+    assert transfer_schema["required"] == [
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "signature_hex",
+    ]
+    assert (
+        transfer_schema["properties"]["amount_mrwk"]["pattern"]
+        == "^(?!0+(?:\\.0{1,6})?$)\\d+(?:\\.\\d{1,6})?$"
+    )
+    _assert_integer_or_string_schema(transfer_schema["properties"]["nonce"], minimum=1)
+    assert transfer_schema["properties"]["memo"]["maxLength"] == 240
+    assert tools_by_name["get_ledger_entry"]["inputSchema"]["required"] == ["sequence"]
+    _assert_integer_or_string_schema(
+        tools_by_name["get_ledger_entry"]["inputSchema"]["properties"]["sequence"],
+        minimum=1,
+    )
+    assert tools_by_name["get_proof"]["inputSchema"]["required"] == ["hash"]
+
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
@@ -258,10 +343,36 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_schema["additionalProperties"] is False
     assert submit_schema["properties"]["format"]["enum"] == ["text", "json"]
     assert submit_schema["properties"]["format"]["default"] == "text"
-    assert submit_schema["properties"]["bounty_id"]["minimum"] == 1
-    assert submit_schema["properties"]["issue_number"]["minimum"] == 1
+    _assert_integer_or_string_schema(submit_schema["properties"]["bounty_id"], minimum=1)
+    _assert_integer_or_string_schema(submit_schema["properties"]["issue_number"], minimum=1)
     assert submit_schema["properties"]["repo"]["maxLength"] == 200
-    assert submit_schema["not"] == {"required": ["bounty_id", "issue_number"]}
+    assert submit_schema["oneOf"] == [
+        {
+            "description": "Generic submission guidance without a bounty selector.",
+            "not": {
+                "anyOf": [
+                    {"required": ["bounty_id"]},
+                    {"required": ["issue_number"]},
+                    {"required": ["repo"]},
+                ]
+            },
+        },
+        {
+            "description": "Submission guidance by internal MRWK bounty id.",
+            "required": ["bounty_id"],
+            "not": {
+                "anyOf": [
+                    {"required": ["issue_number"]},
+                    {"required": ["repo"]},
+                ]
+            },
+        },
+        {
+            "description": "Submission guidance by GitHub issue number, optionally scoped by repo.",
+            "required": ["issue_number"],
+            "not": {"required": ["bounty_id"]},
+        },
+    ]
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]
     attempt_tool = next(
