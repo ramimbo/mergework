@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import json
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.models import utc_now
 from app.path_params import SQLITE_INTEGER_MAX
-from app.treasury import propose_treasury_action
+from app.treasury import (
+    execute_treasury_proposal,
+    propose_treasury_action,
+    record_proposal_result_field,
+)
 
 
 def test_bounty_api_reports_multi_award_capacity(sqlite_url: str) -> None:
@@ -44,6 +52,88 @@ def test_bounty_api_reports_multi_award_capacity(sqlite_url: str) -> None:
     assert bounty["submission_requirements"]["expected_artifact"] == (
         "focused PR, issue, report, or evidence URL"
     )
+
+
+def test_bounty_api_exposes_create_bounty_finalization_evidence(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        proposal = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 74,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/74",
+                "title": "Expose finalization evidence",
+                "reward_mrwk": "25",
+                "max_awards": 1,
+                "acceptance": "Public rows should link the create-bounty evidence.",
+            },
+            proposed_by="maintainer",
+        )
+        proposal_id = proposal.id
+        proposal.executes_after = utc_now() - timedelta(seconds=1)
+        session.flush()
+        executed = execute_treasury_proposal(
+            session, proposal_id=proposal_id, executed_by="maintainer"
+        )
+        bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
+        record_proposal_result_field(
+            session,
+            proposal_id=proposal_id,
+            field="github_issue_finalization",
+            value={
+                "status": "updated",
+                "label": "mrwk:bounty",
+                "bounty_url": "https://api.mrwk.online/bounties/74",
+                "comment_url": ("https://github.com/ramimbo/mergework/issues/74#issuecomment-1"),
+                "issue_body_status": "updated",
+            },
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    detail = client.get(f"/api/v1/bounties/{bounty_id}").json()
+    listed = client.get("/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=74").json()[0]
+
+    expected = {
+        "create_bounty_proposal_id": proposal_id,
+        "create_bounty_proposal_url": f"/api/v1/treasury/proposals/{proposal_id}",
+        "status": "updated",
+        "public_bounty_url": "https://api.mrwk.online/bounties/74",
+        "claims_open_comment_url": (
+            "https://github.com/ramimbo/mergework/issues/74#issuecomment-1"
+        ),
+        "label": "mrwk:bounty",
+        "issue_body_status": "updated",
+    }
+    assert detail["finalization_evidence"] == expected
+    assert listed["finalization_evidence"] == expected
+
+
+def test_bounty_api_omits_finalization_evidence_when_not_recorded(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=75,
+            issue_url="https://github.com/ramimbo/mergework/issues/75",
+            title="Older bounty without finalization result",
+            reward_mrwk="25",
+            acceptance="Older rows should stay compatible.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    detail = client.get(f"/api/v1/bounties/{bounty_id}").json()
+    listed = client.get("/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=75").json()[0]
+
+    assert "finalization_evidence" not in detail
+    assert "finalization_evidence" not in listed
 
 
 def test_bounty_api_reports_issue_submission_requirements(sqlite_url: str) -> None:
