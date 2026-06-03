@@ -207,20 +207,18 @@ def _claim_from_comment(
 
 def extract_bounty_claims(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
-    seen: set[tuple[int, str | None, str | None]] = set()
-    for comment in comments:
+    seen: set[tuple[int, str | None]] = set()
+    for comment_index, comment in enumerate(comments):
         body = str(comment.get("body") or "")
         if "/claim" not in body.lower():
             continue
+        comment_url = _comment_url(comment)
+        comment_key = comment_url or f"comment-{comment_index}"
         for match in PR_URL_RE.finditer(body):
             pull_request = int(match.group("number"))
             evidence_url = match.group(0)
             evidence_type = _claim_evidence_type(match.group("fragment"), body)
-            url_key: tuple[int, str | None, str | None] = (
-                pull_request,
-                evidence_url,
-                _comment_url(comment),
-            )
+            url_key = (pull_request, comment_key)
             if url_key in seen:
                 continue
             seen.add(url_key)
@@ -234,11 +232,7 @@ def extract_bounty_claims(comments: list[dict[str, Any]]) -> list[dict[str, Any]
             )
         for match in BARE_PR_RE.finditer(body):
             pull_request = int(match.group("number"))
-            bare_key: tuple[int, str | None, str | None] = (
-                pull_request,
-                None,
-                _comment_url(comment),
-            )
+            bare_key = (pull_request, comment_key)
             if bare_key in seen:
                 continue
             seen.add(bare_key)
@@ -314,8 +308,26 @@ def _classify_pr(
     current_head_claims = [
         claim for claim in bounty_claims if _claim_matches_head(claim.get("head_sha"), head_oid)
     ]
+    stale_head_claims = [
+        claim
+        for claim in bounty_claims
+        if claim.get("head_sha") and not _claim_matches_head(claim.get("head_sha"), head_oid)
+    ]
+    base_claims = [
+        claim for claim in bounty_claims if claim.get("base_sha") and not claim.get("head_sha")
+    ]
+    stale_or_base_claims = [*stale_head_claims, *base_claims]
     pr_comment_claims = [
-        claim for claim in bounty_claims if claim.get("evidence_type") == "pr_comment"
+        claim
+        for claim in bounty_claims
+        if claim.get("evidence_type") == "pr_comment" and not claim.get("head_sha")
+    ]
+    unqualified_claims = [
+        claim
+        for claim in bounty_claims
+        if not claim.get("head_sha")
+        and not claim.get("base_sha")
+        and claim.get("evidence_type") != "pr_comment"
     ]
     changes_requested = any(
         str(review.get("state") or "").upper() == "CHANGES_REQUESTED" for review in current_reviews
@@ -332,13 +344,13 @@ def _classify_pr(
     elif current_head_claims:
         state = "already_claimed_current_head"
         reason = "active bounty issue has a claim tied to the current head"
-    elif bounty_claims and merge_state in DIRTY_MERGE_STATES:
+    elif stale_or_base_claims and merge_state in DIRTY_MERGE_STATES:
         state = "claimed_stale_head_or_base"
         reason = "active bounty issue has claim evidence, but current merge state is dirty"
     elif pr_comment_claims:
         state = "claimed_by_pr_comment"
         reason = "active bounty issue has a concise PR comment claim"
-    elif bounty_claims:
+    elif unqualified_claims:
         state = "already_claimed_on_bounty_issue"
         reason = "active bounty issue already references this PR"
     elif merge_state in DIRTY_MERGE_STATES:
@@ -358,6 +370,8 @@ def _classify_pr(
         reason = f"{len(current_reviews)} current-head human review(s) already present"
     elif latest_reviewer_review is not None:
         reason = "reviewer last reviewed an older head"
+    elif stale_or_base_claims:
+        reason = "active bounty issue only has stale-head/base claim evidence"
     elif latest_human_review is not None:
         reason = "latest useful human review is stale"
 

@@ -241,6 +241,17 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
                     "statusCheckRollup": _quality_check(),
                     "reviews": [],
                 },
+                {
+                    "number": 15,
+                    "title": "Clean claimed old head needs follow-up",
+                    "url": "https://github.com/ramimbo/mergework/pull/15",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
             ],
             "bounty_claim_comments": [
                 {
@@ -251,6 +262,7 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
                         "/claim #654\n\n"
                         "PR: https://github.com/ramimbo/mergework/pull/11"
                         "#pullrequestreview-4400000000\n"
+                        "PR #11\n"
                         f"Head SHA: `{current_head}`"
                     ),
                 },
@@ -275,6 +287,16 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
                         "#issuecomment-4400000001"
                     ),
                 },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-4",
+                    "author": {"login": "reviewer-four"},
+                    "createdAt": "2026-06-02T10:15:00Z",
+                    "body": (
+                        "/claim #654\n\n"
+                        "PR: https://github.com/ramimbo/mergework/pull/15\n"
+                        f"Head SHA: `{stale_head}`"
+                    ),
+                },
             ],
         },
         reviewer="reviewer",
@@ -283,6 +305,7 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
     rows = {row["pull_request"]: row for row in report["pull_requests"]}
 
     assert rows[11]["state"] == "already_claimed_current_head"
+    assert rows[11]["bounty_claim_count"] == 1
     assert rows[11]["bounty_claims"][0]["evidence_type"] == "pr_review"
     assert rows[11]["bounty_claims"][0]["head_sha"] == current_head
     assert rows[12]["state"] == "claimed_stale_head_or_base"
@@ -290,6 +313,8 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
     assert rows[13]["state"] == "claimed_by_pr_comment"
     assert rows[13]["bounty_claims"][0]["evidence_type"] == "pr_comment"
     assert rows[14]["state"] == "candidate_for_fresh_review"
+    assert rows[15]["state"] == "candidate_for_fresh_review"
+    assert rows[15]["reason"] == "active bounty issue only has stale-head/base claim evidence"
 
     markdown = format_markdown_report(report)
     assert "issuecomment-1" in markdown
