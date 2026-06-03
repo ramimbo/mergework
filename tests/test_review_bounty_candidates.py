@@ -252,6 +252,39 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
                     "statusCheckRollup": _quality_check(),
                     "reviews": [],
                 },
+                {
+                    "number": 16,
+                    "title": "Dirty base-only claim",
+                    "url": "https://github.com/ramimbo/mergework/pull/16",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "DIRTY",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 17,
+                    "title": "Clean base-only claim needs follow-up",
+                    "url": "https://github.com/ramimbo/mergework/pull/17",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 18,
+                    "title": "Multi PR comment with body-level SHA",
+                    "url": "https://github.com/ramimbo/mergework/pull/18",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
             ],
             "bounty_claim_comments": [
                 {
@@ -297,6 +330,24 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
                         f"Head SHA: `{stale_head}`"
                     ),
                 },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-5",
+                    "author": {"login": "reviewer-five"},
+                    "createdAt": "2026-06-02T10:20:00Z",
+                    "body": (f"/claim #654\n\nPR #16\nBase/main SHA: `{'d' * 40}`"),
+                },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-6",
+                    "author": {"login": "reviewer-six"},
+                    "createdAt": "2026-06-02T10:25:00Z",
+                    "body": (f"/claim #654\n\nPR #17\nBase/main SHA: `{'e' * 40}`"),
+                },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-7",
+                    "author": {"login": "reviewer-seven"},
+                    "createdAt": "2026-06-02T10:30:00Z",
+                    "body": (f"/claim #654\n\nPR #18\nPR #999\nHead SHA: `{current_head}`"),
+                },
             ],
         },
         reviewer="reviewer",
@@ -315,6 +366,15 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
     assert rows[14]["state"] == "candidate_for_fresh_review"
     assert rows[15]["state"] == "candidate_for_fresh_review"
     assert rows[15]["reason"] == "active bounty issue only has stale-head/base claim evidence"
+    assert rows[16]["state"] == "claimed_stale_head_or_base"
+    assert rows[16]["bounty_claims"][0]["base_sha"] == "d" * 40
+    assert rows[17]["state"] == "candidate_for_fresh_review"
+    assert rows[17]["reason"] == "active bounty issue only has stale-head/base claim evidence"
+    assert rows[17]["bounty_claims"][0]["base_sha"] == "e" * 40
+    assert rows[18]["state"] == "already_claimed_on_bounty_issue"
+    assert rows[18]["bounty_claim_count"] == 1
+    assert rows[18]["bounty_claims"][0]["head_sha"] is None
+    assert rows[18]["bounty_claims"][0]["base_sha"] is None
 
     markdown = format_markdown_report(report)
     assert "issuecomment-1" in markdown

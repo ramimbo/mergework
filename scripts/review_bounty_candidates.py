@@ -191,8 +191,9 @@ def _claim_from_comment(
     pull_request: int,
     evidence_type: str,
     evidence_url: str | None,
+    head_sha: str | None,
+    base_sha: str | None,
 ) -> dict[str, Any]:
-    body = str(comment.get("body") or "")
     return {
         "pull_request": pull_request,
         "url": _comment_url(comment),
@@ -200,8 +201,8 @@ def _claim_from_comment(
         "created_at": _comment_created_at(comment),
         "evidence_type": evidence_type,
         "evidence_url": evidence_url,
-        "head_sha": _first_match(HEAD_SHA_RE, body),
-        "base_sha": _first_match(BASE_SHA_RE, body),
+        "head_sha": head_sha,
+        "base_sha": base_sha,
     }
 
 
@@ -214,6 +215,13 @@ def extract_bounty_claims(comments: list[dict[str, Any]]) -> list[dict[str, Any]
             continue
         comment_url = _comment_url(comment)
         comment_key = comment_url or f"comment-{comment_index}"
+        referenced_prs = {
+            int(match.group("number"))
+            for pattern in (PR_URL_RE, BARE_PR_RE)
+            for match in pattern.finditer(body)
+        }
+        scoped_head_sha = _first_match(HEAD_SHA_RE, body) if len(referenced_prs) == 1 else None
+        scoped_base_sha = _first_match(BASE_SHA_RE, body) if len(referenced_prs) == 1 else None
         for match in PR_URL_RE.finditer(body):
             pull_request = int(match.group("number"))
             evidence_url = match.group(0)
@@ -228,6 +236,8 @@ def extract_bounty_claims(comments: list[dict[str, Any]]) -> list[dict[str, Any]
                     pull_request=pull_request,
                     evidence_type=evidence_type,
                     evidence_url=evidence_url,
+                    head_sha=scoped_head_sha,
+                    base_sha=scoped_base_sha,
                 )
             )
         for match in BARE_PR_RE.finditer(body):
@@ -242,6 +252,8 @@ def extract_bounty_claims(comments: list[dict[str, Any]]) -> list[dict[str, Any]
                     pull_request=pull_request,
                     evidence_type="pr_reference",
                     evidence_url=None,
+                    head_sha=scoped_head_sha,
+                    base_sha=scoped_base_sha,
                 )
             )
     return claims
