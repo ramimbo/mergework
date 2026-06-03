@@ -191,6 +191,111 @@ def test_review_bounty_candidates_ignores_author_and_bot_reviews() -> None:
     assert row["current_head_human_reviews"] == 0
 
 
+def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
+    current_head = "a" * 40
+    stale_head = "b" * 40
+    report = analyze_candidates(
+        {
+            "pull_requests": [
+                {
+                    "number": 11,
+                    "title": "Already claimed current head",
+                    "url": "https://github.com/ramimbo/mergework/pull/11",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 12,
+                    "title": "Dirty claimed old head",
+                    "url": "https://github.com/ramimbo/mergework/pull/12",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "DIRTY",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 13,
+                    "title": "Claimed by concise PR comment",
+                    "url": "https://github.com/ramimbo/mergework/pull/13",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 14,
+                    "title": "Fresh candidate",
+                    "url": "https://github.com/ramimbo/mergework/pull/14",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+            ],
+            "bounty_claim_comments": [
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-1",
+                    "author": {"login": "reviewer-one"},
+                    "createdAt": "2026-06-02T10:00:00Z",
+                    "body": (
+                        "/claim #654\n\n"
+                        "PR: https://github.com/ramimbo/mergework/pull/11"
+                        "#pullrequestreview-4400000000\n"
+                        f"Head SHA: `{current_head}`"
+                    ),
+                },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-2",
+                    "author": {"login": "reviewer-two"},
+                    "createdAt": "2026-06-02T10:05:00Z",
+                    "body": (
+                        "/claim #654\n\n"
+                        "PR #12\n"
+                        f"Head SHA: `{stale_head}`\n"
+                        f"Base/main SHA: `{'c' * 40}`"
+                    ),
+                },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-3",
+                    "author": {"login": "reviewer-three"},
+                    "createdAt": "2026-06-02T10:10:00Z",
+                    "body": (
+                        "/claim #654\n\n"
+                        "PR comment: https://github.com/ramimbo/mergework/pull/13"
+                        "#issuecomment-4400000001"
+                    ),
+                },
+            ],
+        },
+        reviewer="reviewer",
+    )
+
+    rows = {row["pull_request"]: row for row in report["pull_requests"]}
+
+    assert rows[11]["state"] == "already_claimed_current_head"
+    assert rows[11]["bounty_claims"][0]["evidence_type"] == "pr_review"
+    assert rows[11]["bounty_claims"][0]["head_sha"] == current_head
+    assert rows[12]["state"] == "claimed_stale_head_or_base"
+    assert rows[12]["bounty_claims"][0]["head_sha"] == stale_head
+    assert rows[13]["state"] == "claimed_by_pr_comment"
+    assert rows[13]["bounty_claims"][0]["evidence_type"] == "pr_comment"
+    assert rows[14]["state"] == "candidate_for_fresh_review"
+
+    markdown = format_markdown_report(report)
+    assert "issuecomment-1" in markdown
+    assert "issuecomment-3" in markdown
+
+
 def test_analyze_candidates_rejects_invalid_arguments() -> None:
     data = {"pull_requests": []}
 
@@ -250,3 +355,55 @@ def test_live_candidates_reports_missing_github_cli(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
         load_live_candidates("ramimbo/mergework")
+
+
+def test_live_candidates_can_join_paginated_bounty_claim_comments(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 41,
+                        "title": "Open PR",
+                        "url": "https://github.com/ramimbo/mergework/pull/41",
+                        "author": {"login": "alice"},
+                        "headRefOid": "a" * 40,
+                        "mergeStateStatus": "CLEAN",
+                        "labels": [],
+                        "statusCheckRollup": _quality_check(),
+                        "reviews": [],
+                    }
+                ]
+            )
+        elif args[:4] == ["gh", "api", "--paginate", "--slurp"]:
+            stdout = json.dumps(
+                [
+                    [
+                        {
+                            "html_url": (
+                                "https://github.com/ramimbo/mergework/issues/654#issuecomment-99"
+                            ),
+                            "user": {"login": "claimant"},
+                            "created_at": "2026-06-02T10:00:00Z",
+                            "body": (
+                                "/claim #654\nPR: https://github.com/ramimbo/mergework/pull/41"
+                            ),
+                        }
+                    ]
+                ]
+            )
+        else:
+            raise AssertionError(f"unexpected command: {args}")
+        return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    data = load_live_candidates("ramimbo/mergework", bounty_issue=654)
+    report = analyze_candidates(data, reviewer="reviewer")
+
+    assert any(args[:4] == ["gh", "api", "--paginate", "--slurp"] for args in calls)
+    assert report["pull_requests"][0]["state"] == "already_claimed_on_bounty_issue"
+    assert report["pull_requests"][0]["bounty_claims"][0]["author"] == "claimant"
