@@ -279,6 +279,14 @@ def _claim_summaries(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _claim_matches_head(claim_sha: Any, head_oid: str) -> bool:
+    if not isinstance(claim_sha, str) or not claim_sha:
+        return False
+    normalized_claim = claim_sha.strip().lower()
+    normalized_head = head_oid.strip().lower()
+    return bool(normalized_head and normalized_head.startswith(normalized_claim))
+
+
 def _classify_pr(
     raw: dict[str, Any],
     *,
@@ -304,7 +312,7 @@ def _classify_pr(
     latest_reviewer_review = _latest_review(reviewer_reviews)
     bounty_claims = claims_by_pr.get(number, [])
     current_head_claims = [
-        claim for claim in bounty_claims if claim.get("head_sha") and claim["head_sha"] == head_oid
+        claim for claim in bounty_claims if _claim_matches_head(claim.get("head_sha"), head_oid)
     ]
     pr_comment_claims = [
         claim for claim in bounty_claims if claim.get("evidence_type") == "pr_comment"

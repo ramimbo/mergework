@@ -296,6 +296,68 @@ def test_review_bounty_candidates_marks_bounty_claim_comment_evidence() -> None:
     assert "issuecomment-3" in markdown
 
 
+def test_review_bounty_candidates_matches_uppercase_and_abbreviated_head_claims() -> None:
+    current_head = "f8cad3798db475f94c1a9e5cc0acf01ed965f11e"
+    report = analyze_candidates(
+        {
+            "pull_requests": [
+                {
+                    "number": 21,
+                    "title": "Uppercase full head",
+                    "url": "https://github.com/ramimbo/mergework/pull/21",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+                {
+                    "number": 22,
+                    "title": "Abbreviated head",
+                    "url": "https://github.com/ramimbo/mergework/pull/22",
+                    "author": {"login": "alice"},
+                    "headRefOid": current_head,
+                    "mergeStateStatus": "CLEAN",
+                    "labels": [],
+                    "statusCheckRollup": _quality_check(),
+                    "reviews": [],
+                },
+            ],
+            "bounty_claim_comments": [
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-21",
+                    "author": {"login": "reviewer-one"},
+                    "createdAt": "2026-06-03T13:20:00Z",
+                    "body": (
+                        "/claim #654\n"
+                        "PR: https://github.com/ramimbo/mergework/pull/21\n"
+                        f"Head SHA: `{current_head.upper()}`"
+                    ),
+                },
+                {
+                    "url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-22",
+                    "author": {"login": "reviewer-two"},
+                    "createdAt": "2026-06-03T13:21:00Z",
+                    "body": (
+                        "/claim #654\n"
+                        "PR: https://github.com/ramimbo/mergework/pull/22\n"
+                        f"Head SHA: `{current_head[:12]}`"
+                    ),
+                },
+            ],
+        },
+        reviewer="reviewer",
+    )
+
+    states = {row["pull_request"]: row["state"] for row in report["pull_requests"]}
+
+    assert states == {
+        21: "already_claimed_current_head",
+        22: "already_claimed_current_head",
+    }
+
+
 def test_analyze_candidates_rejects_invalid_arguments() -> None:
     data = {"pull_requests": []}
 
@@ -379,6 +441,7 @@ def test_live_candidates_can_join_paginated_bounty_claim_comments(monkeypatch) -
                 ]
             )
         elif args[:4] == ["gh", "api", "--paginate", "--slurp"]:
+            assert args[4].endswith("/issues/654/comments")
             stdout = json.dumps(
                 [
                     [
@@ -392,7 +455,19 @@ def test_live_candidates_can_join_paginated_bounty_claim_comments(monkeypatch) -
                                 "/claim #654\nPR: https://github.com/ramimbo/mergework/pull/41"
                             ),
                         }
-                    ]
+                    ],
+                    [
+                        {
+                            "html_url": (
+                                "https://github.com/ramimbo/mergework/issues/654#issuecomment-100"
+                            ),
+                            "user": {"login": "claimant-two"},
+                            "created_at": "2026-06-02T10:05:00Z",
+                            "body": (
+                                "/claim #654\nPR: https://github.com/ramimbo/mergework/pull/41"
+                            ),
+                        }
+                    ],
                 ]
             )
         else:
@@ -406,4 +481,6 @@ def test_live_candidates_can_join_paginated_bounty_claim_comments(monkeypatch) -
 
     assert any(args[:4] == ["gh", "api", "--paginate", "--slurp"] for args in calls)
     assert report["pull_requests"][0]["state"] == "already_claimed_on_bounty_issue"
+    assert report["pull_requests"][0]["bounty_claim_count"] == 2
     assert report["pull_requests"][0]["bounty_claims"][0]["author"] == "claimant"
+    assert report["pull_requests"][0]["bounty_claims"][1]["author"] == "claimant-two"
