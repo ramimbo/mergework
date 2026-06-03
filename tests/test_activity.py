@@ -310,6 +310,9 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
     invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
+    invalid_status_response = client.get("/api/v1/activity?status=garbage")
+    repeated_status_response = client.get("/api/v1/activity?status=accepted&status=pending")
+    masked_status_response = client.get("/api/v1/activity?status=%C2%85accepted")
 
     assert api_response.status_code == 400
     assert api_response.json()["detail"] == "q must not contain control characters"
@@ -329,6 +332,14 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert repeated_account_response.json()["detail"] == "account must be provided at most once"
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
+    assert invalid_status_response.status_code == 400
+    assert invalid_status_response.json()["detail"] == (
+        "status is not supported by activity; use q or account filters"
+    )
+    assert repeated_status_response.status_code == 400
+    assert repeated_status_response.json()["detail"] == "status must be provided at most once"
+    assert masked_status_response.status_code == 400
+    assert masked_status_response.json()["detail"] == "status must not contain control characters"
 
 
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(

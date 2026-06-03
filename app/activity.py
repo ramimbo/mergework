@@ -29,11 +29,19 @@ def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Temp
         request: Request,
         q: str | None = Query(None),
         account: str | None = Query(None),
+        status: str | None = Query(None),
     ) -> dict[str, Any]:
         reject_control_char_query_param(request, "q")
         reject_repeated_query_param(request, "q")
         reject_control_char_query_param(request, "account")
         reject_repeated_query_param(request, "account")
+        reject_control_char_query_param(request, "status")
+        reject_repeated_query_param(request, "status")
+        if status is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="status is not supported by activity; use q or account filters",
+            )
         with session_scope(db_url) as session:
             return activity_context(session, q, account)
 
