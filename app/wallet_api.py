@@ -15,6 +15,7 @@ from app.ledger.service import (
 )
 from app.models import Wallet
 from app.openapi_request_bodies import (
+    GITHUB_CLAIM_BODY,
     SIGNED_WALLET_ACTION_BODY,
     WALLET_REGISTER_BODY,
     WALLET_TRANSFER_BODY,
@@ -93,7 +94,7 @@ def register_wallet_api_routes(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             return wallet_to_dict(session, wallet)
 
-    @app.post("/api/v1/github/claim", openapi_extra=SIGNED_WALLET_ACTION_BODY)
+    @app.post("/api/v1/github/claim", openapi_extra=GITHUB_CLAIM_BODY)
     async def api_github_claim(
         request: Request, github_login: str = Depends(require_github_login)
     ) -> dict[str, Any]:

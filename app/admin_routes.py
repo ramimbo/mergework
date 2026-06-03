@@ -54,7 +54,9 @@ def register_admin_routes(
         proposal_id: Annotated[int | None, Query(ge=1)] = None,
     ) -> Any:
         reject_repeated_query_param(request, "webhook_status")
+        reject_repeated_query_param(request, "webhook_limit")
         reject_repeated_query_param(request, "proposal_id")
+        reject_noncanonical_int_query_param(request, "webhook_limit")
         reject_noncanonical_int_query_param(request, "proposal_id")
         login = admin_login_from_request(request)
         if login is None:

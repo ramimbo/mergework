@@ -20,11 +20,17 @@ MCP_TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "get_bounty",
-        "description": "Get a bounty by id, optionally with accepted awards",
+        "description": (
+            "Get a bounty by internal id, or by GitHub issue_number with optional repo, "
+            "optionally with accepted awards"
+        ),
     },
     {
         "name": "list_bounty_attempts",
-        "description": "List advisory active-attempt reservations for a bounty",
+        "description": (
+            "List advisory active-attempt reservations for a bounty by internal bounty_id, "
+            "or by GitHub issue_number with optional repo"
+        ),
     },
     {"name": "get_balance", "description": "Get an account balance"},
     {

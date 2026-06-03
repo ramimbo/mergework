@@ -591,6 +591,15 @@ def _load_input(path: str) -> dict[str, Any]:
     return data
 
 
+def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        parser.error(f"{option_name} must be a non-empty value")
+    if stripped != value:
+        parser.error(f"{option_name} must not include leading or trailing whitespace")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Rank open PRs for reviewer-specific review-bounty work."
@@ -608,13 +617,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", choices=["json", "markdown", "text"], default="text")
     args = parser.parse_args(argv)
 
-    if args.input and args.bounty_issue is not None:
-        raise ValueError("--bounty-issue is only available with --repo live mode")
-    data = (
-        _load_input(args.input)
-        if args.input
-        else load_live_candidates(args.repo, bounty_issue=args.bounty_issue)
-    )
+    if args.input is not None:
+        if args.bounty_issue is not None:
+            parser.error("--bounty-issue is only available with --repo live mode")
+        data = _load_input(_require_non_empty_arg(parser, "--input", args.input))
+    else:
+        data = load_live_candidates(
+            _require_non_empty_arg(parser, "--repo", args.repo),
+            bounty_issue=args.bounty_issue,
+        )
     report = analyze_candidates(
         data,
         reviewer=args.reviewer,

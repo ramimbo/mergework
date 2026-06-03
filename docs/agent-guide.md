@@ -261,12 +261,17 @@ raw-open bounties that still have positive effective award capacity after
 pending payout or close proposals are considered.
 
 Inspect active attempt reservations for a bounty before opening overlapping
-work:
+work. Use the internal `bounty_id` from `list_bounties`, or `issue_number` with
+`repo` when you start from a GitHub issue URL:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_bounty_attempts","arguments":{"bounty_id":11}}}'
+
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_bounty_attempts","arguments":{"issue_number":404,"repo":"ramimbo/mergework"}}}'
 ```
 
 Look up a public proof by hash:

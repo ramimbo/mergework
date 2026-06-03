@@ -16,6 +16,19 @@ def _request_body(schema: dict[str, Any], *, required: bool = True) -> dict[str,
     return body
 
 
+def _json_response(
+    schema: dict[str, Any], *, description: str = "Successful Response"
+) -> dict[str, Any]:
+    return {
+        "description": description,
+        "content": {
+            "application/json": {
+                "schema": schema,
+            },
+        },
+    }
+
+
 def _object_schema(
     properties: dict[str, Any], *, required: list[str] | None = None, description: str | None = None
 ) -> dict[str, Any]:
@@ -42,6 +55,27 @@ INTEGER_OR_STRING_SCHEMA = {
     ],
 }
 
+MRWK_AMOUNT_SCHEMA = {
+    "type": "string",
+    "description": "Positive decimal MRWK amount with at most six decimal places.",
+    "pattern": r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$",
+}
+
+MRWK_DECIMAL_SCHEMA = {
+    "type": "string",
+    "description": "Decimal MRWK amount with at most six decimal places.",
+    "pattern": r"^\d+(?:\.\d{1,6})?$",
+}
+
+BOUNDED_TTL_STRING_SCHEMA = {
+    "type": "string",
+    "description": "Integer value encoded as a string (60..604800).",
+    "pattern": (
+        r"^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|"
+        r"60[0-3][0-9]{3}|604[0-7][0-9]{2}|604800)$"
+    ),
+}
+
 LOWERCASE_HEX_64_SCHEMA = {
     "type": "string",
     "minLength": 64,
@@ -55,6 +89,116 @@ LOWERCASE_HEX_128_SCHEMA = {
     "maxLength": 128,
     "pattern": "^[0-9a-f]{128}$",
 }
+
+WALLET_RESPONSE_SCHEMA = _object_schema(
+    {
+        "address": {"type": "string"},
+        "public_key_hex": LOWERCASE_HEX_64_SCHEMA,
+        "label": {"type": "string", "nullable": True},
+        "github_login": {"type": "string", "nullable": True},
+        "balance_mrwk": MRWK_DECIMAL_SCHEMA,
+        "nonce": {"type": "integer", "minimum": 0},
+        "next_nonce": {"type": "integer", "minimum": 1},
+        "created_at": {"type": "string"},
+    }
+)
+
+LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "sequence": {"type": "integer", "minimum": 1},
+        "type": {"type": "string"},
+        "from": {"type": "string", "nullable": True},
+        "to": {"type": "string"},
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "reference": {"type": "string", "nullable": True},
+        "previous_hash": {"type": "string", "nullable": True},
+        "entry_hash": LOWERCASE_HEX_64_SCHEMA,
+        "proof_hash": {**LOWERCASE_HEX_64_SCHEMA, "nullable": True},
+        "created_at": {"type": "string"},
+    }
+)
+
+WALLET_TRANSFER_RESPONSE_SCHEMA = _object_schema(
+    {
+        "hash": LOWERCASE_HEX_64_SCHEMA,
+        "type": {"type": "string"},
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "from_address": {"type": "string"},
+        "to_address": {"type": "string"},
+        "amount_mrwk": MRWK_AMOUNT_SCHEMA,
+        "nonce": {"type": "integer", "minimum": 1},
+        "memo": {"type": "string", "nullable": True},
+        "created_at": {"type": "string"},
+    }
+)
+
+BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "id": {"type": "integer", "minimum": 1},
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "submitter_account": {"type": "string"},
+        "source_url": {"type": "string", "nullable": True},
+        "status": {"type": "string"},
+        "expires_at": {"type": "string"},
+        "created_at": {"type": "string"},
+        "updated_at": {"type": "string"},
+    }
+)
+
+ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
+    {
+        "status": {"type": "string"},
+        "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    }
+)
+
+ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "status": {"type": "string"},
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    }
+)
+
+ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
+    {
+        "status": {"type": "string"},
+        "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
+    }
+)
+
+TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
+    {
+        "id": {"type": "integer", "minimum": 1},
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "challenger_account": {"type": "string"},
+        "challenge_type": {"type": "string"},
+        "status": {"type": "string"},
+        "reason": {"type": "string"},
+        "created_at": {"type": "string"},
+    }
+)
+
+TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
+    {
+        "id": {"type": "integer", "minimum": 1},
+        "type": {"type": "string"},
+        "action": {"type": "string"},
+        "status": {"type": "string"},
+        "payload_hash": LOWERCASE_HEX_64_SCHEMA,
+        "payload": {"type": "object", "additionalProperties": True},
+        "proposed_by": {"type": "string"},
+        "executed_by": {"type": "string", "nullable": True},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+        "executed_at": {"type": "string", "nullable": True},
+        "executed_ledger_sequence": {"type": "integer", "nullable": True},
+        "result": {"type": "object", "additionalProperties": True},
+        "challenges": {"type": "array", "items": TREASURY_CHALLENGE_RESPONSE_SCHEMA},
+    }
+)
 
 OPTIONAL_ATTEMPT_BODY = {
     "requestBody": _request_body(
@@ -74,11 +218,7 @@ OPTIONAL_ATTEMPT_BODY = {
                 "ttl_seconds": {
                     "anyOf": [
                         {"type": "integer", "minimum": 60, "maximum": 604800},
-                        {
-                            "type": "string",
-                            "description": "Integer value encoded as a string (60..604800).",
-                            "pattern": "^[0-9]+$",
-                        },
+                        BOUNDED_TTL_STRING_SCHEMA,
                     ],
                     "default": 86400,
                     "description": "Attempt lifetime in seconds, from 60 to 604800.",
@@ -88,6 +228,15 @@ OPTIONAL_ATTEMPT_BODY = {
         ),
         required=False,
     ),
+    "responses": {
+        "201": _json_response(
+            ATTEMPT_REGISTRATION_RESPONSE_SCHEMA, description="Attempt registered."
+        ),
+        "409": _json_response(
+            ATTEMPT_CONFLICT_RESPONSE_SCHEMA,
+            description="Attempt unavailable or duplicate active attempt.",
+        ),
+    },
 }
 
 OPTIONAL_ATTEMPT_RELEASE_BODY = {
@@ -105,6 +254,9 @@ OPTIONAL_ATTEMPT_RELEASE_BODY = {
         ),
         required=False,
     ),
+    "responses": {
+        "200": _json_response(ATTEMPT_RELEASE_RESPONSE_SCHEMA),
+    },
 }
 
 WALLET_REGISTER_BODY = {
@@ -120,6 +272,9 @@ WALLET_REGISTER_BODY = {
             required=["public_key_hex"],
         ),
     ),
+    "responses": {
+        "200": _json_response(WALLET_RESPONSE_SCHEMA),
+    },
 }
 
 SIGNED_WALLET_ACTION_PROPERTIES = {
@@ -138,6 +293,16 @@ SIGNED_WALLET_ACTION_BODY = {
             required=["address", "nonce", "signature_hex"],
         ),
     ),
+    "responses": {
+        "200": _json_response(WALLET_RESPONSE_SCHEMA),
+    },
+}
+
+GITHUB_CLAIM_BODY = {
+    "requestBody": SIGNED_WALLET_ACTION_BODY["requestBody"],
+    "responses": {
+        "200": _json_response(LEDGER_ENTRY_RESPONSE_SCHEMA),
+    },
 }
 
 WALLET_TRANSFER_BODY = {
@@ -146,7 +311,7 @@ WALLET_TRANSFER_BODY = {
             {
                 "from_address": {"type": "string", "description": "Sender mrwk1 wallet address."},
                 "to_address": {"type": "string", "description": "Receiver mrwk1 wallet address."},
-                "amount_mrwk": {"type": "string", "description": "Decimal MRWK amount."},
+                "amount_mrwk": MRWK_AMOUNT_SCHEMA,
                 "nonce": INTEGER_OR_STRING_SCHEMA,
                 "memo": {"type": "string", "description": "Optional transfer memo."},
                 "signature_hex": {
@@ -157,6 +322,9 @@ WALLET_TRANSFER_BODY = {
             required=["from_address", "to_address", "amount_mrwk", "nonce", "signature_hex"],
         ),
     ),
+    "responses": {
+        "200": _json_response(WALLET_TRANSFER_RESPONSE_SCHEMA),
+    },
 }
 
 TREASURY_PROPOSAL_BODY = {
@@ -173,6 +341,9 @@ TREASURY_PROPOSAL_BODY = {
             required=["action", "payload"],
         ),
     ),
+    "responses": {
+        "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
+    },
 }
 
 TREASURY_CHALLENGE_BODY = {
@@ -185,4 +356,7 @@ TREASURY_CHALLENGE_BODY = {
             required=["challenge_type", "reason"],
         ),
     ),
+    "responses": {
+        "200": _json_response(TREASURY_CHALLENGE_RESPONSE_SCHEMA),
+    },
 }

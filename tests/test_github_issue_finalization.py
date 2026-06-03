@@ -5,11 +5,14 @@ from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request
 
+import pytest
+
 from app.github_issue_finalization import (
     LIVE_BOUNTY_STATUS_BLOCK_END,
     LIVE_BOUNTY_STATUS_BLOCK_START,
     finalize_created_bounty_issue,
     finalize_paid_bounty_issue,
+    pending_create_bounty_comment_body,
 )
 
 
@@ -25,6 +28,50 @@ class _FakeResponse:
 
     def read(self) -> bytes:
         return json.dumps(self._body).encode()
+
+
+def test_pending_create_bounty_comment_includes_execution_time_without_open_claims() -> None:
+    body = pending_create_bounty_comment_body(
+        {
+            "id": 125,
+            "action": "create_bounty",
+            "status": "pending",
+            "executes_after": "2026-06-03T11:41:52Z",
+        }
+    )
+
+    assert "Status: pending `create_bounty` proposal. This issue is not claimable yet." in body
+    assert "Proposal: https://api.mrwk.online/api/v1/treasury/proposals/125" in body
+    assert "Earliest execution: 2026-06-03T11:41:52Z" in body
+    assert "`mrwk:bounty`" in body
+    assert "claims-open comment" in body
+    assert "Reserved on MergeWork:" not in body
+    assert "Claims are now open" not in body
+
+
+@pytest.mark.parametrize(
+    ("proposal_update", "expected_message"),
+    (
+        ({"id": "abc"}, "pending bounty comment requires a positive proposal id"),
+        ({"id": -1}, "pending bounty comment requires a positive proposal id"),
+        ({"executes_after": ""}, "pending bounty comment requires executes_after"),
+        ({"action": "pay_claim"}, "pending bounty comment requires a create_bounty proposal"),
+        ({"status": "executed"}, "pending bounty comment requires a pending proposal"),
+    ),
+)
+def test_pending_create_bounty_comment_rejects_invalid_proposals(
+    proposal_update: dict[str, object], expected_message: str
+) -> None:
+    proposal = {
+        "id": 125,
+        "action": "create_bounty",
+        "status": "pending",
+        "executes_after": "2026-06-03T11:41:52Z",
+    }
+    proposal.update(proposal_update)
+
+    with pytest.raises(ValueError, match=expected_message):
+        pending_create_bounty_comment_body(proposal)
 
 
 def test_finalize_created_bounty_issue_adds_label_and_claims_open_comment() -> None:

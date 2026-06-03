@@ -394,7 +394,7 @@ def _run_gh(args: list[str]) -> Any:
 
 
 def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
-    return _run_gh(
+    data = _run_gh(
         [
             "issue",
             "list",
@@ -410,6 +410,14 @@ def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
             "number",
         ]
     )
+    if not isinstance(data, list):
+        raise RuntimeError("gh issue search returned a non-list response")
+    issues: list[dict[str, Any]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            raise RuntimeError("gh issue search returned a non-object issue row")
+        issues.append(item)
+    return issues
 
 
 def _load_public_json(url: str) -> Any:

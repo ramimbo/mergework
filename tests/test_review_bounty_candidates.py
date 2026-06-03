@@ -160,6 +160,32 @@ def test_review_bounty_candidates_classifies_review_states(tmp_path, capsys) -> 
     assert output["summary"]["pull_requests"] == 9
 
 
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "--input must be a non-empty value"),
+        (["--input", "   "], "--input must be a non-empty value"),
+        (["--input", " tests/fixtures/missing.json "], "--input must not include"),
+        (["--repo", ""], "--repo must be a non-empty value"),
+        (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
+    ),
+)
+def test_review_bounty_candidates_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([*source_args, "--reviewer", "reviewer", "--format", "json"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
+
+
 def test_review_bounty_candidates_ignores_author_and_bot_reviews() -> None:
     report = analyze_candidates(
         {

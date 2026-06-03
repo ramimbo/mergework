@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from app.config import Settings, get_settings, validate_deploy_settings
 
 
@@ -23,6 +25,34 @@ def _settings(**overrides: object) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)  # type: ignore[arg-type]
+
+
+def _deploy_ready_env(**overrides: str) -> dict[str, str]:
+    env = {
+        **{key: value for key, value in os.environ.items() if not key.startswith("MERGEWORK_")},
+        "MERGEWORK_DATABASE_URL": "sqlite:////srv/mergework/data/mergework.sqlite3",
+        "MERGEWORK_PUBLIC_BASE_URL": "https://staging.mrwk.example.test",
+        "MERGEWORK_GITHUB_WEBHOOK_SECRET": "webhook-8efc3925bb8746b8a8fd3392c4c48e32",
+        "MERGEWORK_GITHUB_OAUTH_CLIENT_ID": "client-id",
+        "MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET": "oauth-7818e79f9d3a4a1d82ff0e1b9f0b8e42",
+        "MERGEWORK_ADMIN_LOGINS": "alice",
+        "MERGEWORK_ADMIN_TOKEN": "admin-14dcaab83bb245f2bfb5d5c21a9bb55b",
+        "MERGEWORK_COOKIE_SECRET": "cookie-27fd1c41324a4bdcb2e4014adc3a6108",
+        "MERGEWORK_GITHUB_ACCEPTED_LABELERS": "alice",
+    }
+    env.update(overrides)
+    return env
+
+
+def _run_deploy_ready(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-S", "scripts/check_deploy_ready.py"],
+        check=False,
+        cwd=os.getcwd(),
+        env=env,
+        text=True,
+        capture_output=True,
+    )
 
 
 def test_deploy_readiness_accepts_strong_configuration() -> None:
@@ -439,30 +469,82 @@ def test_deploy_readiness_rejects_dotless_public_base_url_host() -> None:
 
 
 def test_deploy_readiness_script_runs_directly_from_source() -> None:
-    env = {
-        **os.environ,
-        "MERGEWORK_DATABASE_URL": "sqlite:////srv/mergework/data/mergework.sqlite3",
-        "MERGEWORK_PUBLIC_BASE_URL": "https://staging.mrwk.example.test",
-        "MERGEWORK_GITHUB_WEBHOOK_SECRET": "webhook-8efc3925bb8746b8a8fd3392c4c48e32",
-        "MERGEWORK_GITHUB_OAUTH_CLIENT_ID": "client-id",
-        "MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET": "oauth-7818e79f9d3a4a1d82ff0e1b9f0b8e42",
-        "MERGEWORK_ADMIN_LOGINS": "alice",
-        "MERGEWORK_ADMIN_TOKEN": "admin-14dcaab83bb245f2bfb5d5c21a9bb55b",
-        "MERGEWORK_COOKIE_SECRET": "cookie-27fd1c41324a4bdcb2e4014adc3a6108",
-        "MERGEWORK_GITHUB_ACCEPTED_LABELERS": "alice",
-    }
+    result = _run_deploy_ready(_deploy_ready_env())
 
-    result = subprocess.run(
-        [sys.executable, "-S", "scripts/check_deploy_ready.py"],
-        check=False,
-        cwd=os.getcwd(),
-        env=env,
-        text=True,
-        capture_output=True,
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "Deploy readiness check passed."
+
+
+def test_deploy_readiness_subprocess_env_ignores_parent_mergework_values(monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT", "0")
+
+    result = _run_deploy_ready(_deploy_ready_env())
+
+    assert result.returncode == 0, result.stdout
+    assert result.stdout.strip() == "Deploy readiness check passed."
+
+
+def test_deploy_readiness_accepts_documented_treasury_executor_envs() -> None:
+    result = _run_deploy_ready(
+        _deploy_ready_env(
+            MERGEWORK_TREASURY_EXECUTOR_ENABLED="1",
+            MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS="300",
+            MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT="25",
+            MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS="60",
+        )
     )
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "Deploy readiness check passed."
+
+
+def test_deploy_readiness_accepts_treasury_executor_minimum_bounds() -> None:
+    result = _run_deploy_ready(
+        _deploy_ready_env(
+            MERGEWORK_TREASURY_EXECUTOR_ENABLED="1",
+            MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS="15",
+            MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT="1",
+            MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS="30",
+        )
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "Deploy readiness check passed."
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "expected_error"),
+    [
+        (
+            "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS",
+            "14",
+            "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS must be at least 15",
+        ),
+        (
+            "MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT",
+            "0",
+            "MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT must be at least 1",
+        ),
+        (
+            "MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS",
+            "29",
+            "MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS must be at least 30",
+        ),
+    ],
+)
+def test_deploy_readiness_rejects_enabled_treasury_executor_invalid_envs(
+    name: str, value: str, expected_error: str
+) -> None:
+    result = _run_deploy_ready(
+        _deploy_ready_env(
+            MERGEWORK_TREASURY_EXECUTOR_ENABLED="1",
+            **{name: value},
+        )
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "Deploy readiness check failed:" in result.stdout
+    assert f"- {expected_error}" in result.stdout
 
 
 def test_deploy_readiness_rejects_loopback_public_base_url() -> None:

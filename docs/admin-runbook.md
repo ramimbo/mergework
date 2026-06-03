@@ -48,6 +48,26 @@ curl -s "https://api.mrwk.online/api/v1/treasury/proposals?status=pending&action
 curl -s https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>
 ```
 
+When posting a GitHub comment for a pending `create_bounty` proposal, include
+the public proposal URL and the earliest execution timestamp. Use the
+`pending_create_bounty_comment_body()` helper from
+`app.github_issue_finalization` or this equivalent shape:
+
+```text
+Status: pending `create_bounty` proposal. This issue is not claimable yet.
+
+Proposal: https://api.mrwk.online/api/v1/treasury/proposals/<proposal_id>
+Earliest execution: <executes_after UTC>
+
+Wait until proposal execution creates the public bounty row and finalizes this
+GitHub issue with `mrwk:bounty` and the claims-open comment before treating this
+as live bounty work.
+```
+
+This is separate from the post-execution claims-open finalization comment. Do
+not add `mrwk:bounty`, post `Reserved on MergeWork:`, or imply claims are open
+while the proposal is still pending.
+
 Use the filtered proposal list to reconcile pending payouts for one recipient
 without mixing unrelated `pay_bounty` proposals from busy review rounds.
 

@@ -22,6 +22,7 @@ STALE_PENDING_BOUNTY_STATUS_TEXT = (
     "Status: proposed bounty. This issue is not claimable yet.",
 )
 PAID_BOUNTY_FINALIZATION_COMMENT_MARKER = "<!-- mergework:mrwk:paid-bounty-finalized -->"
+DEFAULT_PUBLIC_API_BASE_URL = "https://api.mrwk.online"
 
 
 def _github_request(
@@ -128,6 +129,33 @@ def _github_issue_api_base(repo: str, issue_number: int) -> str:
     owner = quote(owner_part, safe="")
     name = quote(name_part, safe="")
     return f"https://api.github.com/repos/{owner}/{name}/issues/{issue_number}"
+
+
+def pending_create_bounty_comment_body(
+    proposal: dict[str, Any], *, api_base_url: str = DEFAULT_PUBLIC_API_BASE_URL
+) -> str:
+    if str(proposal.get("action") or "") != "create_bounty":
+        raise ValueError("pending bounty comment requires a create_bounty proposal")
+    if str(proposal.get("status") or "") != "pending":
+        raise ValueError("pending bounty comment requires a pending proposal")
+    try:
+        proposal_id = int(str(proposal.get("id") or "0"))
+    except ValueError:
+        raise ValueError("pending bounty comment requires a positive proposal id") from None
+    if proposal_id <= 0:
+        raise ValueError("pending bounty comment requires a positive proposal id")
+    executes_after = str(proposal.get("executes_after") or "").strip()
+    if not executes_after:
+        raise ValueError("pending bounty comment requires executes_after")
+    proposal_url = f"{api_base_url.rstrip('/')}/api/v1/treasury/proposals/{proposal_id}"
+    return (
+        "Status: pending `create_bounty` proposal. This issue is not claimable yet.\n\n"
+        f"Proposal: {proposal_url}\n"
+        f"Earliest execution: {executes_after}\n\n"
+        "Wait until proposal execution creates the public bounty row and finalizes this "
+        "GitHub issue with `mrwk:bounty` and the claims-open comment before treating this "
+        "as live bounty work."
+    )
 
 
 def _has_label(issue: dict[str, Any], label: str) -> bool:

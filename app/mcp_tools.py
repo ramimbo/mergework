@@ -126,6 +126,31 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a boolean")
         return value
 
+    def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
+        issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
+        if repo_selector is not None:
+            issue_query = issue_query.where(func.lower(Bounty.repo) == repo_selector)
+        bounties = session.scalars(issue_query.order_by(Bounty.id.desc()).limit(2)).all()
+        if not bounties:
+            return None
+        if len(bounties) > 1:
+            raise ValueError("issue_number matches multiple bounties")
+        return bounties[0]
+
+    def selected_bounty(internal_id_field: str) -> Bounty | None:
+        has_internal_id = internal_id_field in args and args.get(internal_id_field) is not None
+        has_issue_number = "issue_number" in args and args.get("issue_number") is not None
+        repo_selector = optional_repo_selector_arg()
+        if has_internal_id and has_issue_number:
+            raise ValueError(f"use {internal_id_field} or issue_number, not both")
+        if repo_selector is not None and not has_issue_number:
+            raise ValueError("repo can only be used with issue_number")
+        if has_internal_id:
+            return session.get(Bounty, positive_int_arg(internal_id_field))
+        if has_issue_number:
+            return bounty_by_issue_number(repo_selector)
+        raise ValueError(f"{internal_id_field} or issue_number is required")
+
     with session_scope(database_url) as session:
         if name == "list_bounties":
             status = optional_clean_str_arg("status") or "open"
@@ -168,7 +193,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
-            bounty = session.get(Bounty, positive_int_arg("id"))
+            bounty = selected_bounty("id")
             if bounty is None:
                 return "bounty not found"
             bounty_data = bounty_to_dict(bounty, session=session)
@@ -176,8 +201,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
-            bounty_id = positive_int_arg("bounty_id")
-            bounty = session.get(Bounty, bounty_id)
+            bounty = selected_bounty("bounty_id")
             if bounty is None:
                 return "bounty not found"
             attempt_listing = list_bounty_attempts(
@@ -187,7 +211,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 limit=list_limit_arg(),
             )
             return {
-                "bounty_id": bounty_id,
+                "bounty_id": bounty.id,
                 "issue_number": bounty.issue_number,
                 "status": bounty.status,
                 "warnings": attempt_listing["warnings"],
@@ -264,20 +288,13 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                     else work_proof_guidance(bounty, session=session)
                 )
             if has_issue_number:
-                issue_query = select(Bounty).where(
-                    Bounty.issue_number == positive_int_arg("issue_number")
-                )
-                if repo_selector is not None:
-                    issue_query = issue_query.where(func.lower(Bounty.repo) == repo_selector)
-                bounties = session.scalars(issue_query.order_by(Bounty.id.desc()).limit(2)).all()
-                if not bounties:
+                bounty = bounty_by_issue_number(repo_selector)
+                if bounty is None:
                     return "bounty not found"
-                if len(bounties) > 1:
-                    raise ValueError("issue_number matches multiple bounties")
                 return (
-                    work_proof_guidance_json(bounties[0], session=session)
+                    work_proof_guidance_json(bounty, session=session)
                     if output_format == "json"
-                    else work_proof_guidance(bounties[0], session=session)
+                    else work_proof_guidance(bounty, session=session)
                 )
             if output_format == "json":
                 return generic_work_proof_guidance_json()

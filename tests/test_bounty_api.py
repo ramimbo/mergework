@@ -122,6 +122,55 @@ def test_admin_webhook_events_api_rejects_c1_control_status(monkeypatch):
     assert resp.json()["detail"] == "webhook_status must not contain control characters"
 
 
+def test_admin_webhook_events_api_rejects_repeated_status(monkeypatch):
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(create_app(webhook_secret="secret"))
+
+    resp = client.get(
+        "/api/v1/admin/webhook-events?status=paid&status=closed",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "status must be provided at most once"
+
+
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        ("limit=01", "limit must be a canonical positive integer"),
+        ("limit=%2B1", "limit must be a canonical positive integer"),
+        ("limit=1.0", "limit must be a canonical positive integer"),
+        ("limit=bad&limit=1", "limit must be provided at most once"),
+        ("limit=%C2%851", "limit must not contain control characters"),
+    ],
+)
+def test_admin_webhook_events_api_rejects_noncanonical_limit_values(monkeypatch, query, detail):
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(create_app(webhook_secret="secret"))
+
+    resp = client.get(
+        f"/api/v1/admin/webhook-events?{query}",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == detail
+
+
+@pytest.mark.parametrize("query", ["limit=1", "limit=200"])
+def test_admin_webhook_events_api_keeps_valid_limit_values(monkeypatch, query):
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    client = TestClient(create_app(webhook_secret="secret"))
+
+    resp = client.get(
+        f"/api/v1/admin/webhook-events?{query}",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
+
+    assert resp.status_code == 200
+
+
 class TestBountyCloseRoute:
     """Bounty close requires admin token."""
 

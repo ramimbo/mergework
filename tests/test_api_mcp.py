@@ -375,6 +375,54 @@ def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) ->
     ]
 
 
+def test_mcp_list_bounty_attempts_accepts_issue_number_selector(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=322,
+            issue_url="https://github.com/ramimbo/mergework/issues/322",
+            title="Attempt lookup by issue",
+            reward_mrwk="250",
+            max_awards=2,
+            acceptance="Agents can inspect attempts from a GitHub issue number.",
+        )
+        session.add(
+            BountyAttempt(
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+                source_url="https://github.com/ramimbo/mergework/pull/522",
+                status="active",
+                expires_at=now + timedelta(hours=1),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 24,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"issue_number": 322, "repo": "RAMIMBO/MERGEWORK"},
+            },
+        },
+    ).json()["result"]["structuredContent"]
+
+    assert result["bounty_id"] == bounty_id
+    assert result["issue_number"] == 322
+    assert result["attempts"][0]["submitter_account"] == "github:alice"
+
+
 def test_mcp_list_bounty_attempts_rejects_invalid_arguments(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -835,6 +883,126 @@ def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
             "created_at": public_utc_timestamp(proof.created_at),
         }
     ]
+
+
+def test_mcp_get_bounty_accepts_issue_number_selector(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=286,
+            issue_url="https://github.com/ramimbo/mergework/issues/286",
+            title="MCP issue-number lookup",
+            reward_mrwk="75",
+            acceptance="Agents should inspect bounties from GitHub issue numbers.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {"issue_number": 286, "repo": "RAMIMBO/MERGEWORK"},
+            },
+        },
+    ).json()
+
+    payload = json.loads(result["result"]["content"][0]["text"])
+    assert payload["id"] == bounty_id
+    assert payload["issue_number"] == 286
+
+
+def test_mcp_get_bounty_rejects_ambiguous_issue_number_selector(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=287,
+            issue_url="https://github.com/ramimbo/mergework/issues/287",
+            title="MCP issue lookup",
+            reward_mrwk="75",
+            acceptance="First repo issue.",
+        )
+        create_bounty(
+            session,
+            repo="other/repo",
+            issue_number=287,
+            issue_url="https://github.com/other/repo/issues/287",
+            title="MCP issue lookup duplicate",
+            reward_mrwk="75",
+            acceptance="Second repo issue.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "get_bounty", "arguments": {"issue_number": 287}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_get_bounty_rejects_mixed_selectors(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=288,
+            issue_url="https://github.com/ramimbo/mergework/issues/288",
+            title="MCP mixed selector validation",
+            reward_mrwk="75",
+            acceptance="Agents should choose one selector.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {
+                    "id": bounty_id,
+                    "issue_number": 288,
+                    "repo": "ramimbo/mergework",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
 
 
 def test_mcp_get_bounty_skips_malformed_award_proof_payloads(sqlite_url: str) -> None:

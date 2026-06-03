@@ -110,6 +110,50 @@ def test_admin_webhook_page_rejects_repeated_status_filter(
     assert response.json()["detail"] == "webhook_status must be provided at most once"
 
 
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        ("webhook_limit=01", "webhook_limit must be a canonical positive integer"),
+        ("webhook_limit=%2B1", "webhook_limit must be a canonical positive integer"),
+        ("webhook_limit=1.0", "webhook_limit must be a canonical positive integer"),
+        ("webhook_limit=bad&webhook_limit=1", "webhook_limit must be provided at most once"),
+        ("webhook_limit=%C2%851", "webhook_limit must not contain control characters"),
+    ],
+)
+def test_admin_webhook_page_rejects_noncanonical_limit_values(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, query: str, detail: str
+) -> None:
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(
+        f"/admin?{query}",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+
+
+@pytest.mark.parametrize("query", ["webhook_limit=1", "webhook_limit=200"])
+def test_admin_webhook_page_keeps_valid_limit_values(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch, query: str
+) -> None:
+    monkeypatch.setenv("MERGEWORK_ADMIN_TOKEN", "admin-token-for-tests")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(
+        f"/admin?{query}",
+        headers={"x-mergework-admin-token": "admin-token-for-tests"},
+    )
+
+    assert response.status_code == 200
+
+
 def test_admin_page_rejects_noncanonical_proposal_id_query(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
