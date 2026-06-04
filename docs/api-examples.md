@@ -125,7 +125,7 @@ curl -s "$API_HOST/api/v1/treasury/proposals?action=create_bounty&status=pending
 The bounty lookup is the claimable-lane check. A matching pending
 `create_bounty` proposal is only opening soon until the proposal executes, the
 public bounty row exists, and the source GitHub issue receives the
-`Reserved on MergeWork` claims-open comment.
+`mrwk:bounty` label plus the `Reserved on MergeWork` claims-open comment.
 
 Use `availability=effectively_open` when discovery should hide raw-open rows
 whose remaining awards are fully covered by pending payout or close proposals.

@@ -223,6 +223,7 @@ def test_agent_guide_tells_agents_not_to_claim_proposed_work() -> None:
     assert "live-vs-pending preflight" in guide
     assert "/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=<issue_number>" in guide
     assert "/api/v1/treasury/proposals?action=create_bounty&status=pending" in guide
+    assert "`mrwk:bounty` label plus the claims-open `Reserved on MergeWork`" in guide
     assert "Reserved on MergeWork" in guide
 
 
@@ -279,6 +280,7 @@ def test_api_examples_document_bounty_list_response_shape() -> None:
     assert "Award counters can change" in examples
     assert "live-vs-pending contributor routing" in examples
     assert "/api/v1/treasury/proposals?action=create_bounty&status=pending" in examples
+    assert "`mrwk:bounty` label plus the `Reserved on MergeWork`" in examples
     assert "Reserved on MergeWork" in examples
     assert "capacity totals" in examples
     assert "full bounty" in examples

@@ -127,7 +127,7 @@ curl -s "$API_HOST/api/v1/treasury/proposals?action=create_bounty&status=pending
 
 Treat the issue as claimable only after the public bounty row exists, the row is
 open with positive `effective_awards_remaining`, and the GitHub issue has the
-claims-open `Reserved on MergeWork` comment. A pending `create_bounty` proposal
+`mrwk:bounty` label plus the claims-open `Reserved on MergeWork` comment. A pending `create_bounty` proposal
 can show a future `executes_after` time, but it is still opening-soon work, not a
 live claim lane.
 
