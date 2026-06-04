@@ -84,6 +84,19 @@
       {{ bounty.effective_available_mrwk }} MRWK effectively available ·
       {{ bounty.effective_awards_remaining }}/{{ bounty.max_awards }} awards effectively open
     </p>
+    {% if bounty.attempt_endpoint %}
+    <p class="bounty-card-attempts">
+      Active attempts: <strong>{{ bounty.active_attempt_count | default(0) }}</strong> ·
+      <a href="{{ bounty.attempt_endpoint }}">Check active attempts</a>
+    </p>
+    {% endif %}
+    {% if bounty.active_attempt_warnings %}
+    <ul class="bounty-card-attempt-warnings">
+      {% for warning in bounty.active_attempt_warnings %}
+      <li>{{ warning }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if bounty.availability_state != "open" or bounty.effective_awards_remaining != bounty.awards_remaining %}
     <p class="notice">{{ bounty.availability_note }}</p>
     {% endif %}
