@@ -55,8 +55,6 @@ def normalized_account(account: str) -> str:
     if contains_control_character(account):
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
-    if len(clean) > ACCOUNT_MAX_LENGTH:
-        raise HTTPException(status_code=400, detail="account is too long")
     lower = clean.lower()
     if lower == TREASURY_ACCOUNT:
         return TREASURY_ACCOUNT
@@ -85,6 +83,8 @@ def normalized_account(account: str) -> str:
         if not GITHUB_LOGIN_RE.fullmatch(login):
             raise HTTPException(status_code=400, detail="github login must be valid")
         return f"github:{login}"
+    if len(clean) > ACCOUNT_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail="account is too long")
     return clean
 
 
