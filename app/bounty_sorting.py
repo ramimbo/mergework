@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
 
@@ -15,6 +16,7 @@ BOUNTY_SORT_LABELS = {
 }
 BOUNTY_SORT_OPTIONS = tuple(BOUNTY_SORT_LABELS)
 BOUNTY_SORT_ERROR = f"sort must be one of: {', '.join(BOUNTY_SORT_OPTIONS)}"
+BountySortKey = Callable[[dict[str, Any]], Any]
 
 
 def normalize_bounty_sort(sort: str | None) -> str:
@@ -29,30 +31,36 @@ def normalize_bounty_sort(sort: str | None) -> str:
     return normalized_sort
 
 
+def _newest_sort_key(bounty: dict[str, Any]) -> int:
+    return int(bounty["id"])
+
+
+def _reward_sort_key(bounty: dict[str, Any]) -> tuple[Decimal, int]:
+    return Decimal(str(bounty["reward_mrwk"])), int(bounty["id"])
+
+
+def _available_sort_key(bounty: dict[str, Any]) -> tuple[Decimal, int]:
+    return (
+        Decimal(str(bounty.get("effective_available_mrwk", bounty["available_mrwk"]))),
+        int(bounty["id"]),
+    )
+
+
+def _awards_sort_key(bounty: dict[str, Any]) -> tuple[int, int]:
+    return (
+        int(bounty.get("effective_awards_remaining", bounty["awards_remaining"])),
+        int(bounty["id"]),
+    )
+
+
+BOUNTY_SORT_KEYS: dict[str, BountySortKey] = {
+    "newest": _newest_sort_key,
+    "reward": _reward_sort_key,
+    "available": _available_sort_key,
+    "awards": _awards_sort_key,
+}
+
+
 def sort_bounties(bounties: list[dict[str, Any]], sort: str | None) -> list[dict[str, Any]]:
     normalized_sort = normalize_bounty_sort(sort)
-    if normalized_sort == "newest":
-        return sorted(bounties, key=lambda bounty: int(bounty["id"]), reverse=True)
-    if normalized_sort == "reward":
-        return sorted(
-            bounties,
-            key=lambda bounty: (Decimal(str(bounty["reward_mrwk"])), int(bounty["id"])),
-            reverse=True,
-        )
-    if normalized_sort == "available":
-        return sorted(
-            bounties,
-            key=lambda bounty: (
-                Decimal(str(bounty.get("effective_available_mrwk", bounty["available_mrwk"]))),
-                int(bounty["id"]),
-            ),
-            reverse=True,
-        )
-    return sorted(
-        bounties,
-        key=lambda bounty: (
-            int(bounty.get("effective_awards_remaining", bounty["awards_remaining"])),
-            int(bounty["id"]),
-        ),
-        reverse=True,
-    )
+    return sorted(bounties, key=BOUNTY_SORT_KEYS[normalized_sort], reverse=True)
