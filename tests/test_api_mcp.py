@@ -115,6 +115,7 @@ def test_ledger_api_honors_canonical_offset(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     first_page = client.get("/api/v1/ledger?limit=1")
+    first_two = client.get("/api/v1/ledger?limit=2")
     second_page = client.get("/api/v1/ledger?limit=1&offset=1")
     zero_offset = client.get("/api/v1/ledger?limit=1&offset=0")
     negative_offset = client.get("/api/v1/ledger?limit=1&offset=-1")
@@ -123,9 +124,10 @@ def test_ledger_api_honors_canonical_offset(sqlite_url: str) -> None:
     repeated_offset = client.get("/api/v1/ledger?limit=1&offset=1&offset=2")
 
     assert first_page.status_code == 200
+    assert first_two.status_code == 200
     assert second_page.status_code == 200
     assert zero_offset.status_code == 200
-    assert first_page.json()[0]["sequence"] != second_page.json()[0]["sequence"]
+    assert second_page.json()[0]["sequence"] == first_two.json()[1]["sequence"]
     assert zero_offset.json()[0]["sequence"] == first_page.json()[0]["sequence"]
     assert negative_offset.status_code == 422
     assert oversized_offset.status_code == 422
