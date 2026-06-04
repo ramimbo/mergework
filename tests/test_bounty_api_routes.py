@@ -415,6 +415,7 @@ def test_bounty_api_search_query_rejects_control_characters(sqlite_url: str) -> 
     ("path", "detail"),
     [
         ("/api/v1/bounties?limit=not-an-int&limit=1", "limit must be provided at most once"),
+        ("/api/v1/bounties?offset=1&offset=2", "offset must be provided at most once"),
         ("/api/v1/bounties?sort=bogus&sort=newest", "sort must be provided at most once"),
         (
             "/api/v1/bounties/summary?repo=a%2Fb&repo=c%2Fd",
@@ -486,14 +487,24 @@ def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:
 
     limited = client.get("/api/v1/bounties?status=open&limit=2")
     summary = client.get("/api/v1/bounties/summary?status=open&limit=2")
+    shifted = client.get("/api/v1/bounties?status=open&limit=2&offset=1")
+    shifted_summary = client.get("/api/v1/bounties/summary?status=open&limit=2&offset=1")
+    exhausted = client.get("/api/v1/bounties?status=open&limit=2&offset=3")
+    exhausted_summary = client.get("/api/v1/bounties/summary?status=open&limit=2&offset=3")
 
     assert [item["id"] for item in limited.json()] == [third.id, second.id]
     assert summary.json()["bounties_shown"] == 2
     assert summary.json()["open_awards"] == 2
+    assert [item["id"] for item in shifted.json()] == [second.id, first.id]
+    assert shifted_summary.json()["bounties_shown"] == 2
+    assert shifted_summary.json()["open_awards"] == 2
+    assert exhausted.json() == []
+    assert exhausted_summary.json()["bounties_shown"] == 0
+    assert exhausted_summary.json()["open_awards"] == 0
     assert first.id not in [item["id"] for item in limited.json()]
 
 
-def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
+def test_bounty_api_pagination_rejects_out_of_range_values(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
@@ -504,23 +515,43 @@ def test_bounty_api_limit_rejects_out_of_range_values(sqlite_url: str) -> None:
     assert client.get("/api/v1/bounties?limit=201").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=0").status_code == 422
     assert client.get("/api/v1/bounties/summary?limit=201").status_code == 422
+    assert client.get("/api/v1/bounties?offset=0").status_code == 200
+    assert client.get("/api/v1/bounties/summary?offset=0").status_code == 200
+    assert client.get("/api/v1/bounties?offset=-1").status_code == 422
+    assert client.get(f"/api/v1/bounties?offset={SQLITE_INTEGER_MAX + 1}").status_code == 422
+    assert client.get("/api/v1/bounties/summary?offset=-1").status_code == 422
+    assert (
+        client.get(f"/api/v1/bounties/summary?offset={SQLITE_INTEGER_MAX + 1}").status_code == 422
+    )
 
     controlled_list = client.get("/api/v1/bounties?limit=%C2%8550")
     controlled_summary = client.get("/api/v1/bounties/summary?limit=50%C2%85")
+    controlled_offset = client.get("/api/v1/bounties?offset=%C2%851")
     decimal_list = client.get("/api/v1/bounties?limit=50.0")
+    decimal_offset = client.get("/api/v1/bounties?offset=1.0")
     plus_summary = client.get("/api/v1/bounties/summary?limit=%2B50")
+    plus_summary_offset = client.get("/api/v1/bounties/summary?offset=%2B1")
     leading_zero_list = client.get("/api/v1/bounties?limit=050")
+    leading_zero_offset = client.get("/api/v1/bounties?offset=01")
 
     assert controlled_list.status_code == 400
     assert controlled_list.json()["detail"] == "limit must not contain control characters"
     assert controlled_summary.status_code == 400
     assert controlled_summary.json()["detail"] == "limit must not contain control characters"
+    assert controlled_offset.status_code == 400
+    assert controlled_offset.json()["detail"] == "offset must not contain control characters"
     assert decimal_list.status_code == 400
     assert decimal_list.json()["detail"] == "limit must be a canonical positive integer"
+    assert decimal_offset.status_code == 400
+    assert decimal_offset.json()["detail"] == "offset must be a canonical positive integer"
     assert plus_summary.status_code == 400
     assert plus_summary.json()["detail"] == "limit must be a canonical positive integer"
+    assert plus_summary_offset.status_code == 400
+    assert plus_summary_offset.json()["detail"] == "offset must be a canonical positive integer"
     assert leading_zero_list.status_code == 400
     assert leading_zero_list.json()["detail"] == "limit must be a canonical positive integer"
+    assert leading_zero_offset.status_code == 400
+    assert leading_zero_offset.json()["detail"] == "offset must be a canonical positive integer"
 
 
 def test_bounty_api_issue_number_rejects_sqlite_overflow_values(sqlite_url: str) -> None:

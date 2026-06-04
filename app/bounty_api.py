@@ -114,6 +114,7 @@ def register_bounty_api_routes(
         repo: str | None = None,
         issue_number: int | None = None,
         availability: str | None = None,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         try:
             normalized_sort = normalize_bounty_sort(sort)
@@ -182,6 +183,8 @@ def register_bounty_api_routes(
                 ),
                 normalized_sort,
             )
+            if offset:
+                sorted_bounties = sorted_bounties[offset:]
             if limit is not None:
                 return sorted_bounties[:limit]
             return sorted_bounties
@@ -192,22 +195,33 @@ def register_bounty_api_routes(
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+        offset: Annotated[int, Query(ge=0, le=SQLITE_INTEGER_MAX)] = 0,
         sort: str | None = Query(None),
         repo: str | None = Query(None),
         issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
         availability: str | None = Query(None),
     ) -> list[dict[str, Any]]:
-        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
+        for name in (
+            "status",
+            "q",
+            "limit",
+            "offset",
+            "sort",
+            "repo",
+            "issue_number",
+            "availability",
+        ):
             reject_repeated_query_param(request, name)
         for name in ("status", "q", "sort", "repo", "availability"):
             reject_control_char_query_param(request, name)
-        for name in ("limit", "issue_number"):
+        for name in ("limit", "offset", "issue_number"):
             reject_noncanonical_int_query_param(request, name)
         return _list_bounties_by_status(
             status,
             q,
             sort=sort,
             limit=limit,
+            offset=offset,
             repo=repo,
             issue_number=issue_number,
             availability=availability,
@@ -219,16 +233,26 @@ def register_bounty_api_routes(
         status: str | None = Query(None),
         q: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+        offset: Annotated[int, Query(ge=0, le=SQLITE_INTEGER_MAX)] = 0,
         sort: str | None = Query(None),
         repo: str | None = Query(None),
         issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
         availability: str | None = Query(None),
     ) -> dict[str, Any]:
-        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
+        for name in (
+            "status",
+            "q",
+            "limit",
+            "offset",
+            "sort",
+            "repo",
+            "issue_number",
+            "availability",
+        ):
             reject_repeated_query_param(request, name)
         for name in ("status", "q", "sort", "repo", "availability"):
             reject_control_char_query_param(request, name)
-        for name in ("limit", "issue_number"):
+        for name in ("limit", "offset", "issue_number"):
             reject_noncanonical_int_query_param(request, name)
         return bounty_list_summary(
             _list_bounties_by_status(
@@ -236,6 +260,7 @@ def register_bounty_api_routes(
                 q,
                 sort=sort,
                 limit=limit,
+                offset=offset,
                 repo=repo,
                 issue_number=issue_number,
                 availability=availability,
