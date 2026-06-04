@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, timedelta, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+
 from decimal import Decimal
 from typing import Any
 

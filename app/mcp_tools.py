@@ -15,7 +15,13 @@ from app.bounty_availability import (
 from app.bounty_sorting import normalize_bounty_sort, sort_bounties
 from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.ledger.service import format_mrwk, get_balance, register_wallet, submit_wallet_transfer
+from app.ledger.service import (
+    TREASURY_ACCOUNT,
+    format_mrwk,
+    get_balance,
+    register_wallet,
+    submit_wallet_transfer,
+)
 from app.ledger_views import ledger_entry_to_dict
 from app.mcp_results import MCPTextResult
 from app.mcp_work_proof import (
@@ -28,6 +34,7 @@ from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, proof
 from app.serializers import (
     bounties_to_dict,
     bounty_awards_to_dict,
+    bounty_list_summary,
     bounty_to_dict,
     public_utc_timestamp,
     wallet_to_dict,
@@ -221,7 +228,7 @@ def call_mcp_tool(
                     query.order_by(Bounty.id.desc()).limit(limit)
                 ).all()
                 return json.dumps(bounties_to_dict(newest_bounties, session=session))
-            bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
+            bounties = session.scalars(query.order_by(Bounty.id.desc()).limit(100)).all()
             sorted_bounties = sort_bounties(
                 filter_bounties_by_availability(
                     bounties_to_dict(bounties, session=session),
@@ -368,8 +375,27 @@ def call_mcp_tool(
 def call_mcp_resource(database_url: str, uri: str) -> str:
     if uri == "bounties://active":
         with session_scope(database_url) as session:
-            query = select(Bounty).where(Bounty.status == "open").order_by(Bounty.id.desc())
+            query = (
+                select(Bounty).where(Bounty.status == "open").order_by(Bounty.id.desc()).limit(100)
+            )
             bounties = session.scalars(query).all()
-            return json.dumps(bounties_to_dict(bounties, session=session))
-    raise ValueError("unknown resource")
+            bounty_dicts = bounties_to_dict(bounties, session=session)
+            summary = bounty_list_summary(bounty_dicts)
+            treasury_balance = get_balance(session, TREASURY_ACCOUNT)
 
+            return json.dumps(
+                {
+                    "claimable_now": [b for b in bounty_dicts if b["availability_state"] == "open"],
+                    "opening_soon": [
+                        b
+                        for b in bounty_dicts
+                        if b["availability_state"].startswith("pending_payout")
+                    ],
+                    "treasury": {
+                        "balance_mrwk": format_mrwk(treasury_balance),
+                        "active_liabilities_mrwk": summary["effective_open_pool_mrwk"],
+                        "capacity_mrwk": format_mrwk(max(0, treasury_balance)),
+                    },
+                }
+            )
+    raise ValueError("unknown resource")

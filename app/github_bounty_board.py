@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import urlopen

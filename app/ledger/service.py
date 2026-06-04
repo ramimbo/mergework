@@ -4,7 +4,12 @@ import hashlib
 import ipaddress
 import json
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from urllib.parse import urlparse

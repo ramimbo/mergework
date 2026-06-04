@@ -123,9 +123,8 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
 }
 
 MCP_TOOLS: list[dict[str, Any]] = [
-
-
     {
+
         "name": "list_bounties",
         "description": (
             "List MRWK bounties with optional status, q, sort, limit, and availability filters"
@@ -399,14 +398,13 @@ MCP_RESOURCES: list[dict[str, Any]] = [
     {
         "uri": "bounties://active",
         "name": "Active Bounties",
-        "description": "List of all active MRWK bounties",
+        "description": "Board view of active MRWK bounties and treasury state",
         "mimeType": "application/json",
     }
 ]
 
 
 def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
-
     return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
 
 
@@ -493,13 +491,16 @@ async def handle_mcp_request(
         return _initialize_response(response_id, payload.get("params"))
 
     if method == "tools/list":
+
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}
 
     if method == "resources/list":
         return {"jsonrpc": "2.0", "id": response_id, "result": {"resources": MCP_RESOURCES}}
 
     if method == "resources/read":
-        params = payload.get("params", {})
+        params = payload.get("params")
+        if not isinstance(params, dict):
+            return _jsonrpc_error(response_id, -32602, "invalid params")
         uri = params.get("uri")
         if not uri:
             return _jsonrpc_error(response_id, -32602, "uri is required")
@@ -508,23 +509,22 @@ async def handle_mcp_request(
             return {
                 "jsonrpc": "2.0",
                 "id": response_id,
-                "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": content}]},
+                "result": {
+                    "contents": [{"uri": uri, "mimeType": "application/json", "text": content}]
+                },
             }
         except (ValueError, KeyError, HTTPException):
             return _jsonrpc_error(response_id, -32602, "invalid resource uri")
 
     if method != "tools/call":
-
         return _jsonrpc_error(response_id, -32601, "unknown method")
 
     params = payload.get("params")
-    if params is None:
-        params = {}
     if not isinstance(params, dict):
         return _jsonrpc_error(response_id, -32602, "invalid params")
 
     name = params.get("name")
-    args = params.get("arguments", {})
+    args = params.get("arguments")
     if args is None:
         args = {}
     if not isinstance(args, dict):
