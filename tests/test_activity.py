@@ -309,7 +309,8 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     repeated_account_response = client.get(
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
-    invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
+    padded_account_response = client.get("/api/v1/activity?account=%20github:alice%20")
+    invalid_account_response = client.get("/api/v1/activity?account=github%3A_bad")
 
     assert api_response.status_code == 400
     assert api_response.json()["detail"] == "q must not contain control characters"
@@ -327,6 +328,10 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     )
     assert repeated_account_response.status_code == 400
     assert repeated_account_response.json()["detail"] == "account must be provided at most once"
+    assert padded_account_response.status_code == 400
+    assert padded_account_response.json()["detail"] == (
+        "account must not contain leading or trailing whitespace"
+    )
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.accounts import normalized_account
 from app.control_chars import contains_control_character
 from app.db import session_scope
+from app.path_params import reject_path_whitespace_padding
 from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
 from app.serializers import activity_to_dict
 
@@ -19,7 +20,11 @@ def activity_context(
 ) -> dict[str, Any]:
     if query is not None and contains_control_character(query):
         raise HTTPException(status_code=400, detail="q must not contain control characters")
-    normalized = normalized_account(account) if account is not None else None
+    if account is not None:
+        reject_path_whitespace_padding(account, "account")
+        normalized = normalized_account(account)
+    else:
+        normalized = None
     return activity_to_dict(session, query, account=normalized)
 
 
