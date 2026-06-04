@@ -504,6 +504,7 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
             "to_account must not contain control characters",
         ),
         ("to_account=github%3A%20", "github login must be valid"),
+        ("to_account=github%3Aa--b", "github login must be valid"),
     ],
 )
 def test_treasury_proposals_list_rejects_invalid_recipient_filter(
