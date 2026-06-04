@@ -57,8 +57,30 @@ def _read_json_value(response: Any) -> Any:
     return json.loads(body.decode())
 
 
-def _read_json(response: Any) -> dict[str, Any]:
-    data = _read_json_value(response)
+def _request_json_value(
+    *,
+    opener: Callable[..., Any],
+    url: str,
+    github_token: str,
+    payload: dict[str, Any] | None = None,
+    method: str = "GET",
+) -> Any:
+    request = _github_request(url, github_token, payload, method=method)
+    with opener(request, timeout=10) as response:
+        return _read_json_value(response)
+
+
+def _request_json(
+    *,
+    opener: Callable[..., Any],
+    url: str,
+    github_token: str,
+    payload: dict[str, Any] | None = None,
+    method: str = "GET",
+) -> dict[str, Any]:
+    data = _request_json_value(
+        opener=opener, url=url, github_token=github_token, payload=payload, method=method
+    )
     return cast(dict[str, Any], data) if isinstance(data, dict) else {}
 
 
@@ -69,9 +91,13 @@ def _post_json(
     github_token: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, payload)
-    with opener(request, timeout=10) as response:
-        return _read_json(response)
+    return _request_json(
+        opener=opener,
+        url=url,
+        github_token=github_token,
+        payload=payload,
+        method="POST",
+    )
 
 
 def _get_json(
@@ -80,9 +106,7 @@ def _get_json(
     url: str,
     github_token: str,
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, method="GET")
-    with opener(request, timeout=10) as response:
-        return _read_json(response)
+    return _request_json(opener=opener, url=url, github_token=github_token)
 
 
 def _get_json_list(
@@ -91,9 +115,7 @@ def _get_json_list(
     url: str,
     github_token: str,
 ) -> list[dict[str, Any]]:
-    request = _github_request(url, github_token, method="GET")
-    with opener(request, timeout=10) as response:
-        data = _read_json_value(response)
+    data = _request_json_value(opener=opener, url=url, github_token=github_token)
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)]
@@ -106,9 +128,13 @@ def _patch_json(
     github_token: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, payload, method="PATCH")
-    with opener(request, timeout=10) as response:
-        return _read_json(response)
+    return _request_json(
+        opener=opener,
+        url=url,
+        github_token=github_token,
+        payload=payload,
+        method="PATCH",
+    )
 
 
 def _bounty_issue_target(bounty: dict[str, object]) -> tuple[str, int, int] | None:
