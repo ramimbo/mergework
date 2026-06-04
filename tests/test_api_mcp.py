@@ -283,6 +283,24 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert "structuredContent" not in balance["result"]
 
 
+def test_mcp_get_balance_description_documents_account_selectors(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
+    balance_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance"
+    )
+    description = balance_tool["description"]
+    assert "github:" in description
+    assert "mrwk1" in description
+    assert "treasury:mrwk" in description
+    assert "reserve:bounty:" in description
+
+
 def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     now = datetime.now(UTC)

@@ -32,7 +32,14 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "or by GitHub issue_number with optional repo"
         ),
     },
-    {"name": "get_balance", "description": "Get an account balance"},
+    {
+        "name": "get_balance",
+        "description": (
+            "Get an account balance by selector: a GitHub login (github:<login>), "
+            "an MRWK wallet address (mrwk1...), the treasury account (treasury:mrwk), "
+            "or a bounty reserve (reserve:bounty:<id>)"
+        ),
+    },
     {
         "name": "register_wallet",
         "description": "Register an MRWK wallet public key",
