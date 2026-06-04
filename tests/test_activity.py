@@ -310,6 +310,9 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
     invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
+    max_length_query = "a" * 500
+    max_length_api_response = client.get("/api/v1/activity", params={"q": max_length_query})
+    max_length_page_response = client.get("/activity", params={"q": max_length_query})
     oversized_query = "a" * 501
     oversized_api_response = client.get("/api/v1/activity", params={"q": oversized_query})
     oversized_page_response = client.get("/activity", params={"q": oversized_query})
@@ -332,6 +335,9 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert repeated_account_response.json()["detail"] == "account must be provided at most once"
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
+    assert max_length_api_response.status_code == 200
+    assert max_length_api_response.json()["query"] == max_length_query
+    assert max_length_page_response.status_code == 200
     assert oversized_api_response.status_code == 400
     assert oversized_api_response.json()["detail"] == "q must be at most 500 characters"
     assert oversized_page_response.status_code == 400
