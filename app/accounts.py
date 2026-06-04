@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -14,7 +14,7 @@ from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
-from app.query_validation import reject_repeated_query_param
+from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
@@ -124,13 +124,15 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
     }
 
 
-def account_accepted_work_context(session: Session, account: str) -> dict[str, Any]:
+def account_accepted_work_context(
+    session: Session, account: str, limit: int | None = None
+) -> dict[str, Any]:
     account = normalized_account(account)
     pending_payouts = pending_payouts_for_account(session, account)
     return {
         "account": account,
         "summary": account_accepted_summary(session, account),
-        "accepted_work": accepted_work_for_account(session, account),
+        "accepted_work": accepted_work_for_account(session, account, limit=limit),
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
     }
@@ -181,10 +183,16 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
             return account_api_context(session, account)
 
     @app.get("/api/v1/accounts/{account}/accepted-work")
-    def api_account_accepted_work(account: str) -> dict[str, Any]:
+    def api_account_accepted_work(
+        request: Request,
+        account: str,
+        limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    ) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
         with session_scope(db_url) as session:
-            return account_accepted_work_context(session, account)
+            return account_accepted_work_context(session, account, limit)
 
     @app.get("/accounts/{account}", response_class=HTMLResponse)
     def account_page(

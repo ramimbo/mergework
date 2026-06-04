@@ -99,6 +99,46 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
 
+def test_account_accepted_work_api_honors_canonical_limit(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in (190, 191, 192):
+            bounty = create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=issue_number,
+                issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                title=f"Accepted work limit {issue_number}",
+                reward_mrwk="10",
+                acceptance="Accepted-work API limits should bound row output.",
+            )
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:alice",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{issue_number}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    full_response = client.get("/api/v1/accounts/github:alice/accepted-work")
+    limited_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=1")
+    noncanonical_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=01")
+
+    assert full_response.status_code == 200
+    assert len(full_response.json()["accepted_work"]) == 3
+    assert limited_response.status_code == 200
+    limited_payload = limited_response.json()
+    assert limited_payload["summary"]["accepted_awards"] == 3
+    assert len(limited_payload["accepted_work"]) == 1
+    assert limited_payload["accepted_work"][0]["issue_number"] == 192
+    assert noncanonical_response.status_code == 400
+    assert noncanonical_response.json()["detail"] == "limit must be a canonical positive integer"
+
+
 def test_account_routes_expose_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:

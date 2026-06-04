@@ -737,9 +737,11 @@ def account_accepted_summary(session: Session, account: str) -> dict[str, Any]:
     }
 
 
-def accepted_work_for_account(session: Session, account: str) -> list[dict[str, Any]]:
+def accepted_work_for_account(
+    session: Session, account: str, limit: int | None = None
+) -> list[dict[str, Any]]:
     """Return accepted work proof rows for one ledger account."""
-    rows = session.execute(
+    query = (
         select(Proof, LedgerEntry)
         .join(LedgerEntry, LedgerEntry.sequence == Proof.ledger_sequence)
         .where(
@@ -748,7 +750,10 @@ def accepted_work_for_account(session: Session, account: str) -> list[dict[str, 
             LedgerEntry.to_account == account,
         )
         .order_by(LedgerEntry.sequence.desc())
-    ).all()
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    rows = session.execute(query).all()
     accepted_work: list[dict[str, Any]] = []
     public_base_url = get_settings().public_base_url if rows else None
     for proof, entry in rows:
