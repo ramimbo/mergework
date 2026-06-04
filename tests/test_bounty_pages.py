@@ -76,9 +76,6 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     paid_rows_uppercase = client.get("/bounties?status=PAID")
     assert paid_rows_uppercase.status_code == 200
     assert "Paid public bounty" in paid_rows_uppercase.text
-    assert "Open public bounty" not in paid_rows_uppercase.textt.get("/bounties?status=PAID")
-    assert paid_rows_uppercase.status_code == 200
-    assert "Paid public bounty" in paid_rows_uppercase.text
     assert "Open public bounty" not in paid_rows_uppercase.text
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
 
