@@ -173,9 +173,7 @@ def _bounty_payability_verified(raw: dict[str, Any]) -> bool:
     return raw.get("payability_verified", True) is not False
 
 
-def _copy_effective_availability_fields(
-    source: dict[str, Any], target: dict[str, Any]
-) -> None:
+def _copy_effective_availability_fields(source: dict[str, Any], target: dict[str, Any]) -> None:
     for field in EFFECTIVE_AVAILABILITY_FIELDS:
         if field in source:
             target[field] = source.get(field)
