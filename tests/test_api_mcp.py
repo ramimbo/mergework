@@ -291,9 +291,7 @@ def test_mcp_get_balance_description_documents_account_selectors(sqlite_url: str
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
-    balance_tool = next(
-        tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance"
-    )
+    balance_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance")
     description = balance_tool["description"]
     assert "github:" in description
     assert "mrwk1" in description
