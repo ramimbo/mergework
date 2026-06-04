@@ -126,6 +126,11 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a boolean")
         return value
 
+    def reject_unexpected_args(allowed: set[str]) -> None:
+        unexpected = sorted(set(args) - allowed)
+        if unexpected:
+            raise ValueError(f"unexpected argument: {unexpected[0]}")
+
     def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
         issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
         if repo_selector is not None:
@@ -153,6 +158,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
+            reject_unexpected_args({"availability", "limit", "q", "sort", "status"})
             status = optional_clean_str_arg("status") or "open"
             normalized_status = status.lower()
             if normalized_status not in {"open", "paid", "closed"}:

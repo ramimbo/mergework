@@ -83,6 +83,15 @@ def test_call_mcp_tool_rejects_c1_status_before_normalizing(sqlite_url: str) -> 
         call_mcp_tool(sqlite_url, "list_bounties", {"status": "\u0085open"})
 
 
+def test_call_mcp_tool_rejects_unknown_list_bounties_arguments(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    with pytest.raises(ValueError, match="unexpected argument: statuz"):
+        call_mcp_tool(sqlite_url, "list_bounties", {"statuz": "paid"})
+
+
 def test_call_mcp_tool_rejects_c1_nonce_before_integer_parsing(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

@@ -688,7 +688,9 @@ curl -s -X POST "$MCP_HOST/mcp" \
 ```
 
 Pass `{"availability":"effectively_open"}` to `list_bounties` when an agent only
-wants bounty rows with positive effective award capacity.
+wants bounty rows with positive effective award capacity. `list_bounties`
+rejects unknown argument names so typos fail instead of silently falling back to
+the default open-bounty query.
 
 Call `get_bounty` with the internal bounty `id` returned by `list_bounties`,
 or use the GitHub `issue_number` with `repo` when your workflow starts from an

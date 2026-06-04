@@ -697,6 +697,7 @@ def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> No
         ({"limit": 101}, 35),
         ({"sort": "invalid"}, 36),
         ({"availability": "maybe"}, 37),
+        ({"statuz": "paid"}, 38),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
