@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session
 
 from app.accounts import normalized_account, normalized_wallet_address
 from app.bounty_attempts import list_bounty_attempts
@@ -162,39 +163,6 @@ def call_mcp_tool(
             raise ValueError("issue_number matches multiple bounties")
         return bounties[0]
 
-    def selected_bounty(
-        internal_id_field: str,
-        *,
-        internal_id_aliases: tuple[str, ...] = (),
-    ) -> Bounty | None:
-        internal_id_fields = (internal_id_field, *internal_id_aliases)
-        provided_internal_id_fields = [
-            field for field in internal_id_fields if field in args and args.get(field) is not None
-        ]
-        has_internal_id = bool(provided_internal_id_fields)
-        has_issue_number = "issue_number" in args and args.get("issue_number") is not None
-        repo_selector = optional_repo_selector_arg()
-        if len(provided_internal_id_fields) > 1:
-            raise ValueError(
-                "use "
-                + " or ".join(provided_internal_id_fields)
-                + ", not multiple internal id fields"
-            )
-        if has_internal_id and has_issue_number:
-            raise ValueError(f"use {provided_internal_id_fields[0]} or issue_number, not both")
-        if repo_selector is not None and not has_issue_number:
-            raise ValueError("repo can only be used with issue_number")
-        if has_internal_id:
-            return session.get(Bounty, positive_int_arg(provided_internal_id_fields[0]))
-        if has_issue_number:
-            return bounty_by_issue_number(repo_selector)
-        raise ValueError(f"{internal_id_field} or issue_number is required")
-
-    def reject_unexpected_args(tool_name: str, allowed: set[str]) -> None:
-        unexpected = sorted(set(args) - allowed)
-        if unexpected:
-            names = ", ".join(unexpected)
-            raise ValueError(f"{tool_name} received unexpected argument(s): {names}")
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
@@ -238,16 +206,18 @@ def call_mcp_tool(
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
-            bounty = selected_bounty("id", internal_id_aliases=("bounty_id",))
+            bounty = selected_bounty("id", internal_id_aliases=("bounty_id",), required=True)
             if bounty is None:
+
                 return "bounty not found"
             bounty_data = bounty_to_dict(bounty, session=session)
             if optional_bool_arg("include_awards"):
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
-            bounty = selected_bounty("bounty_id", internal_id_aliases=("id",))
+            bounty = selected_bounty("bounty_id", internal_id_aliases=("id",), required=True)
             if bounty is None:
+
                 return "bounty not found"
             attempt_listing = list_bounty_attempts(
                 session,
@@ -338,37 +308,25 @@ def call_mcp_tool(
         if name == "submit_work_proof":
             require_known_fields("bounty_id", "issue_number", "repo", "format")
             output_format = output_format_arg()
-            has_bounty_id = "bounty_id" in args and args.get("bounty_id") is not None
-            has_issue_number = "issue_number" in args and args.get("issue_number") is not None
-            repo_selector = optional_repo_selector_arg()
-            if has_bounty_id and has_issue_number:
-                raise ValueError("use bounty_id or issue_number, not both")
-            if repo_selector is not None and not has_issue_number:
-                raise ValueError("repo can only be used with issue_number")
-            if has_bounty_id:
-                bounty = session.get(Bounty, positive_int_arg("bounty_id"))
-                if bounty is None:
-                    return "bounty not found"
+            has_selector = ("bounty_id" in args and args.get("bounty_id") is not None) or (
+                "issue_number" in args and args.get("issue_number") is not None
+            )
+            bounty = selected_bounty("bounty_id", required=False)
+            if bounty is not None:
                 return (
                     work_proof_guidance_json(bounty, session=session)
                     if output_format == "json"
                     else work_proof_guidance(bounty, session=session)
                 )
-            if has_issue_number:
-                bounty = bounty_by_issue_number(repo_selector)
-                if bounty is None:
-                    return "bounty not found"
-                return (
-                    work_proof_guidance_json(bounty, session=session)
-                    if output_format == "json"
-                    else work_proof_guidance(bounty, session=session)
-                )
+            if has_selector:
+                return "bounty not found"
             if output_format == "json":
                 return generic_work_proof_guidance_json()
             return (
                 "Open a focused PR or issue, reference the MRWK bounty, include test evidence, "
                 "and wait for a maintainer to apply mrwk:accepted."
             )
+
     raise ValueError("unknown tool")
 
 
@@ -381,6 +339,19 @@ def call_mcp_resource(database_url: str, uri: str) -> str:
             bounties = session.scalars(query).all()
             bounty_dicts = bounties_to_dict(bounties, session=session)
             summary = bounty_list_summary(bounty_dicts)
+
+            # Uncapped liability calculation for all open bounties
+            total_liabilities_microunits = (
+                session.scalar(
+                    select(
+                        func.sum(
+                            (Bounty.max_awards - Bounty.awards_paid) * Bounty.reward_microunits
+                        )
+                    ).where(Bounty.status == "open")
+                )
+                or 0
+            )
+
             treasury_balance = get_balance(session, TREASURY_ACCOUNT)
 
             return json.dumps(
