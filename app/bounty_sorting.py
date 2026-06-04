@@ -20,6 +20,7 @@ BountySortKey = Callable[[dict[str, Any]], Any]
 
 
 def normalize_bounty_sort(sort: str | None) -> str:
+    """Return a supported bounty sort mode, defaulting blank values to newest."""
     raw_sort = sort or ""
     if contains_control_character(raw_sort):
         raise ValueError("sort must not contain control characters")
@@ -32,14 +33,17 @@ def normalize_bounty_sort(sort: str | None) -> str:
 
 
 def _newest_sort_key(bounty: dict[str, Any]) -> int:
+    """Sort newest bounties first by descending internal id."""
     return int(bounty["id"])
 
 
 def _reward_sort_key(bounty: dict[str, Any]) -> tuple[Decimal, int]:
+    """Sort by per-award reward, then newest bounty id."""
     return Decimal(str(bounty["reward_mrwk"])), int(bounty["id"])
 
 
 def _available_sort_key(bounty: dict[str, Any]) -> tuple[Decimal, int]:
+    """Sort by effective remaining MRWK pool, then newest bounty id."""
     return (
         Decimal(str(bounty.get("effective_available_mrwk", bounty["available_mrwk"]))),
         int(bounty["id"]),
@@ -47,6 +51,7 @@ def _available_sort_key(bounty: dict[str, Any]) -> tuple[Decimal, int]:
 
 
 def _awards_sort_key(bounty: dict[str, Any]) -> tuple[int, int]:
+    """Sort by effective remaining award slots, then newest bounty id."""
     return (
         int(bounty.get("effective_awards_remaining", bounty["awards_remaining"])),
         int(bounty["id"]),
@@ -62,5 +67,6 @@ BOUNTY_SORT_KEYS: dict[str, BountySortKey] = {
 
 
 def sort_bounties(bounties: list[dict[str, Any]], sort: str | None) -> list[dict[str, Any]]:
+    """Return bounties ordered by the normalized public sort mode."""
     normalized_sort = normalize_bounty_sort(sort)
     return sorted(bounties, key=BOUNTY_SORT_KEYS[normalized_sort], reverse=True)
