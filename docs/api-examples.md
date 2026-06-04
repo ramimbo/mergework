@@ -114,6 +114,19 @@ matches the normalized source repository, `issue_number=N` matches the GitHub
 issue number across repos, and the two together identify one source issue. Keep
 `q` for broad text search.
 
+For live-vs-pending contributor routing, pair the exact public bounty lookup
+with the pending create-bounty proposal queue before opening or claiming work:
+
+```bash
+curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=<issue_number>"
+curl -s "$API_HOST/api/v1/treasury/proposals?action=create_bounty&status=pending"
+```
+
+The bounty lookup is the claimable-lane check. A matching pending
+`create_bounty` proposal is only opening soon until the proposal executes, the
+public bounty row exists, and the source GitHub issue receives the
+`Reserved on MergeWork` claims-open comment.
+
 Use `availability=effectively_open` when discovery should hide raw-open rows
 whose remaining awards are fully covered by pending payout or close proposals.
 The default `availability=all` keeps the existing raw list behavior.

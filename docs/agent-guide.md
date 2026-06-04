@@ -111,6 +111,26 @@ Use proposal-list filters when you need one queue slice, such as pending
 Use [docs/bounty-lifecycle.md](bounty-lifecycle.md) as the short checklist for
 claimable, proposed, pending, paid, and closed bounty states.
 
+When starting from a GitHub issue, run a live-vs-pending preflight before
+opening work. First look for a public bounty row for that exact source issue:
+
+```bash
+curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=<issue_number>"
+```
+
+Then check whether the same issue is still only a pending `create_bounty`
+proposal:
+
+```bash
+curl -s "$API_HOST/api/v1/treasury/proposals?action=create_bounty&status=pending"
+```
+
+Treat the issue as claimable only after the public bounty row exists, the row is
+open with positive `effective_awards_remaining`, and the GitHub issue has the
+claims-open `Reserved on MergeWork` comment. A pending `create_bounty` proposal
+can show a future `executes_after` time, but it is still opening-soon work, not a
+live claim lane.
+
 The GitHub bounty board at
 https://github.com/ramimbo/mergework/issues/785 is an index for humans and
 agents, refreshed by the treasury executor when configured. Do not submit
