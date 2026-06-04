@@ -126,6 +126,24 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a boolean")
         return value
 
+    def proof_hash_arg() -> str:
+        has_hash = "hash" in args and args.get("hash") is not None
+        has_proof_hash = "proof_hash" in args and args.get("proof_hash") is not None
+        if has_hash and has_proof_hash:
+            raise ValueError("use hash or proof_hash, not both")
+        if has_proof_hash:
+            return proof_hash_from_path(str_arg("proof_hash"))
+        return proof_hash_from_path(str_arg("hash"))
+
+    def ledger_sequence_arg() -> int:
+        has_sequence = "sequence" in args and args.get("sequence") is not None
+        has_ledger_sequence = "ledger_sequence" in args and args.get("ledger_sequence") is not None
+        if has_sequence and has_ledger_sequence:
+            raise ValueError("use sequence or ledger_sequence, not both")
+        if has_ledger_sequence:
+            return positive_int_arg("ledger_sequence")
+        return positive_int_arg("sequence")
+
     def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
         issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
         if repo_selector is not None:
@@ -244,12 +262,12 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(wallet_transfer_to_dict(transfer))
         if name == "get_ledger_entry":
-            entry = ledger_entry_to_dict(session, positive_int_arg("sequence"))
+            entry = ledger_entry_to_dict(session, ledger_sequence_arg())
             if entry is None:
                 return "ledger entry not found"
             return json.dumps(entry)
         if name == "get_proof":
-            proof = session.get(Proof, proof_hash_from_path(str_arg("hash")))
+            proof = session.get(Proof, proof_hash_arg())
             if proof is None:
                 return "proof not found"
             try:

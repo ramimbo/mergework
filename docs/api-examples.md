@@ -719,7 +719,8 @@ curl -s -X POST "$MCP_HOST/mcp" \
 ```
 
 Call `get_proof` with the proof hash returned by `/api/v1/ledger`,
-`/api/v1/activity`, or `get_ledger_entry`:
+`/api/v1/activity`, or `get_ledger_entry`. When an API response names the field
+`proof_hash`, agents may pass either `hash` or `proof_hash`:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \
@@ -785,7 +786,8 @@ created from a GitHub bounty claim.
 
 Call `get_ledger_entry` with the immutable ledger sequence returned by
 `/api/v1/ledger`, `/api/v1/activity`, `get_bounty` award rows, or `get_proof`.
-The MCP response wraps the same ledger-entry shape as
+When an API response names the field `ledger_sequence`, agents may pass either
+`sequence` or `ledger_sequence`. The MCP response wraps the same ledger-entry shape as
 `/api/v1/ledger/<sequence>` in JSON text and `structuredContent`:
 
 ```bash

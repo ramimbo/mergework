@@ -268,6 +268,12 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         tool for tool in tools["result"]["tools"] if tool["name"] == "list_bounty_attempts"
     )
     assert "active-attempt reservations" in attempt_tool["description"]
+    ledger_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "get_ledger_entry"
+    )
+    assert "ledger_sequence" in ledger_tool["description"]
+    proof_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_proof")
+    assert "proof_hash" in proof_tool["description"]
 
     balance = client.post(
         "/mcp",
@@ -1375,6 +1381,22 @@ def test_mcp_get_ledger_entry_includes_payment_proof_hash(sqlite_url: str) -> No
     assert payload["sequence"] == ledger_sequence
     assert payload["proof_hash"] == proof_hash
 
+    alias_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "get_ledger_entry",
+                "arguments": {"ledger_sequence": ledger_sequence},
+            },
+        },
+    ).json()
+    alias_payload = json.loads(alias_result["result"]["content"][0]["text"])
+    assert alias_result["result"]["structuredContent"] == alias_payload
+    assert alias_payload == payload
+
 
 def test_mcp_get_ledger_entry_rejects_non_positive_sequence(sqlite_url: str) -> None:
     create_schema(sqlite_url)
@@ -1397,6 +1419,34 @@ def test_mcp_get_ledger_entry_rejects_non_positive_sequence(sqlite_url: str) -> 
     assert response.json() == {
         "jsonrpc": "2.0",
         "id": 2,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_get_ledger_entry_rejects_mixed_sequence_selectors(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "get_ledger_entry",
+                "arguments": {"sequence": 1, "ledger_sequence": 1},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 3,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
 
@@ -1448,6 +1498,19 @@ def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:
     assert payload["proof"]["repo"] == "ramimbo/mergework"
     assert payload["proof"]["submission_url"] == "https://github.com/ramimbo/mergework/pull/37"
     assert payload["proof"]["accepted_by"] == "maintainer"
+
+    alias_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "get_proof", "arguments": {"proof_hash": proof.hash}},
+        },
+    ).json()
+    alias_payload = json.loads(alias_result["result"]["content"][0]["text"])
+    assert alias_result["result"]["structuredContent"] == alias_payload
+    assert alias_payload == payload
 
 
 def test_mcp_get_proof_reports_unknown_hash(sqlite_url: str) -> None:
@@ -1564,6 +1627,34 @@ def test_mcp_get_proof_rejects_malformed_hash(sqlite_url: str) -> None:
     assert response.json() == {
         "jsonrpc": "2.0",
         "id": 3,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_get_proof_rejects_mixed_hash_selectors(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "get_proof",
+                "arguments": {"hash": "0" * 64, "proof_hash": "1" * 64},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 4,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
 

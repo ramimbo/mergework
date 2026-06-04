@@ -42,8 +42,14 @@ MCP_TOOLS: list[dict[str, Any]] = [
         "name": "submit_wallet_transfer",
         "description": "Submit a signed MRWK wallet transfer",
     },
-    {"name": "get_ledger_entry", "description": "Get a ledger entry"},
-    {"name": "get_proof", "description": "Get a public proof by hash"},
+    {
+        "name": "get_ledger_entry",
+        "description": "Get a ledger entry by sequence or ledger_sequence",
+    },
+    {
+        "name": "get_proof",
+        "description": "Get a public proof by hash or proof_hash",
+    },
     {
         "name": "submit_work_proof",
         "description": (
