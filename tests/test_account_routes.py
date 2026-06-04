@@ -130,6 +130,10 @@ def test_account_accepted_work_routes_honor_limit(sqlite_url: str) -> None:
 
     api_response = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=1")
     page_response = client.get("/accounts/github:limit-user?limit=1")
+    api_max_response = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=200")
+    page_max_response = client.get("/accounts/github:limit-user?limit=200")
+    api_too_low_response = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=0")
+    page_too_high_response = client.get("/accounts/github:limit-user?limit=201")
     noncanonical_api = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=01")
     repeated_page = client.get("/accounts/github:limit-user?limit=1&limit=2")
 
@@ -151,6 +155,14 @@ def test_account_accepted_work_routes_honor_limit(sqlite_url: str) -> None:
     assert f'href="/ledger/{older_sequence}"' not in accepted_work_section
     assert proof_hashes[-1][:12] in accepted_work_section
     assert proof_hashes[0][:12] not in accepted_work_section
+
+    assert api_max_response.status_code == 200
+    assert api_max_response.json()["accepted_work_limit"] == 200
+    assert len(api_max_response.json()["accepted_work"]) == 3
+    assert page_max_response.status_code == 200
+    assert f'href="/ledger/{older_sequence}"' in page_max_response.text
+    assert api_too_low_response.status_code == 422
+    assert page_too_high_response.status_code == 422
 
     assert noncanonical_api.status_code == 400
     assert noncanonical_api.json()["detail"] == "limit must be a canonical positive integer"
