@@ -126,6 +126,11 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a boolean")
         return value
 
+    def reject_unexpected_args(allowed: set[str]) -> None:
+        unexpected = sorted(set(args) - allowed)
+        if unexpected:
+            raise ValueError(f"unexpected argument: {unexpected[0]}")
+
     def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
         issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
         if repo_selector is not None:
@@ -193,6 +198,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
+            reject_unexpected_args({"id", "include_awards", "issue_number", "repo"})
             bounty = selected_bounty("id")
             if bounty is None:
                 return "bounty not found"
@@ -201,6 +207,9 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
+            reject_unexpected_args(
+                {"bounty_id", "include_expired", "issue_number", "limit", "repo"}
+            )
             bounty = selected_bounty("bounty_id")
             if bounty is None:
                 return "bounty not found"
@@ -218,6 +227,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 "attempts": attempt_listing["attempts"],
             }
         if name == "get_balance":
+            reject_unexpected_args({"account"})
             account = normalized_account(str_arg("account"))
             return f"{account}: {format_mrwk(get_balance(session, account))} MRWK"
         if name == "register_wallet":
@@ -228,6 +238,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(wallet_to_dict(session, wallet))
         if name == "get_wallet":
+            reject_unexpected_args({"address"})
             wallet_row = session.get(Wallet, normalized_wallet_address(str_arg("address")))
             if wallet_row is None:
                 return "wallet not found"
@@ -244,11 +255,13 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(wallet_transfer_to_dict(transfer))
         if name == "get_ledger_entry":
+            reject_unexpected_args({"sequence"})
             entry = ledger_entry_to_dict(session, positive_int_arg("sequence"))
             if entry is None:
                 return "ledger entry not found"
             return json.dumps(entry)
         if name == "get_proof":
+            reject_unexpected_args({"hash"})
             proof = session.get(Proof, proof_hash_from_path(str_arg("hash")))
             if proof is None:
                 return "proof not found"

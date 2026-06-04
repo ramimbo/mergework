@@ -83,6 +83,28 @@ def test_call_mcp_tool_rejects_c1_status_before_normalizing(sqlite_url: str) -> 
         call_mcp_tool(sqlite_url, "list_bounties", {"status": "\u0085open"})
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "unexpected"),
+    [
+        ("get_bounty", {"id": 1, "bounty": 1}, "bounty"),
+        ("list_bounty_attempts", {"bounty_id": 1, "attempt_status": "active"}, "attempt_status"),
+        ("get_balance", {"account": "treasury:mrwk", "acount": "typo"}, "acount"),
+        ("get_wallet", {"address": "mrwk1" + ("a" * 40), "wallet": "typo"}, "wallet"),
+        ("get_ledger_entry", {"sequence": 1, "seq": 2}, "seq"),
+        ("get_proof", {"hash": "a" * 64, "proof": "typo"}, "proof"),
+    ],
+)
+def test_call_mcp_tool_rejects_unexpected_read_tool_arguments(
+    sqlite_url: str, tool_name: str, arguments: dict[str, object], unexpected: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    with pytest.raises(ValueError, match=f"unexpected argument: {unexpected}"):
+        call_mcp_tool(sqlite_url, tool_name, arguments)
+
+
 def test_call_mcp_tool_rejects_c1_nonce_before_integer_parsing(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

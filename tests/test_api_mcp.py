@@ -814,6 +814,44 @@ def test_mcp_rejects_unknown_tool_name(sqlite_url: str) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "request_id"),
+    [
+        ("get_bounty", {"id": 1, "bounty": 1}, 13),
+        ("list_bounty_attempts", {"bounty_id": 1, "attempt_status": "active"}, 14),
+        ("get_balance", {"account": "treasury:mrwk", "acount": "typo"}, 15),
+        ("get_wallet", {"address": "mrwk1" + ("a" * 40), "wallet": "typo"}, 16),
+        ("get_ledger_entry", {"sequence": 1, "seq": 2}, 17),
+        ("get_proof", {"hash": "a" * 64, "proof": "typo"}, 18),
+    ],
+)
+def test_mcp_read_tools_reject_unexpected_arguments(
+    sqlite_url: str, tool_name: str, arguments: dict[str, object], request_id: int
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
 def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
