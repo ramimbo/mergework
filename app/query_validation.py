@@ -59,3 +59,13 @@ def reject_repeated_query_param(request: Request, name: str) -> None:
             status_code=400,
             detail=f"{name} must be provided at most once",
         )
+
+
+def reject_query_param_max_length(request: Request, name: str, max_length: int) -> None:
+    """Reject oversized raw query parameter values before they reach DB filters."""
+    for value in request.query_params.getlist(name):
+        if len(value) > max_length:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} must be at most {max_length} characters",
+            )

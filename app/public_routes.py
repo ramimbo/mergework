@@ -25,6 +25,7 @@ from app.path_params import SQLITE_INTEGER_MAX, proof_hash_from_path, reject_pat
 from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
+    reject_query_param_max_length,
     reject_repeated_query_param,
 )
 from app.serializers import bounty_list_summary, wallet_to_dict
@@ -289,6 +290,7 @@ def register_public_routes(
             reject_repeated_query_param(request, name)
         for name in ("status", "q", "sort", "repo", "availability"):
             reject_control_char_query_param(request, name)
+        reject_query_param_max_length(request, "q", 500)
         for name in ("limit", "issue_number"):
             reject_noncanonical_int_query_param(request, name)
         bounties = list_bounties_by_status(status, q, sort, limit, repo, issue_number, availability)

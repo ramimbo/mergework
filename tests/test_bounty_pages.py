@@ -335,6 +335,21 @@ def test_bounties_page_rejects_repeated_scalar_filters(sqlite_url: str) -> None:
         assert response.json()["detail"] == detail
 
 
+def test_bounties_page_rejects_oversized_query_text(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    accepted = client.get("/bounties", params={"q": "a" * 500})
+    rejected = client.get("/bounties", params={"q": "a" * 501})
+
+    assert accepted.status_code == 200
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"] == "q must be at most 500 characters"
+
+
 def test_bounties_page_rejects_sqlite_overflow_issue_number(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -419,8 +434,8 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert oversized_issue_search.json() == []
 
     digit_limit_issue_search = client.get("/api/v1/bounties", params={"q": "9" * 5000})
-    assert digit_limit_issue_search.status_code == 200
-    assert digit_limit_issue_search.json() == []
+    assert digit_limit_issue_search.status_code == 400
+    assert digit_limit_issue_search.json()["detail"] == "q must be at most 500 characters"
 
     oversized_issue_page = client.get("/bounties", params={"q": "9" * 40})
     assert oversized_issue_page.status_code == 200

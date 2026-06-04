@@ -54,6 +54,18 @@ class TestBountyListRoutes:
         resp = client.get("/api/v1/bounties?q=test")
         assert resp.status_code == 200
 
+    @pytest.mark.parametrize(
+        "path",
+        ("/api/v1/bounties", "/api/v1/bounties/summary"),
+    )
+    def test_bounty_api_rejects_oversized_query_text(self, client, path):
+        accepted = client.get(path, params={"q": "a" * 500})
+        rejected = client.get(path, params={"q": "a" * 501})
+
+        assert accepted.status_code == 200
+        assert rejected.status_code == 400
+        assert rejected.json()["detail"] == "q must be at most 500 characters"
+
     def test_bounties_summary(self, client):
         resp = client.get("/api/v1/bounties/summary")
         assert resp.status_code == 200
