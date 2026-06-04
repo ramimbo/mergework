@@ -335,7 +335,7 @@ def register_bounty_api_routes(
                 if contains_control_character(clean_note):
                     raise HTTPException(
                         status_code=400,
-                        detail="verifier_result.note must not contain control characters",
+                        detail="note must not contain control characters",
                     )
                 note = clean_note[:240]
         with session_scope(db_url) as session:
