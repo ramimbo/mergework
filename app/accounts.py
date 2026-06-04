@@ -27,6 +27,7 @@ from app.serializers import (
 from app.wallets import WalletError, normalize_wallet_address
 
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+ACCOUNT_MAX_LENGTH = 128
 ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "bounty_payment", "label": "Bounty payments"},
@@ -54,6 +55,8 @@ def normalized_account(account: str) -> str:
     if contains_control_character(account):
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
+    if len(clean) > ACCOUNT_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail="account is too long")
     lower = clean.lower()
     if lower == TREASURY_ACCOUNT:
         return TREASURY_ACCOUNT

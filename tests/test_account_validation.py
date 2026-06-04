@@ -84,6 +84,32 @@ def test_api_account_accepts_valid(sqlite_url: str) -> None:
     assert resp.json()["account"] == "github:alice"
 
 
+def test_account_views_reject_oversized_generic_accounts(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    account = "a" * 129
+
+    api_resp = client.get(f"/api/v1/accounts/{account}")
+    page_resp = client.get(f"/accounts/{account}")
+    mcp_resp = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 1,
+            "params": {"name": "get_balance", "arguments": {"account": account}},
+        },
+    )
+
+    assert api_resp.status_code == 400
+    assert api_resp.json()["detail"] == "account is too long"
+    assert page_resp.status_code == 400
+    assert page_resp.json()["detail"] == "account is too long"
+    assert mcp_resp.status_code == 200
+    body = mcp_resp.json()
+    assert body["error"]["code"] == -32602
+    assert body["error"]["message"] == "invalid tool arguments"
+
+
 def test_api_account_rejects_empty_github_login(sqlite_url: str) -> None:
     client = _setup_app(sqlite_url)
     resp = client.get("/api/v1/accounts/github:%20")
