@@ -137,7 +137,12 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError("issue_number matches multiple bounties")
         return bounties[0]
 
-    def selected_bounty(internal_id_field: str) -> Bounty | None:
+    def has_bounty_selector(internal_id_field: str) -> bool:
+        return (internal_id_field in args and args.get(internal_id_field) is not None) or (
+            "issue_number" in args and args.get("issue_number") is not None
+        )
+
+    def selected_bounty(internal_id_field: str, *, require_selector: bool = True) -> Bounty | None:
         has_internal_id = internal_id_field in args and args.get(internal_id_field) is not None
         has_issue_number = "issue_number" in args and args.get("issue_number") is not None
         repo_selector = optional_repo_selector_arg()
@@ -149,6 +154,8 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             return session.get(Bounty, positive_int_arg(internal_id_field))
         if has_issue_number:
             return bounty_by_issue_number(repo_selector)
+        if not require_selector:
+            return None
         raise ValueError(f"{internal_id_field} or issue_number is required")
 
     with session_scope(database_url) as session:
@@ -271,31 +278,15 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
         if name == "submit_work_proof":
             output_format = output_format_arg()
-            has_bounty_id = "bounty_id" in args and args.get("bounty_id") is not None
-            has_issue_number = "issue_number" in args and args.get("issue_number") is not None
-            repo_selector = optional_repo_selector_arg()
-            if has_bounty_id and has_issue_number:
-                raise ValueError("use bounty_id or issue_number, not both")
-            if repo_selector is not None and not has_issue_number:
-                raise ValueError("repo can only be used with issue_number")
-            if has_bounty_id:
-                bounty = session.get(Bounty, positive_int_arg("bounty_id"))
-                if bounty is None:
-                    return "bounty not found"
+            bounty = selected_bounty("bounty_id", require_selector=False)
+            if bounty is not None:
                 return (
                     work_proof_guidance_json(bounty, session=session)
                     if output_format == "json"
                     else work_proof_guidance(bounty, session=session)
                 )
-            if has_issue_number:
-                bounty = bounty_by_issue_number(repo_selector)
-                if bounty is None:
-                    return "bounty not found"
-                return (
-                    work_proof_guidance_json(bounty, session=session)
-                    if output_format == "json"
-                    else work_proof_guidance(bounty, session=session)
-                )
+            if has_bounty_selector("bounty_id"):
+                return "bounty not found"
             if output_format == "json":
                 return generic_work_proof_guidance_json()
             return (

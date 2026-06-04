@@ -55,12 +55,67 @@ def test_submit_work_proof_repo_selector_matches_stored_repo_case(sqlite_url: st
     assert "Bounty #390" in result
 
 
+def test_submit_work_proof_reuses_bounty_selector_for_id_and_issue_number(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=391,
+            issue_url="https://github.com/ramimbo/mergework/issues/391",
+            title="Shared selector bounty",
+            reward_mrwk="150",
+            acceptance="Keep MCP selector behavior centralized.",
+        )
+        bounty_id = bounty.id
+
+    by_id = call_mcp_tool(sqlite_url, "submit_work_proof", {"bounty_id": bounty_id})
+    by_issue = call_mcp_tool(
+        sqlite_url,
+        "submit_work_proof",
+        {"issue_number": 391, "repo": "Ramimbo/MergeWork"},
+    )
+
+    assert by_id == by_issue
+    assert "Bounty #391: Shared selector bounty" in by_id
+
+
+def test_submit_work_proof_keeps_generic_and_unknown_bounty_paths(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    generic = call_mcp_tool(sqlite_url, "submit_work_proof", {})
+    unknown = call_mcp_tool(sqlite_url, "submit_work_proof", {"issue_number": 999})
+
+    assert generic == (
+        "Open a focused PR or issue, reference the MRWK bounty, include test evidence, "
+        "and wait for a maintainer to apply mrwk:accepted."
+    )
+    assert unknown == "bounty not found"
+
+
 @pytest.mark.parametrize(
     ("tool_name", "arguments", "message"),
     [
         ("list_bounties", {"status": "blocked"}, "status must be one of"),
         ("get_bounty", {"id": 0}, "id must be positive"),
         ("get_balance", {"account": ""}, "account must not be empty"),
+        (
+            "submit_work_proof",
+            {"bounty_id": 1, "issue_number": 1},
+            "use bounty_id or issue_number, not both",
+        ),
+        (
+            "submit_work_proof",
+            {"repo": "ramimbo/mergework"},
+            "repo can only be used with issue_number",
+        ),
     ],
 )
 def test_call_mcp_tool_preserves_argument_validation_errors(
