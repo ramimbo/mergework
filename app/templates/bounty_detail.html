@@ -69,8 +69,9 @@
     <p class="eyebrow">Contributor next steps</p>
     <h2 id="bounty-next-steps-heading">Before you start</h2>
     <ol>
-      <li>Confirm the source issue is still open and your change is not already covered by another PR.</li>
-      <li>Keep the PR focused, link the source issue as <strong>Bounty #{{ bounty.issue_number }}</strong>, and include test or smoke-check evidence.</li>
+      <li>Confirm the linked GitHub issue is still open, has <code>mrwk:bounty</code>, and includes a <code>Reserved on MergeWork</code> claims-open comment.</li>
+      <li>Confirm your change is not already covered by another useful open PR for this bounty.</li>
+      <li>Keep the PR focused, reference the GitHub bounty issue as <strong>Bounty #{{ bounty.issue_number }}</strong> or <strong>Refs #{{ bounty.issue_number }}</strong>, and include test or smoke-check evidence.</li>
       <li>Check active attempt reservations if you need to coordinate before opening a PR; attempts are advisory only and do not reserve MRWK, acceptance, or payment.</li>
       <li>
         {% if bounty.effective_awards_remaining %}
@@ -86,6 +87,15 @@
         {% endif %}
       </li>
     </ol>
+    <div class="claimability-checklist" aria-label="Claimability checklist">
+      <p><strong>Claimability checklist</strong></p>
+      <ul>
+        <li>Public bounty row status: <strong>{{ bounty.status }}</strong>.</li>
+        <li>Effective award capacity after pending proposals: <strong>{{ bounty.effective_awards_remaining }}</strong>.</li>
+        <li>Visible award capacity before pending proposals: <strong>{{ bounty.awards_remaining }}</strong>.</li>
+        <li>Use <code>Closes #{{ bounty.issue_number }}</code> only when maintainers want this bounty issue closed by your PR.</li>
+      </ul>
+    </div>
     <div class="next-steps-actions" aria-label="Bounty action links">
       {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">Open source issue</a>{% endif %}
       <a href="/api/v1/bounties/{{ bounty.id }}">View JSON details</a>

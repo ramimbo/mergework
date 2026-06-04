@@ -275,6 +275,18 @@ code.hash { overflow-wrap: anywhere; }
 .next-steps-card li + li {
   margin-top: 8px;
 }
+.claimability-checklist {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+.claimability-checklist p {
+  margin: 0 0 8px;
+}
+.claimability-checklist ul {
+  margin: 0;
+  padding-left: 22px;
+}
 .next-steps-actions {
   display: flex;
   flex-wrap: wrap;

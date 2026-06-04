@@ -239,6 +239,42 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
     ) in detail.text
 
 
+def test_bounty_detail_clarifies_claimability_and_pr_reference(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=845,
+            issue_url="https://github.com/ramimbo/mergework/issues/845",
+            title="Contributor routing bounty",
+            reward_mrwk="150",
+            max_awards=6,
+            acceptance="Contributor routing should distinguish live, pending, and paid work.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    detail = client.get(f"/bounties/{bounty_id}")
+
+    assert detail.status_code == 200
+    assert "Confirm the linked GitHub issue is still open" in detail.text
+    assert "<code>mrwk:bounty</code>" in detail.text
+    assert "<code>Reserved on MergeWork</code>" in detail.text
+    assert "<strong>Bounty #845</strong> or <strong>Refs #845</strong>" in detail.text
+    assert "Claimability checklist" in detail.text
+    assert "Public bounty row status: <strong>open</strong>" in detail.text
+    assert "Effective award capacity after pending proposals: <strong>6</strong>" in detail.text
+    assert "Visible award capacity before pending proposals: <strong>6</strong>" in detail.text
+    assert "<code>Closes #845</code> only when maintainers want this bounty issue closed" in (
+        detail.text
+    )
+
+
 def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -695,9 +731,14 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert "Focused PR improves status, reward, issue link, and acceptance text." in response.text
     assert "Contributor next steps" in response.text
     assert "Before you start" in response.text
-    assert "Confirm the source issue is still open" in response.text
+    assert "Confirm the linked GitHub issue is still open" in response.text
+    assert "<code>mrwk:bounty</code>" in response.text
+    assert "<code>Reserved on MergeWork</code>" in response.text
     assert bounty.id != bounty.issue_number
-    assert "link the source issue as <strong>Bounty #4</strong>" in response.text
+    assert "<strong>Bounty #4</strong> or <strong>Refs #4</strong>" in response.text
+    assert "<code>Closes #4</code> only when maintainers want this bounty issue closed" in (
+        response.text
+    )
     assert (
         "attempts are advisory only and do not reserve MRWK, acceptance, or payment"
         in response.text
