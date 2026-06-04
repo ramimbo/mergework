@@ -26,7 +26,7 @@ from app.serializers import (
 )
 from app.wallets import WalletError, normalize_wallet_address
 
-GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+GITHUB_LOGIN_RE = re.compile(r"^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "bounty_payment", "label": "Bounty payments"},

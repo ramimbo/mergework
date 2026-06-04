@@ -310,6 +310,7 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
     invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
+    invalid_hyphen_account_response = client.get("/api/v1/activity?account=github%3Aa--b")
 
     assert api_response.status_code == 400
     assert api_response.json()["detail"] == "q must not contain control characters"
@@ -329,6 +330,8 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert repeated_account_response.json()["detail"] == "account must be provided at most once"
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
+    assert invalid_hyphen_account_response.status_code == 400
+    assert invalid_hyphen_account_response.json()["detail"] == "github login must be valid"
 
 
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
