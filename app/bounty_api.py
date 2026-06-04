@@ -17,7 +17,6 @@ from app.bounty_availability import (
     normalize_bounty_availability_filter,
 )
 from app.bounty_sorting import BOUNTY_SORT_ERROR, normalize_bounty_sort, sort_bounties
-from app.config import Settings
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.reconciliation import payout_reconciliation_summary, reconcile_accepted_payouts
@@ -102,7 +101,6 @@ def register_bounty_api_routes(
     optional_str: Any,
     optional_int: Any,
     required_int: Any,
-    settings: Settings,
 ) -> dict[str, Any]:
     """Register bounty listing, CRUD, payment, close, and reconciliation routes."""
 
@@ -247,9 +245,8 @@ def register_bounty_api_routes(
         request: Request,
         status: str | None = Query(None),
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
-        admin_login: str = Depends(require_admin_token),
+        _admin_login: str = Depends(require_admin_token),
     ) -> list[dict[str, Any]]:
-        del admin_login
         reject_repeated_query_param(request, "status")
         reject_repeated_query_param(request, "limit")
         reject_noncanonical_int_query_param(request, "limit")
@@ -331,19 +328,16 @@ def register_bounty_api_routes(
         except LedgerError as exc:
             raise _ledger_http_error(exc) from exc
         accepted_by = optional_str(data, "accepted_by", admin_login) or admin_login
-        verifier_result = {
-            "source": "admin_api",
-            "accepted_by": accepted_by,
-        }
+        note = None
         if data.get("note") is not None:
-            note = optional_str(data, "note").strip()
-            if note:
-                if contains_control_character(note):
+            clean_note = optional_str(data, "note").strip()
+            if clean_note:
+                if contains_control_character(clean_note):
                     raise HTTPException(
                         status_code=400,
                         detail="verifier_result.note must not contain control characters",
                     )
-                verifier_result["note"] = note[:240]
+                note = clean_note[:240]
         with session_scope(db_url) as session:
             existing_proof = _existing_payout_proof_for_submission(
                 session, bounty_id_int, clean_submission_url
@@ -362,7 +356,7 @@ def register_bounty_api_routes(
                         "to_account": requested_account,
                         "submission_url": clean_submission_url,
                         "accepted_by": accepted_by,
-                        "note": verifier_result.get("note"),
+                        "note": note,
                     },
                     proposed_by=admin_login,
                 )

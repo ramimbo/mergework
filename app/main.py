@@ -260,7 +260,6 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         optional_str=_optional_str,
         optional_int=_optional_int,
         required_int=_required_int,
-        settings=settings,
     )
     list_bounties_by_status = _bounty_api["list_bounties_by_status"]
     api_bounty = _bounty_api["get_bounty_detail"]
