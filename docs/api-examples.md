@@ -519,13 +519,16 @@ account invariant.
 Read the proof-backed accepted-work list for a single account:
 
 ```bash
-curl -s "$API_HOST/api/v1/accounts/github:carpedkm/accepted-work"
+curl -s "$API_HOST/api/v1/accounts/github:carpedkm/accepted-work?limit=10"
 ```
 
 The response includes the account summary plus the same accepted-work rows used
 by the public account page, so agents can inspect recent proof, ledger,
 submission, source issue, internal bounty id and public bounty URL, and
 maintainer acceptance details without scraping HTML:
+
+Use `limit=1..200` to cap the returned `accepted_work` rows. The default limit
+is 100 rows, and the `summary` totals still cover the full account history.
 
 Relative URL fields are preserved for existing clients. The `*_public_url`
 companions use `https://mrwk.online` so proof-backed accepted-work evidence can

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -14,7 +14,7 @@ from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
-from app.query_validation import reject_repeated_query_param
+from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
@@ -39,6 +39,8 @@ ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
 ACCOUNT_TRANSACTION_TYPES = {
     str(option["value"]) for option in ACCOUNT_TRANSACTION_TYPE_OPTIONS if option["value"] != "all"
 }
+ACCOUNT_ACCEPTED_WORK_DEFAULT_LIMIT = 100
+ACCOUNT_ACCEPTED_WORK_MAX_LIMIT = 200
 
 
 def normalized_wallet_address(address: str) -> str:
@@ -124,13 +126,16 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
     }
 
 
-def account_accepted_work_context(session: Session, account: str) -> dict[str, Any]:
+def account_accepted_work_context(
+    session: Session, account: str, limit: int = ACCOUNT_ACCEPTED_WORK_DEFAULT_LIMIT
+) -> dict[str, Any]:
     account = normalized_account(account)
     pending_payouts = pending_payouts_for_account(session, account)
     return {
         "account": account,
         "summary": account_accepted_summary(session, account),
-        "accepted_work": accepted_work_for_account(session, account),
+        "accepted_work": accepted_work_for_account(session, account)[:limit],
+        "accepted_work_limit": limit,
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
     }
@@ -154,7 +159,10 @@ def _transaction_type_filter(tx_type: str | None) -> tuple[str, str | None]:
 
 
 def account_page_context(
-    session: Session, account: str, transaction_type: str | None = None
+    session: Session,
+    account: str,
+    transaction_type: str | None = None,
+    accepted_work_limit: int = ACCOUNT_ACCEPTED_WORK_DEFAULT_LIMIT,
 ) -> dict[str, Any]:
     account = normalized_account(account)
     selected_transaction_type, transaction_filter = _transaction_type_filter(transaction_type)
@@ -162,7 +170,8 @@ def account_page_context(
     return {
         "account": account_api_context(session, account),
         "accepted_summary": safe_account_accepted_summary(session, account),
-        "accepted_work": safe_accepted_work_for_account(session, account),
+        "accepted_work": safe_accepted_work_for_account(session, account)[:accepted_work_limit],
+        "accepted_work_limit": accepted_work_limit,
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
         "selected_transaction_type": selected_transaction_type,
@@ -181,14 +190,27 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
             return account_api_context(session, account)
 
     @app.get("/api/v1/accounts/{account}/accepted-work")
-    def api_account_accepted_work(account: str) -> dict[str, Any]:
+    def api_account_accepted_work(
+        request: Request,
+        account: str,
+        limit: Annotated[
+            int, Query(ge=1, le=ACCOUNT_ACCEPTED_WORK_MAX_LIMIT)
+        ] = ACCOUNT_ACCEPTED_WORK_DEFAULT_LIMIT,
+    ) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
         with session_scope(db_url) as session:
-            return account_accepted_work_context(session, account)
+            return account_accepted_work_context(session, account, limit)
 
     @app.get("/accounts/{account}", response_class=HTMLResponse)
     def account_page(
-        request: Request, account: str, tx_type: str | None = Query(None)
+        request: Request,
+        account: str,
+        tx_type: str | None = Query(None),
+        limit: Annotated[
+            int, Query(ge=1, le=ACCOUNT_ACCEPTED_WORK_MAX_LIMIT)
+        ] = ACCOUNT_ACCEPTED_WORK_DEFAULT_LIMIT,
     ) -> HTMLResponse:
         reject_path_whitespace_padding(account, "account")
         for value in request.query_params.getlist("tx_type"):
@@ -197,6 +219,8 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
                     status_code=400, detail="transaction type must not contain control characters"
                 )
         reject_repeated_query_param(request, "tx_type")
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
         with session_scope(db_url) as session:
-            context = account_page_context(session, account, tx_type)
+            context = account_page_context(session, account, tx_type, limit)
         return templates.TemplateResponse(request, "account.html", context)

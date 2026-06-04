@@ -99,6 +99,65 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
 
+def test_account_accepted_work_routes_honor_limit(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    proof_hashes: list[str] = []
+    ledger_sequences: list[int] = []
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in range(200, 203):
+            bounty = create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=issue_number,
+                issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                title=f"Accepted work limit {issue_number}",
+                reward_mrwk="10",
+                acceptance="Accepted-work routes should cap returned rows.",
+            )
+            proof = pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:limit-user",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{issue_number}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+            proof_hashes.append(proof.hash)
+            ledger_sequences.append(proof.ledger_sequence)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    api_response = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=1")
+    page_response = client.get("/accounts/github:limit-user?limit=1")
+    noncanonical_api = client.get("/api/v1/accounts/github:limit-user/accepted-work?limit=01")
+    repeated_page = client.get("/accounts/github:limit-user?limit=1&limit=2")
+
+    api_body = api_response.json()
+    latest_sequence = max(ledger_sequences)
+    older_sequence = min(ledger_sequences)
+
+    assert api_response.status_code == 200
+    assert api_body["summary"]["accepted_awards"] == 3
+    assert api_body["accepted_work_limit"] == 1
+    assert len(api_body["accepted_work"]) == 1
+    assert api_body["accepted_work"][0]["ledger_sequence"] == latest_sequence
+
+    assert page_response.status_code == 200
+    accepted_work_section = page_response.text.split("<h2>Accepted work</h2>", 1)[1].split(
+        "<h2>Transactions</h2>", 1
+    )[0]
+    assert f'href="/ledger/{latest_sequence}"' in accepted_work_section
+    assert f'href="/ledger/{older_sequence}"' not in accepted_work_section
+    assert proof_hashes[-1][:12] in accepted_work_section
+    assert proof_hashes[0][:12] not in accepted_work_section
+
+    assert noncanonical_api.status_code == 400
+    assert noncanonical_api.json()["detail"] == "limit must be a canonical positive integer"
+    assert repeated_page.status_code == 400
+    assert repeated_page.json()["detail"] == "limit must be provided at most once"
+
+
 def test_account_routes_expose_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:
