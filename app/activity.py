@@ -13,12 +13,19 @@ from app.db import session_scope
 from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
 from app.serializers import activity_to_dict
 
+ACTIVITY_QUERY_MAX_LENGTH = 500
+
 
 def activity_context(
     session: Session, query: str | None = None, account: str | None = None
 ) -> dict[str, Any]:
     if query is not None and contains_control_character(query):
         raise HTTPException(status_code=400, detail="q must not contain control characters")
+    if query is not None and len(query) > ACTIVITY_QUERY_MAX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"q must be at most {ACTIVITY_QUERY_MAX_LENGTH} characters",
+        )
     normalized = normalized_account(account) if account is not None else None
     return activity_to_dict(session, query, account=normalized)
 
