@@ -126,7 +126,13 @@ def test_account_accepted_work_api_honors_canonical_limit(sqlite_url: str) -> No
 
     full_response = client.get("/api/v1/accounts/github:alice/accepted-work")
     limited_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=1")
+    max_limit_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=200")
+    zero_limit_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=0")
+    too_large_limit_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=201")
     noncanonical_response = client.get("/api/v1/accounts/github:alice/accepted-work?limit=01")
+    repeated_limit_response = client.get(
+        "/api/v1/accounts/github:alice/accepted-work?limit=1&limit=2"
+    )
 
     assert full_response.status_code == 200
     assert len(full_response.json()["accepted_work"]) == 3
@@ -135,8 +141,14 @@ def test_account_accepted_work_api_honors_canonical_limit(sqlite_url: str) -> No
     assert limited_payload["summary"]["accepted_awards"] == 3
     assert len(limited_payload["accepted_work"]) == 1
     assert limited_payload["accepted_work"][0]["issue_number"] == 192
+    assert max_limit_response.status_code == 200
+    assert len(max_limit_response.json()["accepted_work"]) == 3
+    assert zero_limit_response.status_code == 422
+    assert too_large_limit_response.status_code == 422
     assert noncanonical_response.status_code == 400
     assert noncanonical_response.json()["detail"] == "limit must be a canonical positive integer"
+    assert repeated_limit_response.status_code == 400
+    assert repeated_limit_response.json()["detail"] == "limit must be provided at most once"
 
 
 def test_account_routes_expose_pending_payouts_separately_from_paid_work(
