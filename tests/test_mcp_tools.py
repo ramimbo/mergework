@@ -83,6 +83,16 @@ def test_call_mcp_tool_rejects_c1_status_before_normalizing(sqlite_url: str) -> 
         call_mcp_tool(sqlite_url, "list_bounties", {"status": "\u0085open"})
 
 
+@pytest.mark.parametrize("field", ["status", "q", "sort", "availability"])
+def test_call_mcp_tool_rejects_padded_list_bounty_filters(sqlite_url: str, field: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    with pytest.raises(ValueError, match=f"{field} must not contain leading or trailing"):
+        call_mcp_tool(sqlite_url, "list_bounties", {field: " open "})
+
+
 def test_call_mcp_tool_rejects_c1_nonce_before_integer_parsing(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

@@ -530,7 +530,7 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
             "method": "tools/call",
             "params": {
                 "name": "list_bounties",
-                "arguments": {"status": " Paid ", "q": "proof", "limit": 1},
+                "arguments": {"status": "Paid", "q": "proof", "limit": 1},
             },
         },
     ).json()
@@ -697,6 +697,10 @@ def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> No
         ({"limit": 101}, 35),
         ({"sort": "invalid"}, 36),
         ({"availability": "maybe"}, 37),
+        ({"status": " open "}, 38),
+        ({"q": " proof "}, 39),
+        ({"sort": " reward "}, 40),
+        ({"availability": " effectively_open "}, 41),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(

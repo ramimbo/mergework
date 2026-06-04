@@ -80,7 +80,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a string")
         return value
 
-    def optional_clean_str_arg(field: str) -> str | None:
+    def optional_clean_str_arg(field: str, *, reject_padding: bool = False) -> str | None:
         value = args.get(field)
         if value is None:
             return None
@@ -88,6 +88,8 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a string")
         if contains_control_character(value):
             raise ValueError(f"{field} must not contain control characters")
+        if reject_padding and value.strip() and value != value.strip():
+            raise ValueError(f"{field} must not contain leading or trailing whitespace")
         clean = value.strip()
         return clean or None
 
@@ -153,12 +155,12 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
-            status = optional_clean_str_arg("status") or "open"
+            status = optional_clean_str_arg("status", reject_padding=True) or "open"
             normalized_status = status.lower()
             if normalized_status not in {"open", "paid", "closed"}:
                 raise ValueError("status must be one of: open, paid, closed")
             query = select(Bounty).where(Bounty.status == normalized_status)
-            query_text = optional_clean_str_arg("q")
+            query_text = optional_clean_str_arg("q", reject_padding=True)
             if query_text:
                 escaped_query = (
                     query_text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -173,9 +175,9 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 if issue_number is not None:
                     text_filter = or_(text_filter, Bounty.issue_number == issue_number)
                 query = query.where(text_filter)
-            sort = normalize_bounty_sort(optional_clean_str_arg("sort"))
+            sort = normalize_bounty_sort(optional_clean_str_arg("sort", reject_padding=True))
             availability = normalize_bounty_availability_filter(
-                optional_clean_str_arg("availability")
+                optional_clean_str_arg("availability", reject_padding=True)
             )
             limit = list_limit_arg()
             if sort == "newest" and availability == "all":
