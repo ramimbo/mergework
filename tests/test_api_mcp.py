@@ -729,6 +729,14 @@ def test_mcp_list_bounties_rejects_invalid_filters(
 def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
+    charset_response = client.post(
+        "/mcp",
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}),
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert charset_response.status_code == 200
+    assert charset_response.json()["result"]["tools"]
+
     malformed = client.post(
         "/mcp",
         content="not-json",
@@ -758,6 +766,34 @@ def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
         "jsonrpc": "2.0",
         "id": 7,
         "error": {"code": -32602, "message": "invalid params"},
+    }
+
+
+@pytest.mark.parametrize(
+    "content_type",
+    [
+        "text/plain",
+        "text/html",
+        "application/xml",
+        "multipart/form-data; boundary=mergework",
+        None,
+    ],
+)
+def test_mcp_rejects_non_json_content_types(sqlite_url: str, content_type: str | None) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    headers = {} if content_type is None else {"content-type": content_type}
+    response = client.post(
+        "/mcp",
+        content=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}),
+        headers=headers,
+    )
+
+    assert response.status_code == 415
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32700, "message": "unsupported media type"},
     }
 
 

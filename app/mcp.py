@@ -89,6 +89,13 @@ def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
 
 
+def _is_json_content_type(content_type: str | None) -> bool:
+    if content_type is None:
+        return False
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == "application/json"
+
+
 def _structured_json_payload(text: str) -> dict[str, Any] | list[Any] | None:
     try:
         payload = json.loads(text)
@@ -129,6 +136,12 @@ def _tool_result_response(response_id: Any, tool_result: str | dict[str, Any]) -
 async def handle_mcp_request(
     request: Request, database_url: str, call_tool: MCPToolHandler
 ) -> dict[str, Any] | JSONResponse:
+    if not _is_json_content_type(request.headers.get("content-type")):
+        return JSONResponse(
+            _jsonrpc_error(None, -32700, "unsupported media type"),
+            status_code=415,
+        )
+
     try:
         payload = await request.json()
     except ValueError:
