@@ -89,6 +89,52 @@ def test_ledger_api_applies_default_limit_when_omitted(sqlite_url: str) -> None:
     assert isinstance(response.json(), list)
 
 
+def test_ledger_api_honors_canonical_offset(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in range(10, 13):
+            bounty = create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=issue_number,
+                issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                title=f"Ledger offset {issue_number}",
+                reward_mrwk="10",
+                acceptance="Ledger API offset should page through entries.",
+            )
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account="github:ledger-offset",
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{issue_number}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    first_page = client.get("/api/v1/ledger?limit=1")
+    second_page = client.get("/api/v1/ledger?limit=1&offset=1")
+    zero_offset = client.get("/api/v1/ledger?limit=1&offset=0")
+    negative_offset = client.get("/api/v1/ledger?limit=1&offset=-1")
+    oversized_offset = client.get("/api/v1/ledger?limit=1&offset=9223372036854775808")
+    noncanonical_offset = client.get("/api/v1/ledger?limit=1&offset=01")
+    repeated_offset = client.get("/api/v1/ledger?limit=1&offset=1&offset=2")
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert zero_offset.status_code == 200
+    assert first_page.json()[0]["sequence"] != second_page.json()[0]["sequence"]
+    assert zero_offset.json()[0]["sequence"] == first_page.json()[0]["sequence"]
+    assert negative_offset.status_code == 422
+    assert oversized_offset.status_code == 422
+    assert noncanonical_offset.status_code == 400
+    assert noncanonical_offset.json()["detail"] == "offset must be a canonical positive integer"
+    assert repeated_offset.status_code == 400
+    assert repeated_offset.json()["detail"] == "offset must be provided at most once"
+
+
 def test_ledger_api_rejects_repeated_limit_before_using_later_value(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
