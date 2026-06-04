@@ -280,7 +280,10 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     ).json()
     assert balance["result"]["content"][0]["type"] == "text"
     assert "100000000" in balance["result"]["content"][0]["text"]
-    assert "structuredContent" not in balance["result"]
+    assert balance["result"]["structuredContent"] == {
+        "account": "treasury:mrwk",
+        "balance_mrwk": "100000000",
+    }
 
 
 def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) -> None:
@@ -2298,6 +2301,10 @@ def test_wallet_account_views_normalize_mixed_case_addresses(sqlite_url: str) ->
     assert "50 MRWK" in account
     assert f"/proofs/{proof.hash}" in account
     assert f"{wallet_address}: 50 MRWK" in balance["result"]["content"][0]["text"]
+    assert balance["result"]["structuredContent"] == {
+        "account": wallet_address,
+        "balance_mrwk": "50",
+    }
 
 
 def test_github_account_views_normalize_mixed_case_logins(sqlite_url: str) -> None:
@@ -2347,6 +2354,10 @@ def test_github_account_views_normalize_mixed_case_logins(sqlite_url: str) -> No
         assert f"/proofs/{proof.hash}" in account
         assert 'href="https://github.com/alice">@alice</a>' in account
         assert "github:alice: 50 MRWK" in balance["result"]["content"][0]["text"]
+        assert balance["result"]["structuredContent"] == {
+            "account": "github:alice",
+            "balance_mrwk": "50",
+        }
 
     padded_api = client.get("/api/v1/accounts/%20GitHub:Alice%20")
     padded_page = client.get("/accounts/%20GitHub:Alice%20")

@@ -17,6 +17,7 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import format_mrwk, get_balance, register_wallet, submit_wallet_transfer
 from app.ledger_views import ledger_entry_to_dict
+from app.mcp import MCPTextResult, MCPToolResult
 from app.mcp_work_proof import (
     generic_work_proof_guidance_json,
     work_proof_guidance,
@@ -35,7 +36,7 @@ from app.serializers import (
 MCP_INTEGER_RE = re.compile(r"^(?:0|-?[1-9][0-9]*)$")
 
 
-def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | dict[str, Any]:
+def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> MCPToolResult:
     def int_arg(field: str) -> int:
         value = args[field]
         if isinstance(value, bool):
@@ -219,7 +220,11 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             }
         if name == "get_balance":
             account = normalized_account(str_arg("account"))
-            return f"{account}: {format_mrwk(get_balance(session, account))} MRWK"
+            balance_mrwk = format_mrwk(get_balance(session, account))
+            return MCPTextResult(
+                text=f"{account}: {balance_mrwk} MRWK",
+                structured_content={"account": account, "balance_mrwk": balance_mrwk},
+            )
         if name == "register_wallet":
             wallet = register_wallet(
                 session,

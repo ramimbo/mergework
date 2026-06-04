@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -9,7 +10,15 @@ from fastapi.responses import JSONResponse
 
 from app.ledger.service import LedgerError
 
-MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
+
+@dataclass(frozen=True)
+class MCPTextResult:
+    text: str
+    structured_content: dict[str, Any] | list[Any]
+
+
+MCPToolResult = str | dict[str, Any] | MCPTextResult
+MCPToolHandler = Callable[[str, str, dict[str, Any]], MCPToolResult]
 
 MCP_TOOLS: list[dict[str, Any]] = [
     {
@@ -99,7 +108,16 @@ def _structured_json_payload(text: str) -> dict[str, Any] | list[Any] | None:
     return None
 
 
-def _tool_result_response(response_id: Any, tool_result: str | dict[str, Any]) -> dict[str, Any]:
+def _tool_result_response(response_id: Any, tool_result: MCPToolResult) -> dict[str, Any]:
+    if isinstance(tool_result, MCPTextResult):
+        return {
+            "jsonrpc": "2.0",
+            "id": response_id,
+            "result": {
+                "content": [{"type": "text", "text": tool_result.text}],
+                "structuredContent": tool_result.structured_content,
+            },
+        }
     if isinstance(tool_result, dict):
         return {
             "jsonrpc": "2.0",
