@@ -173,6 +173,14 @@ def _bounty_payability_verified(raw: dict[str, Any]) -> bool:
     return raw.get("payability_verified", True) is not False
 
 
+def _copy_effective_availability_fields(
+    source: dict[str, Any], target: dict[str, Any]
+) -> None:
+    for field in EFFECTIVE_AVAILABILITY_FIELDS:
+        if field in source:
+            target[field] = source.get(field)
+
+
 def _active_attempts_verified(raw: dict[str, Any]) -> bool:
     return raw.get("active_attempts_verified", True) is not False
 
@@ -580,9 +588,7 @@ def _load_api_bounties(repo: str, api_host: str) -> dict[int, dict[str, Any]]:
             "state": item.get("status", "open"),
             "awards_remaining": item.get("awards_remaining"),
         }
-        for field in EFFECTIVE_AVAILABILITY_FIELDS:
-            if field in item:
-                bounties[issue_number][field] = item.get(field)
+        _copy_effective_availability_fields(item, bounties[issue_number])
     return bounties
 
 
@@ -691,9 +697,7 @@ def _load_live_context(
                 or api_bounty.get("effective_awards_remaining") is not None
             ),
         }
-        for field in EFFECTIVE_AVAILABILITY_FIELDS:
-            if field in api_bounty:
-                bounty_record[field] = api_bounty[field]
+        _copy_effective_availability_fields(api_bounty, bounty_record)
         bounties.append(bounty_record)
         if issue["number"] in referenced_bounties:
             try:

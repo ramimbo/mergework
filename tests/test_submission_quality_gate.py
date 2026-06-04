@@ -978,6 +978,10 @@ def test_submission_quality_gate_live_context_preserves_effective_availability(
     assert bounty["effective_awards_remaining"] == 2
     assert bounty["effective_available_mrwk"] == "300"
     assert bounty["availability_state"] == "pending_payouts_partial"
+    assert (
+        bounty["availability_note"]
+        == "3 awards covered by pending payout proposals; 2 awards effectively available."
+    )
     assert bounty["pending_payout_awards"] == 3
     assert bounty["payability_verified"] is True
 
