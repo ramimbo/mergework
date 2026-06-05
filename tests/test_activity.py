@@ -79,6 +79,7 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
 
     assert response.status_code == 200
     payload = response.json()
+    assert "account" not in payload
     assert payload["totals"] == {
         "accepted_awards": 3,
         "accepted_mrwk": "90",
@@ -306,10 +307,13 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     repeated_api_response = client.get("/api/v1/activity?q=github&q=alice")
     repeated_page_response = client.get("/activity?q=github&q=alice")
     account_control_response = client.get("/api/v1/activity?account=%C2%85github:alice")
+    page_account_control_response = client.get("/activity?account=%C2%85github:alice")
     repeated_account_response = client.get(
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
+    repeated_page_account_response = client.get("/activity?account=github:alice&account=github:bob")
     invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
+    invalid_page_account_response = client.get("/activity?account=github%3A%20")
 
     assert api_response.status_code == 400
     assert api_response.json()["detail"] == "q must not contain control characters"
@@ -325,10 +329,20 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert account_control_response.json()["detail"] == (
         "account must not contain control characters"
     )
+    assert page_account_control_response.status_code == 400
+    assert page_account_control_response.json()["detail"] == (
+        "account must not contain control characters"
+    )
     assert repeated_account_response.status_code == 400
     assert repeated_account_response.json()["detail"] == "account must be provided at most once"
+    assert repeated_page_account_response.status_code == 400
+    assert repeated_page_account_response.json()["detail"] == (
+        "account must be provided at most once"
+    )
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
+    assert invalid_page_account_response.status_code == 400
+    assert invalid_page_account_response.json()["detail"] == "github login must be valid"
 
 
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
@@ -473,6 +487,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'role="search"' in paid.text
     assert 'aria-label="Activity inspection links"' in paid.text
     assert 'href="/api/v1/activity">View JSON activity</a>' in paid.text
+    assert 'name="account"' not in paid.text
     assert 'name="q"' in paid.text
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in paid.text
     assert "Latest bounty" in paid.text
@@ -481,6 +496,29 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert f'href="/proofs/{proof.hash}"' in paid.text
     assert "/accounts/github:bob" in paid.text
     assert "Pending accepted work" in paid.text
+
+    scoped_account = client.get("/activity?account=GitHub:Bob")
+
+    assert scoped_account.status_code == 200
+    assert 'name="account" value="github:bob"' in scoped_account.text
+    assert "Showing accepted work for <code>github:bob</code>" in scoped_account.text
+    assert (
+        'href="/api/v1/activity?account=github%3Abob">View JSON activity</a>' in scoped_account.text
+    )
+    assert "github:bob" in scoped_account.text
+    assert "75 MRWK" in scoped_account.text
+
+    scoped_account_query = client.get("/activity?account=GitHub:Bob&q=pull%2F12")
+
+    assert scoped_account_query.status_code == 200
+    assert 'value="pull/12"' in scoped_account_query.text
+    assert 'Showing accepted work for <code>github:bob</code> matching "pull/12"' in (
+        scoped_account_query.text
+    )
+    assert 'href="/activity?account=github%3Abob">Clear</a>' in scoped_account_query.text
+    assert (
+        'href="/api/v1/activity?q=pull%2F12&amp;account=github%3Abob">View JSON activity</a>'
+    ) in scoped_account_query.text
 
     filtered = client.get("/activity?q=bob")
     issue_ref = client.get("/activity?q=%2312")
@@ -509,6 +547,11 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "No accepted bounty payments yet." not in no_match.text
     assert "No proof-backed accepted work rows yet." not in no_match.text
     assert 'href="/activity">Clear search</a>' in no_match.text
+
+    scoped_no_match = client.get("/activity?account=GitHub:Bob&q=alice")
+
+    assert scoped_no_match.status_code == 200
+    assert 'href="/activity?account=github%3Abob">Clear search</a>' in scoped_no_match.text
 
 
 def test_activity_page_renders_pending_accepted_work(sqlite_url: str) -> None:

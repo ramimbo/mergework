@@ -12,3 +12,9 @@ def test_docker_compose_defines_treasury_executor_service() -> None:
     assert "      - .env" in compose
     assert "      - /srv/mergework/data:/srv/mergework/data" in compose
     assert "restart: unless-stopped" in compose
+
+
+def test_dockerfile_disables_uvicorn_server_header() -> None:
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+
+    assert "uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-server-header" in dockerfile

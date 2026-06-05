@@ -1115,6 +1115,12 @@ def test_accepted_label_rejects_control_characters_before_trimming_webhook_ident
             (),
         ),
         (
+            "delivery-c1-repo",
+            {"repository": {"full_name": "\x85ramimbo/mergework"}},
+            "malformed_repository",
+            (),
+        ),
+        (
             "delivery-control-submitter",
             {"issue": {"user": {"login": "\talice"}}},
             "missing_submitter",

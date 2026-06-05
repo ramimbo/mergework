@@ -20,6 +20,7 @@ from app.ledger.snapshot import (
     ledger_snapshot_schema_json,
 )
 from app.models import LedgerEntry
+from scripts.export_ledger_snapshot import main as export_ledger_snapshot_main
 from scripts.export_ledger_snapshot import read_only_session_scope
 
 
@@ -159,6 +160,41 @@ def test_exporter_read_only_session_rolls_back_writes(sqlite_url: str) -> None:
 
     with session_scope(sqlite_url) as session:
         assert session.get(LedgerEntry, 1) is None
+
+
+def test_exporter_main_accepts_schema_argv(capsys) -> None:
+    assert export_ledger_snapshot_main(["--schema"]) == 0
+
+    schema = json.loads(capsys.readouterr().out)
+
+    assert schema["$id"] == LEDGER_SNAPSHOT_SCHEMA
+
+
+def test_exporter_main_accepts_snapshot_argv(sqlite_url: str, capsys) -> None:
+    create_schema(sqlite_url)
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    assert (
+        export_ledger_snapshot_main(
+            [
+                "--database-url",
+                sqlite_url,
+                "--source-host",
+                "https://mrwk.example",
+                "--source-mode",
+                "test",
+            ]
+        )
+        == 0
+    )
+
+    snapshot = json.loads(capsys.readouterr().out)
+
+    assert snapshot["source"] == {"mode": "test", "host": "https://mrwk.example"}
+    assert snapshot["ledger_anchor"]["latest_sequence"] == 1
+    assert snapshot["verification"]["hash_chain_ok"] is True
 
 
 def test_ledger_snapshot_schema_is_deterministic_json() -> None:

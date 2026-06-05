@@ -411,6 +411,29 @@ def test_bounty_api_search_query_rejects_control_characters(sqlite_url: str) -> 
     assert summary_response.json()["detail"] == "q must not contain control characters"
 
 
+def test_bounty_api_search_query_rejects_oversized_values(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    accepted_query = "a" * 500
+    oversized_query = "a" * 501
+
+    list_boundary = client.get("/api/v1/bounties", params={"q": accepted_query})
+    summary_boundary = client.get("/api/v1/bounties/summary", params={"q": accepted_query})
+    list_oversized = client.get("/api/v1/bounties", params={"q": oversized_query})
+    summary_oversized = client.get("/api/v1/bounties/summary", params={"q": oversized_query})
+
+    assert list_boundary.status_code == 200
+    assert summary_boundary.status_code == 200
+    assert list_oversized.status_code == 400
+    assert list_oversized.json()["detail"] == "q must be at most 500 characters"
+    assert summary_oversized.status_code == 400
+    assert summary_oversized.json()["detail"] == "q must be at most 500 characters"
+
+
 @pytest.mark.parametrize(
     ("path", "detail"),
     [
@@ -601,8 +624,18 @@ def test_bounty_api_filters_by_exact_repo_and_issue_number(sqlite_url: str) -> N
     assert [row["id"] for row in composed.json()] == [mergework_649.id]
 
     invalid_repo = client.get("/api/v1/bounties?repo=ramimbo%C2%85mergework")
+    max_length_repo = client.get("/api/v1/bounties", params={"repo": "a" * 200})
+    max_length_summary_repo = client.get("/api/v1/bounties/summary", params={"repo": "a" * 200})
+    oversized_repo = client.get("/api/v1/bounties", params={"repo": "a" * 201})
+    oversized_summary_repo = client.get("/api/v1/bounties/summary", params={"repo": "a" * 201})
     assert invalid_repo.status_code == 400
     assert invalid_repo.json()["detail"] == "repo must not contain control characters"
+    assert max_length_repo.status_code == 200
+    assert max_length_summary_repo.status_code == 200
+    assert oversized_repo.status_code == 400
+    assert oversized_repo.json()["detail"] == "repo is too long"
+    assert oversized_summary_repo.status_code == 400
+    assert oversized_summary_repo.json()["detail"] == "repo is too long"
     assert controlled_issue.status_code == 400
     assert controlled_issue.json()["detail"] == "issue_number must not contain control characters"
     assert controlled_summary_issue.status_code == 400

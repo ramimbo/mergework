@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -34,8 +34,10 @@ from app.status import (
     UNSUPPORTED_PUBLIC_PATHS_SUMMARY,
 )
 
+WALLET_SEARCH_QUERY_MAX_LENGTH = 500
 
-def _bounties_api_url(
+
+def _bounty_filter_params(
     status: str | None,
     query_text: str,
     selected_sort: str,
@@ -43,7 +45,7 @@ def _bounties_api_url(
     repo: str,
     issue_number: int | None,
     selected_availability: str,
-) -> str:
+) -> list[tuple[str, str]]:
     params: list[tuple[str, str]] = []
     if status:
         params.append(("status", status))
@@ -59,7 +61,56 @@ def _bounties_api_url(
         params.append(("limit", str(limit)))
     if selected_availability != "all":
         params.append(("availability", selected_availability))
-    return f"/api/v1/bounties?{urlencode(params)}" if params else "/api/v1/bounties"
+    return params
+
+
+def _bounties_url(
+    path: str,
+    status: str | None,
+    query_text: str,
+    selected_sort: str,
+    limit: int | None,
+    repo: str,
+    issue_number: int | None,
+    selected_availability: str,
+    *,
+    quote_spaces: bool = False,
+) -> str:
+    params = _bounty_filter_params(
+        status,
+        query_text,
+        selected_sort,
+        limit,
+        repo,
+        issue_number,
+        selected_availability,
+    )
+    if not params:
+        return path
+    if quote_spaces:
+        return f"{path}?{urlencode(params, quote_via=quote)}"
+    return f"{path}?{urlencode(params)}"
+
+
+def _bounties_api_url(
+    status: str | None,
+    query_text: str,
+    selected_sort: str,
+    limit: int | None,
+    repo: str,
+    issue_number: int | None,
+    selected_availability: str,
+) -> str:
+    return _bounties_url(
+        "/api/v1/bounties",
+        status,
+        query_text,
+        selected_sort,
+        limit,
+        repo,
+        issue_number,
+        selected_availability,
+    )
 
 
 def _bounties_page_url(
@@ -71,22 +122,17 @@ def _bounties_page_url(
     issue_number: int | None,
     selected_availability: str,
 ) -> str:
-    params: list[tuple[str, str]] = []
-    if status:
-        params.append(("status", status))
-    if query_text:
-        params.append(("q", query_text))
-    if repo:
-        params.append(("repo", repo))
-    if issue_number is not None:
-        params.append(("issue_number", str(issue_number)))
-    if selected_sort != "newest":
-        params.append(("sort", selected_sort))
-    if limit is not None:
-        params.append(("limit", str(limit)))
-    if selected_availability != "all":
-        params.append(("availability", selected_availability))
-    return f"/bounties?{urlencode(params, quote_via=quote)}" if params else "/bounties"
+    return _bounties_url(
+        "/bounties",
+        status,
+        query_text,
+        selected_sort,
+        limit,
+        repo,
+        issue_number,
+        selected_availability,
+        quote_spaces=True,
+    )
 
 
 def public_bounties_context(
@@ -137,6 +183,15 @@ def public_bounties_context(
             issue_number,
             selected_availability,
         ),
+        "clear_source_filter_url": _bounties_page_url(
+            selected_status,
+            query_text,
+            selected_sort,
+            limit,
+            "",
+            None,
+            selected_availability,
+        ),
         "status_filter_urls": {
             "all": _bounties_page_url(
                 None,
@@ -181,6 +236,11 @@ def public_bounties_context(
 def wallets_page_context(session: Session, q: str | None = None) -> dict[str, Any]:
     if q is not None and contains_control_character(q):
         raise HTTPException(status_code=400, detail="q must not contain control characters")
+    if q is not None and len(q) > WALLET_SEARCH_QUERY_MAX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"q must be at most {WALLET_SEARCH_QUERY_MAX_LENGTH} characters",
+        )
     query_text = q.strip() if q is not None else ""
     query = select(Wallet)
     if query_text:
@@ -270,7 +330,7 @@ def register_public_routes(
         list[dict[str, Any]],
     ],
     api_bounty: Callable[[str], dict[str, Any]],
-    api_ledger: Callable[[], list[dict[str, Any]]],
+    api_ledger: Callable[[int], list[dict[str, Any]]],
     api_ledger_entry: Callable[[str], dict[str, Any]],
     api_proof: Callable[[str], dict[str, Any]],
 ) -> None:
@@ -314,8 +374,13 @@ def register_public_routes(
         )
 
     @app.get("/ledger", response_class=HTMLResponse)
-    def ledger_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "ledger.html", {"entries": api_ledger()})
+    def ledger_page(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ) -> HTMLResponse:
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
+        return templates.TemplateResponse(request, "ledger.html", {"entries": api_ledger(limit)})
 
     @app.get("/ledger/{sequence}", response_class=HTMLResponse)
     def ledger_entry_page(request: Request, sequence: str) -> HTMLResponse:

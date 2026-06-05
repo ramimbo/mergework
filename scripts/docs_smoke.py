@@ -53,6 +53,9 @@ REQUIRED_PUBLIC_PHRASES = {
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
         "Proposed work requests are intake issues, not live bounties",
         "wait for `mrwk:bounty`",
+        "GET /api/v1/work-discovery",
+        "claimable_now",
+        "opening_soon",
         "Use [docs/bounty-lifecycle.md](bounty-lifecycle.md) as the short checklist",
     ],
     "docs/bounty-lifecycle.md": [
@@ -106,6 +109,8 @@ REQUIRED_PUBLIC_PHRASES = {
         "effective_awards_remaining` is zero",
         "availability_state` is not",
         "pending payout proposals as proof-backed paid work",
+        "/api/v1/work-discovery",
+        "live bounty rows from pending create-bounty proposals",
         ("Treasury and reserve balances change as bounties are reserved, paid, and released."),
     ],
     "docs/admin-runbook.md": [
@@ -132,17 +137,59 @@ REQUIRED_PUBLIC_PHRASES = {
     ],
 }
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+FIELD_ID_RE = re.compile(r"^(?P<indent>\s*)id:\s*(?P<field_id>[^\s#]+)")
+HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.MULTILINE)
+FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 DOCS_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/docs.yml"
 SECURITY_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/security-report.yml"
 BUG_ISSUE_TEMPLATE = ".github/ISSUE_TEMPLATE/bug.yml"
 PR_TEMPLATE = ".github/pull_request_template.md"
 
 
+def _markdown_heading_anchor(heading: str) -> str:
+    text = re.sub(r"`([^`]+)`", r"\1", heading.strip().lower())
+    text = re.sub(r"[^\w\s-]", "", text)
+    return re.sub(r"[\s-]+", "-", text).strip("-")
+
+
+def _markdown_anchors(path: Path) -> set[str]:
+    anchors: set[str] = set()
+    counts: dict[str, int] = {}
+    fence_marker = ""
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        fence_match = FENCE_RE.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if not fence_marker:
+                fence_marker = marker
+            elif marker.startswith(fence_marker[0]) and len(marker) >= len(fence_marker):
+                fence_marker = ""
+            continue
+        if fence_marker:
+            continue
+
+        heading_match = HEADING_RE.match(line)
+        if not heading_match:
+            continue
+        anchor = _markdown_heading_anchor(heading_match.group(1))
+        count = counts.get(anchor, 0)
+        counts[anchor] = count + 1
+        anchors.add(anchor if count == 0 else f"{anchor}-{count}")
+
+    return anchors
+
+
 def _local_target_exists(source: Path, target: str) -> bool:
-    clean = target.split("#", 1)[0]
-    if not clean or clean.startswith(("http://", "https://", "mailto:")):
+    clean, separator, fragment = target.partition("#")
+    if clean.startswith(("http://", "https://", "mailto:")):
         return True
-    return (source.parent / clean).resolve().exists()
+    target_path = (source.parent / clean).resolve() if clean else source.resolve()
+    if not target_path.exists():
+        return False
+    if separator and fragment and target_path.suffix.lower() in {".md", ".markdown"}:
+        return fragment in _markdown_anchors(target_path)
+    return True
 
 
 def _squash(text: str) -> str:
@@ -150,12 +197,20 @@ def _squash(text: str) -> str:
 
 
 def _template_field_block(template: str, field_id: str) -> str:
-    marker = f"id: {field_id}"
-    if marker not in template:
-        return ""
-    block = template.split(marker, 1)[1]
-    next_field = block.find("\n    id: ")
-    return block if next_field == -1 else block[:next_field]
+    lines = template.splitlines()
+    for index, line in enumerate(lines):
+        match = FIELD_ID_RE.match(line)
+        if not match or match.group("field_id").strip("\"'") != field_id:
+            continue
+        indent = match.group("indent")
+        end = len(lines)
+        for next_index, next_line in enumerate(lines[index + 1 :], start=index + 1):
+            next_match = FIELD_ID_RE.match(next_line)
+            if next_match and next_match.group("indent") == indent:
+                end = next_index
+                break
+        return "\n".join(lines[index:end])
+    return ""
 
 
 def _template_field_is_required(template: str, field_id: str) -> bool:

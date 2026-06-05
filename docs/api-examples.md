@@ -29,6 +29,8 @@ curl -s "$API_HOST/api/v1/bounties?repo=ramimbo%2Fmergework&issue_number=649"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&q=proof"
 curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
+curl -s "$API_HOST/api/v1/work-discovery"
+curl -s "$API_HOST/api/v1/work-discovery?limit=10"
 ```
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
@@ -144,6 +146,100 @@ Use `availability_state_counts`, `pending_payout_awards`,
 why effective capacity is lower than raw award capacity without fetching every
 bounty row.
 
+Use `/api/v1/work-discovery` when an agent needs a single read-only work queue.
+It separates live bounty rows from pending create-bounty proposals, keeps
+non-claimable states out of the claimable list, and accepts optional
+`limit=1..100` to cap each returned bucket:
+
+```json
+{
+  "type": "work_discovery",
+  "summary": {
+    "claimable_now_count": 1,
+    "opening_soon_count": 1,
+    "not_claimable_count": 1,
+    "limit": 50
+  },
+  "state_definitions": {
+    "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
+    "pending_create": "Public treasury proposal exists but the bounty row is not live yet.",
+    "pending_payout": "Accepted work has a pending pay_bounty proposal, not proof-backed payment.",
+    "closed_or_exhausted": "Bounty is closed, paid, or has no effective award capacity.",
+    "proposed_work": "GitHub proposed-work issue is intake only until a create_bounty proposal executes.",
+    "board_or_index": "Index issues help discovery but are not claimable bounty work."
+  },
+  "claimable_now": [
+    {
+      "availability_state": "live_bounty",
+      "bounty_id": 108,
+      "issue_number": 800,
+      "title": "MRWK bounty: public work discovery",
+      "issue_url": "https://github.com/ramimbo/mergework/issues/800",
+      "reward_mrwk": "600",
+      "max_awards": 1,
+      "effective_awards_remaining": 1,
+      "bounty_availability_state": "open",
+      "pending_payout_awards": 0,
+      "source_urls": {
+        "bounty": "/api/v1/bounties/108",
+        "attempts": "/api/v1/bounties/108/attempts",
+        "github_issue": "https://github.com/ramimbo/mergework/issues/800"
+      }
+    }
+  ],
+  "opening_soon": [
+    {
+      "availability_state": "pending_create",
+      "proposal_id": 125,
+      "issue_number": 798,
+      "title": "MRWK bounty: live verification and bug reports, round 2",
+      "issue_url": "https://github.com/ramimbo/mergework/issues/798",
+      "reward_mrwk": "75",
+      "max_awards": 8,
+      "effective_awards_remaining": 0,
+      "executes_after": "2026-06-03T11:41:52Z",
+      "source_urls": {
+        "proposal": "/api/v1/treasury/proposals/125",
+        "github_issue": "https://github.com/ramimbo/mergework/issues/798"
+      }
+    }
+  ],
+  "not_claimable": [
+    {
+      "availability_state": "closed_or_exhausted",
+      "bounty_id": 102,
+      "issue_number": 761,
+      "title": "MRWK bounty: accepted proposed-work fixes, round 1",
+      "issue_url": "https://github.com/ramimbo/mergework/issues/761",
+      "reward_mrwk": "150",
+      "max_awards": 6,
+      "effective_awards_remaining": 0,
+      "bounty_availability_state": "paid",
+      "pending_payout_awards": 0,
+      "source_urls": {
+        "bounty": "/api/v1/bounties/102",
+        "attempts": "/api/v1/bounties/102/attempts",
+        "github_issue": "https://github.com/ramimbo/mergework/issues/761"
+      }
+    }
+  ],
+  "non_claimable_issue_states": [
+    {
+      "availability_state": "proposed_work",
+      "note": "GitHub proposed-work issue is intake only until a create_bounty proposal executes."
+    },
+    {
+      "availability_state": "board_or_index",
+      "repo": "ramimbo/mergework",
+      "issue_number": 785,
+      "issue_url": "https://github.com/ramimbo/mergework/issues/785",
+      "title": "MRWK bounty board",
+      "note": "Index issues help discovery but are not claimable bounty work."
+    }
+  ]
+}
+```
+
 Read a single bounty with its internal `id` from `/api/v1/bounties`:
 
 ```bash
@@ -172,6 +268,7 @@ Read proposals:
 ```bash
 curl -s "$API_HOST/api/v1/treasury/status"
 curl -s "$API_HOST/api/v1/treasury/proposals"
+curl -s "$API_HOST/api/v1/treasury/proposals?limit=25&offset=25"
 curl -s "$API_HOST/api/v1/treasury/proposals?action=pay_bounty&status=pending&bounty_id=<bounty_id>"
 curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 ```
@@ -179,7 +276,8 @@ curl -s "$API_HOST/api/v1/treasury/proposals/<proposal_id>"
 Use the optional `action`, `status`, and `bounty_id` filters to inspect one
 queue slice without client-side scanning. The `bounty_id` filter matches
 proposal payloads such as pending payout or close-bounty proposals, not GitHub
-issue numbers.
+issue numbers. Use canonical `limit` and `offset` values to page through the
+newest-first proposal list.
 
 The treasury status endpoint reports the 24-hour create-bounty reserve cap,
 recent executed reserves, pending create-bounty proposal reserves, remaining
@@ -318,11 +416,12 @@ Read recent ledger entries and inspect one entry:
 
 ```bash
 curl -s "$API_HOST/api/v1/ledger?limit=10"
+curl -s "$API_HOST/api/v1/ledger?limit=10&offset=10"
 curl -s "$API_HOST/api/v1/ledger/<sequence>"
 ```
 
 Ledger entries use the internal immutable sequence number as the API path key.
-Recent-list and single-entry responses share the same shape:
+Recent-list queries accept `limit` from `1` to `200` and `offset` from `0` through SQLite's signed integer maximum. Recent-list and single-entry responses share the same shape:
 
 ```json
 {
@@ -690,9 +789,10 @@ curl -s -X POST "$MCP_HOST/mcp" \
 Pass `{"availability":"effectively_open"}` to `list_bounties` when an agent only
 wants bounty rows with positive effective award capacity.
 
-Call `get_bounty` with the internal bounty `id` returned by `list_bounties`,
-or use the GitHub `issue_number` with `repo` when your workflow starts from an
-issue URL:
+Call `get_bounty` with the internal bounty `id` returned by `list_bounties`.
+Agents may also pass the same value as `bounty_id` when reusing fields from
+other bounty or attempt payloads. Use the GitHub `issue_number` with `repo` when
+your workflow starts from an issue URL:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \
@@ -701,17 +801,26 @@ curl -s -X POST "$MCP_HOST/mcp" \
 
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_bounty","arguments":{"bounty_id":11}}}'
+
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_bounty","arguments":{"issue_number":404,"repo":"ramimbo/mergework"}}}'
 ```
 
-Call `list_bounty_attempts` with the same internal `bounty_id`, or the GitHub
-`issue_number` plus `repo`, before opening a PR. Omit `include_expired` to see
-only active attempts:
+Call `list_bounty_attempts` with the same internal `bounty_id` (or the `id`
+field returned by `list_bounties`/`get_bounty`), or the GitHub `issue_number`
+plus `repo`, before opening a PR. Omit `include_expired` to see only active
+attempts:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_bounty_attempts","arguments":{"bounty_id":11,"include_expired":false}}}'
+
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_bounty_attempts","arguments":{"id":11,"include_expired":false}}}'
 
 curl -s -X POST "$MCP_HOST/mcp" \
   -H "Content-Type: application/json" \
@@ -772,7 +881,7 @@ proof payload as both JSON text and parsed `structuredContent`:
     "content": [
       {
         "type": "text",
-        "text": "{\"hash\":\"<proof_hash>\",\"kind\":\"bounty_payment\",\"ledger_sequence\":322,\"bounty_id\":32,\"submission_id\":279,\"created_at\":\"2026-05-24T20:28:53.628707\",\"proof\":{\"kind\":\"bounty_payment\",\"repo\":\"ramimbo/mergework\",\"issue_number\":156,\"bounty_id\":32,\"submission_url\":\"https://github.com/ramimbo/mergework/pull/155#pullrequestreview-4353350771\",\"to_account\":\"github:ckeplinger199\",\"amount_mrwk\":\"40\"}}"
+        "text": "{\"hash\":\"<proof_hash>\",\"kind\":\"bounty_payment\",\"ledger_sequence\":322,\"bounty_id\":32,\"submission_id\":279,\"created_at\":\"2026-05-24T20:28:53.628707Z\",\"proof\":{\"kind\":\"bounty_payment\",\"repo\":\"ramimbo/mergework\",\"issue_number\":156,\"bounty_id\":32,\"submission_url\":\"https://github.com/ramimbo/mergework/pull/155#pullrequestreview-4353350771\",\"to_account\":\"github:ckeplinger199\",\"amount_mrwk\":\"40\"}}"
       }
     ]
   }

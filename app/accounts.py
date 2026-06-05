@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import quote, urlencode
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -107,8 +108,16 @@ def account_transfer_status(account: str) -> str:
     return "MRWK wallet transfers require a registered mrwk1 address."
 
 
-def account_api_context(session: Session, account: str) -> dict[str, Any]:
-    account = normalized_account(account)
+def account_action_urls(account: str) -> dict[str, str]:
+    path_account = quote(account, safe=":")
+    return {
+        "account_json": f"/api/v1/accounts/{path_account}",
+        "accepted_work_json": f"/api/v1/accounts/{path_account}/accepted-work",
+        "activity": f"/api/v1/activity?{urlencode({'account': account})}",
+    }
+
+
+def _account_api_context_for_normalized_account(session: Session, account: str) -> dict[str, Any]:
     account_row = session.get(Account, account)
     pending_payouts = safe_pending_payouts_for_account(session, account)
     return {
@@ -122,6 +131,10 @@ def account_api_context(session: Session, account: str) -> dict[str, Any]:
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
     }
+
+
+def account_api_context(session: Session, account: str) -> dict[str, Any]:
+    return _account_api_context_for_normalized_account(session, normalized_account(account))
 
 
 def account_accepted_work_context(session: Session, account: str) -> dict[str, Any]:
@@ -158,13 +171,14 @@ def account_page_context(
 ) -> dict[str, Any]:
     account = normalized_account(account)
     selected_transaction_type, transaction_filter = _transaction_type_filter(transaction_type)
-    pending_payouts = safe_pending_payouts_for_account(session, account)
+    account_context = _account_api_context_for_normalized_account(session, account)
     return {
-        "account": account_api_context(session, account),
-        "accepted_summary": safe_account_accepted_summary(session, account),
+        "account": account_context,
+        "account_action_urls": account_action_urls(account),
+        "accepted_summary": account_context["accepted_work"],
         "accepted_work": safe_accepted_work_for_account(session, account),
-        "pending_summary": pending_payout_summary(pending_payouts),
-        "pending_payouts": pending_payouts,
+        "pending_summary": account_context["pending_summary"],
+        "pending_payouts": account_context["pending_payouts"],
         "selected_transaction_type": selected_transaction_type,
         "transaction_type_options": ACCOUNT_TRANSACTION_TYPE_OPTIONS,
         "transactions": account_ledger_transactions(

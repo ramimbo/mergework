@@ -115,16 +115,17 @@ def register_treasury_routes(
     def api_treasury_proposals(
         request: Request,
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
+        offset: Annotated[int, Query(ge=0, le=SQLITE_INTEGER_MAX)] = 0,
         action: Annotated[str | None, Query(max_length=40)] = None,
         status: Annotated[str | None, Query(max_length=40)] = None,
         to_account: Annotated[str | None, Query(max_length=128)] = None,
         bounty_id: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
     ) -> list[dict[str, Any]]:
-        for name in ("limit", "action", "status", "to_account", "bounty_id"):
+        for name in ("limit", "offset", "action", "status", "to_account", "bounty_id"):
             reject_repeated_query_param(request, name)
         for name in ("action", "status", "to_account"):
             reject_control_char_query_param(request, name)
-        for name in ("limit", "bounty_id"):
+        for name in ("limit", "offset", "bounty_id"):
             reject_noncanonical_int_query_param(request, name)
         action_filter = _optional_query_filter(
             action,
@@ -154,16 +155,21 @@ def register_treasury_routes(
                 query = query.where(TreasuryProposal.action == action_filter)
             if status_filter is not None:
                 query = query.where(TreasuryProposal.status == status_filter)
-            if to_account_filter is None and bounty_id is None:
-                query = query.limit(limit)
+            payload_filter_active = to_account_filter is not None or bounty_id is not None
+            if not payload_filter_active:
+                query = query.offset(offset).limit(limit)
 
             proposals: list[dict[str, Any]] = []
+            skipped = 0
             for proposal in session.scalars(query):
                 if not _proposal_payload_matches(
                     proposal,
                     to_account=to_account_filter,
                     bounty_id=bounty_id,
                 ):
+                    continue
+                if payload_filter_active and skipped < offset:
+                    skipped += 1
                     continue
                 proposals.append(proposal_to_dict(proposal))
                 if len(proposals) >= limit:

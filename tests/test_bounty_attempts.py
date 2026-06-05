@@ -163,6 +163,16 @@ def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, mo
         control_char_bool.json()["detail"] == "include_expired must not contain control characters"
     )
 
+    control_char_source = client.post(
+        f"/api/v1/bounties/{bounty.id}/attempts",
+        json={
+            "submitter_account": "github:bob",
+            "source_url": "\x85https://github.com/ramimbo/mergework/pull/501",
+        },
+    )
+    assert control_char_source.status_code == 400
+    assert control_char_source.json()["detail"] == "source_url must not contain control characters"
+
     wrong_submitter = client.post(
         f"/api/v1/bounty-attempts/{first_attempt['id']}/release",
         json={"submitter_account": "github:bob"},

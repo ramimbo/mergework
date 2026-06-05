@@ -34,4 +34,22 @@
   <h2>Accounts and payouts</h2>
   <p>Accepted work can be paid to a linked native wallet address. Wallets use public keys and signed transfer transactions to move MRWK inside the ledger.</p>
 </section>
+<section>
+  <h2>Contributor starting points</h2>
+  <p>Use these public paths to confirm a bounty is live, effectively open, and not merely pending or already paid.</p>
+  <div class="list">
+    {% for point in contributor_starting_points %}
+    <article class="ledger-row">
+      <div class="ledger-entry-card">
+        <div class="ledger-card-head">
+          <div class="ledger-card-title">
+            <a class="ledger-entry-link" href="{{ point.href }}">{{ point.title }}</a>
+          </div>
+        </div>
+        <p>{{ point.description }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

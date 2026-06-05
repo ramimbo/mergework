@@ -65,14 +65,14 @@ class DuplicateAcceptedSourceUrl:
 
 
 def reconcile_accepted_payouts(session: Session) -> list[AcceptedPayoutCheck]:
-    submissions = session.scalars(
-        select(Submission).where(Submission.status == "accepted").order_by(Submission.id)
+    rows = session.execute(
+        select(Submission, Bounty)
+        .join(Bounty, Bounty.id == Submission.bounty_id)
+        .where(Submission.status == "accepted")
+        .order_by(Submission.id)
     ).all()
     checks: list[AcceptedPayoutCheck] = []
-    for submission in submissions:
-        bounty = session.get(Bounty, submission.bounty_id)
-        if bounty is None:
-            continue
+    for submission, bounty in rows:
         evidence = _payout_evidence(session, submission, bounty)
         checks.append(
             AcceptedPayoutCheck(

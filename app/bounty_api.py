@@ -40,6 +40,15 @@ from app.serializers import (
     payout_reconciliation_to_dict,
 )
 from app.treasury import proposal_to_dict, propose_treasury_action
+from app.work_discovery import (
+    DEFAULT_WORK_DISCOVERY_LIMIT,
+    MAX_WORK_DISCOVERY_LIMIT,
+    work_discovery_to_dict,
+)
+
+BOUNTY_REPO_FILTER_MAX_LENGTH = 200
+
+BOUNTY_SEARCH_QUERY_MAX_LENGTH = 500
 
 
 def _payout_response_from_proof(proof: Proof, *, status: str) -> dict[str, Any]:
@@ -146,6 +155,11 @@ def register_bounty_api_routes(
                     raise HTTPException(
                         status_code=400, detail="q must not contain control characters"
                     )
+                if len(query_text) > BOUNTY_SEARCH_QUERY_MAX_LENGTH:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"q must be at most {BOUNTY_SEARCH_QUERY_MAX_LENGTH} characters",
+                    )
                 normalized_query = query_text.strip()
                 if normalized_query:
                     escaped_query = (
@@ -170,6 +184,8 @@ def register_bounty_api_routes(
                         status_code=400, detail="repo must not contain control characters"
                     )
                 normalized_repo = repo.strip().lower()
+                if len(normalized_repo) > BOUNTY_REPO_FILTER_MAX_LENGTH:
+                    raise HTTPException(status_code=400, detail="repo is too long")
                 if normalized_repo:
                     query = query.where(func.lower(Bounty.repo) == normalized_repo)
             if issue_number is not None:
@@ -186,6 +202,14 @@ def register_bounty_api_routes(
                 return sorted_bounties[:limit]
             return sorted_bounties
 
+    def _validate_bounty_list_request(request: Request) -> None:
+        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
+            reject_repeated_query_param(request, name)
+        for name in ("status", "q", "sort", "repo", "availability"):
+            reject_control_char_query_param(request, name)
+        for name in ("limit", "issue_number"):
+            reject_noncanonical_int_query_param(request, name)
+
     @app.get("/api/v1/bounties")
     def api_bounties(
         request: Request,
@@ -197,12 +221,7 @@ def register_bounty_api_routes(
         issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
         availability: str | None = Query(None),
     ) -> list[dict[str, Any]]:
-        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
-            reject_repeated_query_param(request, name)
-        for name in ("status", "q", "sort", "repo", "availability"):
-            reject_control_char_query_param(request, name)
-        for name in ("limit", "issue_number"):
-            reject_noncanonical_int_query_param(request, name)
+        _validate_bounty_list_request(request)
         return _list_bounties_by_status(
             status,
             q,
@@ -224,12 +243,7 @@ def register_bounty_api_routes(
         issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
         availability: str | None = Query(None),
     ) -> dict[str, Any]:
-        for name in ("status", "q", "limit", "sort", "repo", "issue_number", "availability"):
-            reject_repeated_query_param(request, name)
-        for name in ("status", "q", "sort", "repo", "availability"):
-            reject_control_char_query_param(request, name)
-        for name in ("limit", "issue_number"):
-            reject_noncanonical_int_query_param(request, name)
+        _validate_bounty_list_request(request)
         return bounty_list_summary(
             _list_bounties_by_status(
                 status,
@@ -241,6 +255,19 @@ def register_bounty_api_routes(
                 availability=availability,
             )
         )
+
+    @app.get("/api/v1/work-discovery")
+    def api_work_discovery(
+        request: Request,
+        limit: Annotated[
+            int,
+            Query(ge=1, le=MAX_WORK_DISCOVERY_LIMIT),
+        ] = DEFAULT_WORK_DISCOVERY_LIMIT,
+    ) -> dict[str, Any]:
+        reject_repeated_query_param(request, "limit")
+        reject_noncanonical_int_query_param(request, "limit")
+        with session_scope(db_url) as session:
+            return work_discovery_to_dict(session, limit=limit)
 
     @app.get("/api/v1/admin/webhook-events")
     def api_admin_webhook_events(

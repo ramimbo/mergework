@@ -16,6 +16,11 @@
     <dt>Send status</dt>
     <dd>{{ account.transfer_status }}</dd>
   </dl>
+  <div class="next-steps-actions" aria-label="Account action links">
+    <a href="{{ account_action_urls.account_json }}">Account JSON</a>
+    <a href="{{ account_action_urls.accepted_work_json }}">Accepted-work JSON</a>
+    <a href="{{ account_action_urls.activity }}">Activity for account</a>
+  </div>
 </section>
 
 <section aria-labelledby="accepted-work-summary">

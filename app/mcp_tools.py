@@ -28,11 +28,13 @@ from app.serializers import (
     bounties_to_dict,
     bounty_awards_to_dict,
     bounty_to_dict,
+    public_utc_timestamp,
     wallet_to_dict,
     wallet_transfer_to_dict,
 )
 
 MCP_INTEGER_RE = re.compile(r"^(?:0|-?[1-9][0-9]*)$")
+MCP_BOUNTY_SEARCH_QUERY_MAX_LENGTH = 500
 
 
 def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | dict[str, Any]:
@@ -91,12 +93,20 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
         clean = value.strip()
         return clean or None
 
+    def optional_bounty_search_query_arg() -> str | None:
+        query = optional_clean_str_arg("q")
+        if query is not None and len(query) > MCP_BOUNTY_SEARCH_QUERY_MAX_LENGTH:
+            raise ValueError("q must be at most 500 characters")
+        return query
+
     def output_format_arg() -> str:
         value = args.get("format", "text")
         if value is None:
             return "text"
         if not isinstance(value, str):
             raise ValueError("format must be a string")
+        if contains_control_character(value):
+            raise ValueError("format must not contain control characters")
         normalized = value.strip().lower()
         if normalized not in {"text", "json"}:
             raise ValueError("format must be text or json")
@@ -126,6 +136,11 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError(f"{field} must be a boolean")
         return value
 
+    def require_known_fields(*allowed_fields: str) -> None:
+        unknown_fields = set(args) - set(allowed_fields)
+        if unknown_fields:
+            raise ValueError(f"unknown argument: {sorted(unknown_fields)[0]}")
+
     def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
         issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
         if repo_selector is not None:
@@ -137,26 +152,52 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             raise ValueError("issue_number matches multiple bounties")
         return bounties[0]
 
-    def has_bounty_selector(internal_id_field: str) -> bool:
-        return (internal_id_field in args and args.get(internal_id_field) is not None) or (
-            "issue_number" in args and args.get("issue_number") is not None
-        )
+    def has_bounty_selector(
+        internal_id_field: str,
+        *,
+        internal_id_aliases: tuple[str, ...] = (),
+    ) -> bool:
+        internal_id_fields = (internal_id_field, *internal_id_aliases)
+        return any(
+            field in args and args.get(field) is not None for field in internal_id_fields
+        ) or ("issue_number" in args and args.get("issue_number") is not None)
 
-    def selected_bounty(internal_id_field: str, *, require_selector: bool = True) -> Bounty | None:
-        has_internal_id = internal_id_field in args and args.get(internal_id_field) is not None
+    def selected_bounty(
+        internal_id_field: str,
+        *,
+        internal_id_aliases: tuple[str, ...] = (),
+        require_selector: bool = True,
+    ) -> Bounty | None:
+        internal_id_fields = (internal_id_field, *internal_id_aliases)
+        provided_internal_id_fields = [
+            field for field in internal_id_fields if field in args and args.get(field) is not None
+        ]
+        has_internal_id = bool(provided_internal_id_fields)
         has_issue_number = "issue_number" in args and args.get("issue_number") is not None
         repo_selector = optional_repo_selector_arg()
+        if len(provided_internal_id_fields) > 1:
+            raise ValueError(
+                "use "
+                + " or ".join(provided_internal_id_fields)
+                + ", not multiple internal id fields"
+            )
         if has_internal_id and has_issue_number:
-            raise ValueError(f"use {internal_id_field} or issue_number, not both")
+            raise ValueError(f"use {provided_internal_id_fields[0]} or issue_number, not both")
         if repo_selector is not None and not has_issue_number:
             raise ValueError("repo can only be used with issue_number")
         if has_internal_id:
-            return session.get(Bounty, positive_int_arg(internal_id_field))
+            return session.get(Bounty, positive_int_arg(provided_internal_id_fields[0]))
         if has_issue_number:
             return bounty_by_issue_number(repo_selector)
         if not require_selector:
             return None
         raise ValueError(f"{internal_id_field} or issue_number is required")
+
+    def reject_unexpected_args(tool_name: str, allowed: set[str]) -> None:
+        unexpected = sorted(set(args) - allowed)
+        if unexpected:
+            names = ", ".join(unexpected)
+            raise ValueError(f"{tool_name} received unexpected argument(s): {names}")
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
@@ -165,7 +206,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             if normalized_status not in {"open", "paid", "closed"}:
                 raise ValueError("status must be one of: open, paid, closed")
             query = select(Bounty).where(Bounty.status == normalized_status)
-            query_text = optional_clean_str_arg("q")
+            query_text = optional_bounty_search_query_arg()
             if query_text:
                 escaped_query = (
                     query_text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -200,7 +241,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
-            bounty = selected_bounty("id")
+            bounty = selected_bounty("id", internal_id_aliases=("bounty_id",))
             if bounty is None:
                 return "bounty not found"
             bounty_data = bounty_to_dict(bounty, session=session)
@@ -208,7 +249,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
-            bounty = selected_bounty("bounty_id")
+            bounty = selected_bounty("bounty_id", internal_id_aliases=("id",))
             if bounty is None:
                 return "bounty not found"
             attempt_listing = list_bounty_attempts(
@@ -228,6 +269,7 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             account = normalized_account(str_arg("account"))
             return f"{account}: {format_mrwk(get_balance(session, account))} MRWK"
         if name == "register_wallet":
+            reject_unexpected_args("register_wallet", {"public_key_hex", "label"})
             wallet = register_wallet(
                 session,
                 public_key_hex=str_arg("public_key_hex"),
@@ -240,6 +282,17 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 return "wallet not found"
             return json.dumps(wallet_to_dict(session, wallet_row))
         if name == "submit_wallet_transfer":
+            reject_unexpected_args(
+                "submit_wallet_transfer",
+                {
+                    "from_address",
+                    "to_address",
+                    "amount_mrwk",
+                    "nonce",
+                    "memo",
+                    "signature_hex",
+                },
+            )
             transfer = submit_wallet_transfer(
                 session,
                 from_address=str_arg("from_address"),
@@ -272,11 +325,12 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                     "ledger_sequence": proof.ledger_sequence,
                     "bounty_id": proof.bounty_id,
                     "submission_id": proof.submission_id,
-                    "created_at": proof.created_at.isoformat(),
+                    "created_at": public_utc_timestamp(proof.created_at),
                     "proof": public_payload,
                 }
             )
         if name == "submit_work_proof":
+            require_known_fields("bounty_id", "issue_number", "repo", "format")
             output_format = output_format_arg()
             bounty = selected_bounty("bounty_id", require_selector=False)
             if bounty is not None:

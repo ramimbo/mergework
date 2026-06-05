@@ -10,6 +10,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import (
     LedgerError,
@@ -24,7 +25,6 @@ PROPOSED_WORK_LABEL = "proposed-work"
 PROPOSED_WORK_ACTIONS = {"opened", "edited", "reopened"}
 ISSUE_NUMBER_BOUNDARY = r"(?![A-Za-z0-9_-])"
 MAX_SQLITE_INTEGER = 2**63 - 1
-CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 LINKED_ISSUE_RE = re.compile(
     r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?|bounty|claims?)"
     r"(?:\s+|\s*:\s*)"
@@ -118,7 +118,7 @@ def _payload_object(payload: dict[str, Any], key: str) -> dict[str, Any]:
 def _clean_webhook_string(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
-    if CONTROL_CHAR_RE.search(value):
+    if contains_control_character(value):
         return None
     clean = value.strip()
     return clean or None
@@ -252,7 +252,7 @@ def _handle_proposed_work_issue_label(
     repo_name = _payload_object(payload, "repository").get("full_name")
     repo = _clean_webhook_string(repo_name)
     issue_number = _github_issue_number(issue.get("number"))
-    if isinstance(repo_name, str) and CONTROL_CHAR_RE.search(repo_name):
+    if isinstance(repo_name, str) and contains_control_character(repo_name):
         return _record_status(
             database_url,
             delivery_id,
@@ -325,7 +325,7 @@ def _handle_accepted_issue_label(
     if payload.get("action") != "labeled" or label.lower() != ACCEPTED_LABEL:
         _record_event(database_url, delivery_id, event_type, payload_hash, "ignored")
         return {"status": "ignored"}
-    if isinstance(repo_name, str) and CONTROL_CHAR_RE.search(repo_name):
+    if isinstance(repo_name, str) and contains_control_character(repo_name):
         return _record_status(
             database_url,
             delivery_id,

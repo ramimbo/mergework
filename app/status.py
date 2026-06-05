@@ -26,6 +26,7 @@ FUTURE_PATH_BOUNDARY = (
     "Future public snapshots, bridges, and onchain claims require separate "
     "maintainer/contributor discussion before implementation."
 )
+FUTURE_PATH = "public snapshots, bridges, and onchain claims"
 
 
 def ledger_height(session: Session) -> int:
@@ -42,6 +43,16 @@ def health_status(session: Session) -> dict[str, Any]:
     }
 
 
+def public_path_status() -> dict[str, Any]:
+    return {
+        "current_transfer_paths": list(CURRENT_TRANSFER_PATHS),
+        "unsupported_public_paths": list(UNSUPPORTED_PUBLIC_PATHS),
+        "unsupported_public_paths_summary": UNSUPPORTED_PUBLIC_PATHS_SUMMARY,
+        "future_path": FUTURE_PATH,
+        "future_path_boundary": FUTURE_PATH_BOUNDARY,
+    }
+
+
 def system_status(session: Session) -> dict[str, Any]:
     active_bounties = session.scalar(
         select(func.count()).select_from(Bounty).where(Bounty.status == "open")
@@ -54,9 +65,5 @@ def system_status(session: Session) -> dict[str, Any]:
         "ledger_height": ledger_height(session),
         "active_bounties": int(active_bounties or 0),
         "treasury_balance_mrwk": format_mrwk(treasury_balance),
-        "current_transfer_paths": list(CURRENT_TRANSFER_PATHS),
-        "unsupported_public_paths": list(UNSUPPORTED_PUBLIC_PATHS),
-        "unsupported_public_paths_summary": UNSUPPORTED_PUBLIC_PATHS_SUMMARY,
-        "future_path": "public snapshots, bridges, and onchain claims",
-        "future_path_boundary": FUTURE_PATH_BOUNDARY,
+        **public_path_status(),
     }

@@ -10,8 +10,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.ledger.service import CONTROL_CHAR_RE, LedgerError, validate_public_url
+from app.ledger.service import LedgerError, validate_public_url
 from app.models import Bounty, BountyAttempt
 from app.openapi_request_bodies import OPTIONAL_ATTEMPT_BODY, OPTIONAL_ATTEMPT_RELEASE_BODY
 from app.query_validation import (
@@ -211,6 +212,22 @@ def expire_stale_bounty_attempts(
     session.execute(query.values(status="expired", updated_at=now))
 
 
+def _duplicate_active_attempt_response(
+    session: Session,
+    bounty: Bounty,
+    attempt: BountyAttempt,
+    now: datetime,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "status": "duplicate_active_attempt",
+            "attempt": bounty_attempt_to_dict(attempt, now),
+            "warnings": bounty_attempt_warnings(session, bounty, now),
+        },
+    )
+
+
 def register_bounty_attempt_routes(
     app: FastAPI,
     *,
@@ -281,7 +298,7 @@ def register_bounty_attempt_routes(
             source = ""
         if not isinstance(source, str):
             raise HTTPException(status_code=400, detail="source_url must be a string")
-        if CONTROL_CHAR_RE.search(source):
+        if contains_control_character(source):
             raise HTTPException(
                 status_code=400, detail="source_url must not contain control characters"
             )
@@ -319,14 +336,7 @@ def register_bounty_attempt_routes(
                 .limit(1)
             )
             if existing is not None:
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "status": "duplicate_active_attempt",
-                        "attempt": bounty_attempt_to_dict(existing, now),
-                        "warnings": bounty_attempt_warnings(session, bounty, now),
-                    },
-                )
+                return _duplicate_active_attempt_response(session, bounty, existing, now)
             attempt = BountyAttempt(
                 bounty_id=bounty_id_int,
                 submitter_account=submitter_account,
@@ -355,14 +365,7 @@ def register_bounty_attempt_routes(
                     raise HTTPException(
                         status_code=409, detail="active attempt already exists"
                     ) from None
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "status": "duplicate_active_attempt",
-                        "attempt": bounty_attempt_to_dict(existing, now),
-                        "warnings": bounty_attempt_warnings(session, bounty, now),
-                    },
-                )
+                return _duplicate_active_attempt_response(session, bounty, existing, now)
             return JSONResponse(
                 status_code=201,
                 content={

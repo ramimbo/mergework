@@ -20,6 +20,13 @@ GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 GH_ISSUE_SAFETY_CAP = 201
 MAX_BOUNTY_REF = 2**63 - 1
+ISSUE_SECTIONS = (
+    ("Closed or exhausted bounty references", "closed_bounty_references"),
+    ("Non-live bounty references", "non_live_bounty_references"),
+    ("Missing bounty references", "missing_bounty_references"),
+    ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
+    ("Needs info", "needs_info"),
+)
 
 
 def _labels(raw: dict[str, Any]) -> list[str]:
@@ -252,14 +259,7 @@ def format_text_report(report: dict[str, Any]) -> str:
         lines.append("")
         lines.append("No queue-health issues found.")
         return "\n".join(lines)
-    sections = [
-        ("Closed or exhausted bounty references", "closed_bounty_references"),
-        ("Non-live bounty references", "non_live_bounty_references"),
-        ("Missing bounty references", "missing_bounty_references"),
-        ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
-        ("Needs info", "needs_info"),
-    ]
-    for title, key in sections:
+    for title, key in ISSUE_SECTIONS:
         if report[key]:
             lines.append("")
             lines.append(title)
@@ -295,14 +295,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         lines.append("No queue-health issues found.")
         return "\n".join(lines)
 
-    sections = [
-        ("Closed or exhausted bounty references", "closed_bounty_references"),
-        ("Non-live bounty references", "non_live_bounty_references"),
-        ("Missing bounty references", "missing_bounty_references"),
-        ("Dirty or unstable merge state", "dirty_or_unstable_merge_state"),
-        ("Needs info", "needs_info"),
-    ]
-    for title, key in sections:
+    for title, key in ISSUE_SECTIONS:
         if report[key]:
             lines.append("")
             lines.append(f"### {title}")
