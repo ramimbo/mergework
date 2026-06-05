@@ -57,6 +57,33 @@ def test_work_proof_submission_requirements_choose_open_bounty_for_closed_state(
     assert "price claims" in requirements["public_metadata_must_avoid"]
 
 
+def test_work_proof_submission_requirements_reports_open_pr_mode_actions() -> None:
+    requirements = work_proof_submission_requirements(
+        bounty_id=7,
+        issue_number=377,
+        availability="open",
+    )
+
+    assert [action["id"] for action in requirements["next_actions"]] == [
+        "confirm_award_slot",
+        "check_duplicate_scope",
+        "keep_scope_focused",
+        "include_bounty_reference",
+        "include_review_evidence",
+        "wait_for_maintainer_acceptance",
+    ]
+    assert _action(requirements, "confirm_award_slot") == {
+        "id": "confirm_award_slot",
+        "required": True,
+        "text": "Confirm this bounty is open and has at least one award slot remaining.",
+    }
+    assert _action(requirements, "include_bounty_reference") == {
+        "id": "include_bounty_reference",
+        "required": True,
+        "text": "Include Bounty #377 or Refs #377 in the submission.",
+    }
+
+
 def test_work_proof_submission_requirements_marks_issue_mode() -> None:
     requirements = work_proof_submission_requirements(
         bounty_id=96,

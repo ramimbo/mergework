@@ -5,6 +5,10 @@ from typing import Any, Literal
 SubmissionAvailability = Literal["open", "full", "closed", "unknown"]
 
 
+def _next_action(action_id: str, text: str, *, required: bool = True) -> dict[str, Any]:
+    return {"id": action_id, "required": required, "text": text}
+
+
 def work_proof_submission_requirements(
     *,
     bounty_id: int | None,
@@ -32,16 +36,14 @@ def work_proof_submission_requirements(
             "duplicate search and out-of-scope notes",
         ]
         mode_actions = [
-            {
-                "id": "open_proposed_work_issue",
-                "required": True,
-                "text": "Open a concrete proposed-work issue before claiming this bounty.",
-            },
-            {
-                "id": "link_bounty_issue",
-                "required": True,
-                "text": f"Link bounty #{issue_ref} from the proposed-work issue or bounty thread.",
-            },
+            _next_action(
+                "open_proposed_work_issue",
+                "Open a concrete proposed-work issue before claiming this bounty.",
+            ),
+            _next_action(
+                "link_bounty_issue",
+                f"Link bounty #{issue_ref} from the proposed-work issue or bounty thread.",
+            ),
         ]
     else:
         submission_mode = "pr_or_evidence"
@@ -56,45 +58,39 @@ def work_proof_submission_requirements(
             "tests, command output, screenshots, or reproduction steps when relevant",
         ]
         mode_actions = [
-            {
-                "id": "keep_scope_focused",
-                "required": True,
-                "text": "Keep changes directly tied to one bounty issue.",
-            },
-            {
-                "id": "include_bounty_reference",
-                "required": True,
-                "text": f"Include Bounty #{issue_ref} or Refs #{issue_ref} in the submission.",
-            },
+            _next_action(
+                "keep_scope_focused",
+                "Keep changes directly tied to one bounty issue.",
+            ),
+            _next_action(
+                "include_bounty_reference",
+                f"Include Bounty #{issue_ref} or Refs #{issue_ref} in the submission.",
+            ),
         ]
 
     if availability == "open":
-        first_action = {
-            "id": "confirm_award_slot",
-            "required": True,
-            "text": "Confirm this bounty is open and has at least one award slot remaining.",
-        }
+        first_action = _next_action(
+            "confirm_award_slot",
+            "Confirm this bounty is open and has at least one award slot remaining.",
+        )
     elif availability == "full":
-        first_action = {
-            "id": "watch_for_award_slot",
-            "required": True,
-            "text": (
+        first_action = _next_action(
+            "watch_for_award_slot",
+            (
                 "This bounty is open but has no award slots remaining; check for new "
                 "capacity before submitting new work."
             ),
-        }
+        )
     elif availability == "closed":
-        first_action = {
-            "id": "choose_open_bounty",
-            "required": True,
-            "text": "Do not open or claim new work for this bounty unless a maintainer reopens it.",
-        }
+        first_action = _next_action(
+            "choose_open_bounty",
+            "Do not open or claim new work for this bounty unless a maintainer reopens it.",
+        )
     else:
-        first_action = {
-            "id": "select_bounty",
-            "required": True,
-            "text": "Select a concrete open bounty before submitting work proof.",
-        }
+        first_action = _next_action(
+            "select_bounty",
+            "Select a concrete open bounty before submitting work proof.",
+        )
 
     return {
         "submission_mode": submission_mode,
@@ -116,25 +112,22 @@ def work_proof_submission_requirements(
         ],
         "next_actions": [
             first_action,
-            {
-                "id": "check_duplicate_scope",
-                "required": True,
-                "text": "Confirm no active claim or duplicate PR already covers the same scope.",
-            },
+            _next_action(
+                "check_duplicate_scope",
+                "Confirm no active claim or duplicate PR already covers the same scope.",
+            ),
             *mode_actions,
-            {
-                "id": "include_review_evidence",
-                "required": True,
-                "text": "Include reviewable validation evidence before claiming.",
-            },
-            {
-                "id": "wait_for_maintainer_acceptance",
-                "required": True,
-                "text": (
+            _next_action(
+                "include_review_evidence",
+                "Include reviewable validation evidence before claiming.",
+            ),
+            _next_action(
+                "wait_for_maintainer_acceptance",
+                (
                     "Payment requires mrwk:accepted or an admin payout; merge or CI "
                     "alone is not acceptance."
                 ),
-            },
+            ),
         ],
     }
 
