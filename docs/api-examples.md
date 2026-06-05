@@ -348,7 +348,7 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
 curl -s "$API_HOST/api/v1/activity?account=github%3Ap3xill"
-curl -s "$API_HOST/api/v1/activity?limit=25&offset=25"
+curl -s "$API_HOST/api/v1/activity?q=p3xill&limit=25"
 ```
 
 Use `account=github:<login>` or `account=mrwk1...` for an exact account-scoped
@@ -433,7 +433,7 @@ execution creates a ledger proof:
 ```
 
 `contributors` is sorted by accepted MRWK amount, while `recent` is sorted by
-newest ledger sequence and capped to the latest 100 matching rows. Use
+newest ledger sequence and paginated using `limit` and `offset`. Use
 `proof_hash` with `/api/v1/proofs/<proof_hash>` to inspect the public proof
 payload for a payment.
 
