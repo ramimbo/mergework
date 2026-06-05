@@ -157,6 +157,51 @@ def test_enabled_loop_refreshes_board_between_executor_passes(
     assert events == [("executor", 0.0), ("board", 60.0)]
 
 
+def test_enabled_loop_continues_after_board_refresh_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = ExecutorConfig(
+        enabled=True,
+        interval_seconds=300,
+        batch_limit=1,
+        bounty_board_refresh_interval_seconds=60,
+    )
+    now = 0.0
+    events: list[tuple[str, float]] = []
+
+    def fake_monotonic() -> float:
+        return now
+
+    def fake_sleep(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    def fake_run_once(config: ExecutorConfig) -> dict[str, object]:
+        events.append(("executor", now))
+        return {"status": "ok"}
+
+    def fake_board_refresh_once() -> dict[str, object]:
+        events.append(("board", now))
+        if len(events) == 2:
+            raise RuntimeError("refresh failed")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(executor_script.time, "monotonic", fake_monotonic)
+    monkeypatch.setattr(executor_script.time, "sleep", fake_sleep)
+    monkeypatch.setattr(executor_script, "run_once", fake_run_once)
+    monkeypatch.setattr(
+        executor_script,
+        "run_bounty_board_refresh_once",
+        fake_board_refresh_once,
+        raising=False,
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        executor_script.run_enabled_loop(config, once=False)
+
+    assert events == [("executor", 0.0), ("board", 60.0), ("board", 120.0)]
+
+
 def test_executor_once_returns_failure_when_pass_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run_once(config: ExecutorConfig) -> dict[str, object]:
         raise RuntimeError("executor failed")

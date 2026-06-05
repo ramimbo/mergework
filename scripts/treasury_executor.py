@@ -4,7 +4,7 @@ import argparse
 import json
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from app.config import get_settings
 from app.github_bounty_board import refresh_bounty_board_issue
@@ -39,6 +39,18 @@ def _sleep_until(next_run_at: float) -> None:
     time.sleep(delay)
 
 
+def _run_logged_pass(
+    runner: Callable[[], dict[str, object]], *, success_message: str, failure_message: str
+) -> bool:
+    try:
+        report = runner()
+    except Exception:
+        logging.exception(failure_message)
+        return False
+    logging.info("%s %s", success_message, json.dumps(report, sort_keys=True))
+    return True
+
+
 def run_enabled_loop(config: ExecutorConfig, *, once: bool) -> int:
     next_executor_at = 0.0
     next_board_refresh_at = 0.0
@@ -46,13 +58,13 @@ def run_enabled_loop(config: ExecutorConfig, *, once: bool) -> int:
     while True:
         now = time.monotonic()
         if now >= next_executor_at:
-            try:
-                report = run_once(config)
-                logging.info("treasury executor report %s", json.dumps(report, sort_keys=True))
-            except Exception:
-                logging.exception("treasury executor pass failed")
-                if once:
-                    return 1
+            success = _run_logged_pass(
+                lambda: run_once(config),
+                success_message="treasury executor report",
+                failure_message="treasury executor pass failed",
+            )
+            if once and not success:
+                return 1
             if once:
                 return 0
             now = time.monotonic()
@@ -62,11 +74,11 @@ def run_enabled_loop(config: ExecutorConfig, *, once: bool) -> int:
             continue
 
         if now >= next_board_refresh_at:
-            try:
-                report = run_bounty_board_refresh_once()
-                logging.info("bounty board refresh report %s", json.dumps(report, sort_keys=True))
-            except Exception:
-                logging.exception("bounty board refresh failed")
+            _run_logged_pass(
+                run_bounty_board_refresh_once,
+                success_message="bounty board refresh report",
+                failure_message="bounty board refresh failed",
+            )
             now = time.monotonic()
             next_board_refresh_at = now + config.bounty_board_refresh_interval_seconds
 
