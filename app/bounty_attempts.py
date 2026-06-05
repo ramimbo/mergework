@@ -24,6 +24,7 @@ from app.query_validation import (
 DEFAULT_ATTEMPT_TTL_SECONDS = 24 * 60 * 60
 MIN_ATTEMPT_TTL_SECONDS = 60
 MAX_ATTEMPT_TTL_SECONDS = 7 * 24 * 60 * 60
+SUPPORTED_ATTEMPT_LIST_QUERY_PARAMS = {"include_expired", "limit"}
 
 JsonObjectLoader = Callable[[Request], Awaitable[dict[str, Any]]]
 LoginDependency = Callable[[Request], str]
@@ -53,6 +54,15 @@ async def _optional_json_object(request: Request, json_object: JsonObjectLoader)
     if not (await request.body()).strip():
         return {}
     return await json_object(request)
+
+
+def _reject_unsupported_attempt_list_query_params(request: Request) -> None:
+    for name in request.query_params:
+        if name not in SUPPORTED_ATTEMPT_LIST_QUERY_PARAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} is not a supported query parameter",
+            )
 
 
 def bounty_attempt_to_dict(attempt: BountyAttempt, now: datetime | None = None) -> dict[str, Any]:
@@ -256,6 +266,7 @@ def register_bounty_attempt_routes(
         include_expired: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=100)] = None,
     ) -> dict[str, Any]:
+        _reject_unsupported_attempt_list_query_params(request)
         for name in ("include_expired", "limit"):
             reject_repeated_query_param(request, name)
         reject_noncanonical_bool_query_param(request, "include_expired")

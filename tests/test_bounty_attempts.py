@@ -123,6 +123,16 @@ def test_bounty_attempts_register_list_duplicate_and_release(sqlite_url: str, mo
         "github:bob"
     ]
 
+    for unsupported_query in ("offset=1", "status=active", "q=alice", "repo=ramimbo%2Fmergework"):
+        unsupported = client.get(
+            f"/api/v1/bounties/{bounty.id}/attempts?limit=1&{unsupported_query}"
+        )
+        assert unsupported.status_code == 400
+        assert (
+            unsupported.json()["detail"]
+            == f"{unsupported_query.split('=', 1)[0]} is not a supported query parameter"
+        )
+
     assert client.get(f"/api/v1/bounties/{bounty.id}/attempts?limit=0").status_code == 422
     assert client.get(f"/api/v1/bounties/{bounty.id}/attempts?limit=101").status_code == 422
     noncanonical_limits = {
