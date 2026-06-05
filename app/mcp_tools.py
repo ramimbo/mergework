@@ -97,6 +97,8 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
             return "text"
         if not isinstance(value, str):
             raise ValueError("format must be a string")
+        if contains_control_character(value):
+            raise ValueError("format must not contain control characters")
         normalized = value.strip().lower()
         if normalized not in {"text", "json"}:
             raise ValueError("format must be text or json")
