@@ -52,6 +52,16 @@ def reject_noncanonical_bool_query_param(request: Request, name: str) -> None:
             )
 
 
+def reject_unknown_query_params(request: Request, allowed_names: set[str]) -> None:
+    """Reject unsupported query parameters before FastAPI ignores them."""
+    for name in request.query_params:
+        if name not in allowed_names:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} is not a supported query parameter",
+            )
+
+
 def reject_repeated_query_param(request: Request, name: str) -> None:
     """Reject ambiguous scalar query parameters before FastAPI chooses one value."""
     if len(_query_param_values(request, name)) > 1:

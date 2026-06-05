@@ -31,6 +31,7 @@ from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unknown_query_params,
 )
 from app.serializers import (
     bounties_to_dict,
@@ -264,6 +265,7 @@ def register_bounty_api_routes(
             Query(ge=1, le=MAX_WORK_DISCOVERY_LIMIT),
         ] = DEFAULT_WORK_DISCOVERY_LIMIT,
     ) -> dict[str, Any]:
+        reject_unknown_query_params(request, {"limit"})
         reject_repeated_query_param(request, "limit")
         reject_noncanonical_int_query_param(request, "limit")
         with session_scope(db_url) as session:

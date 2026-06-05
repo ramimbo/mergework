@@ -8,6 +8,7 @@ from app.query_validation import (
     reject_noncanonical_bool_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unknown_query_params,
 )
 
 
@@ -63,3 +64,13 @@ def test_query_guards_keep_canonical_and_repeated_boundaries() -> None:
         reject_repeated_query_param(request, "status")
     assert repeated_error.value.status_code == 400
     assert repeated_error.value.detail == "status must be provided at most once"
+
+
+def test_unknown_query_guard_rejects_unsupported_names() -> None:
+    request = _request("limit=1&status=open")
+
+    with pytest.raises(HTTPException) as exc_info:
+        reject_unknown_query_params(request, {"limit"})
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "status is not a supported query parameter"

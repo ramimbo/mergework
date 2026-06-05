@@ -166,6 +166,17 @@ def test_work_discovery_limit_caps_public_buckets(sqlite_url: str) -> None:
     assert len(body["opening_soon"]) == 1
 
 
+def test_work_discovery_rejects_unsupported_filter_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for name in ("status", "availability", "repo", "q"):
+        response = client.get(f"/api/v1/work-discovery?limit=1&{name}=ignored")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not a supported query parameter"
+
+
 def test_work_discovery_limit_keeps_older_claimable_bounty_visible(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
