@@ -45,8 +45,10 @@ def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Temp
         reject_repeated_query_param(request, "q")
         reject_control_char_query_param(request, "account")
         reject_repeated_query_param(request, "account")
+        reject_control_char_query_param(request, "limit")
         reject_repeated_query_param(request, "limit")
         reject_noncanonical_int_query_param(request, "limit")
+        reject_control_char_query_param(request, "offset")
         reject_repeated_query_param(request, "offset")
         reject_noncanonical_int_query_param(request, "offset")
         with session_scope(db_url) as session:

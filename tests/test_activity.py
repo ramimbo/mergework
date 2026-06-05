@@ -398,16 +398,23 @@ def test_activity_api_rejects_invalid_pagination_queries(sqlite_url: str) -> Non
     noncanonical_limit = client.get("/api/v1/activity?limit=01")
     repeated_limit = client.get("/api/v1/activity?limit=1&limit=2")
     too_small_limit = client.get("/api/v1/activity?limit=0")
+    controlled_limit = client.get("/api/v1/activity?limit=%C2%851")
+    masked_controlled_limit = client.get("/api/v1/activity?limit=%C2%851&limit=2")
     noncanonical_offset = client.get("/api/v1/activity?offset=01")
     repeated_offset = client.get("/api/v1/activity?offset=1&offset=2")
     negative_offset = client.get("/api/v1/activity?offset=-1")
     controlled_offset = client.get("/api/v1/activity?offset=%C2%851")
+    masked_controlled_offset = client.get("/api/v1/activity?offset=%C2%851&offset=2")
 
     assert noncanonical_limit.status_code == 400
     assert noncanonical_limit.json()["detail"] == "limit must be a canonical positive integer"
     assert repeated_limit.status_code == 400
     assert repeated_limit.json()["detail"] == "limit must be provided at most once"
     assert too_small_limit.status_code == 422
+    assert controlled_limit.status_code == 400
+    assert controlled_limit.json()["detail"] == "limit must not contain control characters"
+    assert masked_controlled_limit.status_code == 400
+    assert masked_controlled_limit.json()["detail"] == "limit must not contain control characters"
     assert noncanonical_offset.status_code == 400
     assert noncanonical_offset.json()["detail"] == "offset must be a canonical positive integer"
     assert repeated_offset.status_code == 400
@@ -415,6 +422,8 @@ def test_activity_api_rejects_invalid_pagination_queries(sqlite_url: str) -> Non
     assert negative_offset.status_code == 422
     assert controlled_offset.status_code == 400
     assert controlled_offset.json()["detail"] == "offset must not contain control characters"
+    assert masked_controlled_offset.status_code == 400
+    assert masked_controlled_offset.json()["detail"] == "offset must not contain control characters"
 
 
 def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
