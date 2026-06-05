@@ -1060,6 +1060,20 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
         'href="https://github.com/ramimbo/mergework/pull/99" rel="nofollow noopener"'
         in ledger_entry_page.text
     )
+    for query, field in (
+        ("limit=1", "limit"),
+        ("offset=1", "offset"),
+        ("account=github:alice", "account"),
+        ("q=payment", "q"),
+        ("type=bounty_payment", "type"),
+        ("status=paid", "status"),
+    ):
+        api_detail = client.get(f"/api/v1/ledger/{payment_sequence}?{query}")
+        assert api_detail.status_code == 400
+        assert api_detail.json()["detail"] == f"{field} is not supported on ledger entry detail"
+        html_detail = client.get(f"/ledger/{payment_sequence}?{query}")
+        assert html_detail.status_code == 400
+        assert html_detail.json()["detail"] == f"{field} is not supported on ledger entry detail"
     genesis_page = client.get("/ledger/1")
     assert genesis_page.status_code == 200
     assert 'href="/ledger">All ledger entries</a>' in genesis_page.text

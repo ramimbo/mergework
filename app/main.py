@@ -37,7 +37,11 @@ from app.path_params import (
     proof_hash_from_path,
 )
 from app.public_routes import register_public_routes
-from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_noncanonical_int_query_param,
+    reject_repeated_query_param,
+    reject_unsupported_query_params,
+)
 from app.status import health_status, system_status
 from app.treasury_routes import register_treasury_routes
 from app.wallet_api import register_wallet_api_routes
@@ -249,6 +253,14 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             return recent_ledger_entries(session, limit, offset)
 
+    def ledger_entry_detail(sequence: int | str) -> dict[str, Any]:
+        sequence_id = positive_ledger_sequence(sequence)
+        with session_scope(db_url) as session:
+            entry = ledger_entry_to_dict(session, sequence_id)
+            if entry is None:
+                raise HTTPException(status_code=404, detail="ledger entry not found")
+            return entry
+
     @app.get("/api/v1/ledger")
     def api_ledger(
         request: Request,
@@ -261,13 +273,13 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         return ledger_rows(limit, offset)
 
     @app.get("/api/v1/ledger/{sequence}")
-    def api_ledger_entry(sequence: int | str) -> dict[str, Any]:
-        sequence_id = positive_ledger_sequence(sequence)
-        with session_scope(db_url) as session:
-            entry = ledger_entry_to_dict(session, sequence_id)
-            if entry is None:
-                raise HTTPException(status_code=404, detail="ledger entry not found")
-            return entry
+    def api_ledger_entry(request: Request, sequence: int | str) -> dict[str, Any]:
+        reject_unsupported_query_params(
+            request,
+            ("limit", "offset", "account", "q", "type", "status"),
+            target="ledger entry detail",
+        )
+        return ledger_entry_detail(sequence)
 
     @app.get("/api/v1/proofs/{proof_hash}")
     def api_proof(proof_hash: str) -> dict[str, Any]:
@@ -332,7 +344,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         list_bounties_by_status=list_bounties_by_status,
         api_bounty=api_bounty,
         api_ledger=ledger_rows,
-        api_ledger_entry=api_ledger_entry,
+        api_ledger_entry=ledger_entry_detail,
         api_proof=api_proof,
     )
 

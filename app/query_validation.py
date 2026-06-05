@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 from fastapi import HTTPException, Request
 
@@ -59,3 +60,18 @@ def reject_repeated_query_param(request: Request, name: str) -> None:
             status_code=400,
             detail=f"{name} must be provided at most once",
         )
+
+
+def reject_unsupported_query_params(
+    request: Request,
+    names: Iterable[str],
+    *,
+    target: str,
+) -> None:
+    """Reject list/search parameters on detail endpoints that cannot honor them."""
+    for name in names:
+        if _query_param_values(request, name):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} is not supported on {target}",
+            )
