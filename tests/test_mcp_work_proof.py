@@ -155,6 +155,7 @@ def test_work_proof_guidance_returns_reviewable_text() -> None:
     assert "Bounty #377: Code health boundary" in text
     assert "Repository: ramimbo/mergework" in text
     assert "Status: open (open for submissions); awards remaining: 6 of 6" in text
+    assert "effectively remaining: 6" in text
     assert "Reward: 200 MRWK per accepted award" in text
     assert "Do not include private keys" in text
 

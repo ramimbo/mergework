@@ -12,11 +12,13 @@ from app.submission_requirements import (
 )
 
 
+def _effective_awards_remaining_from_payload(bounty_data: dict[str, Any]) -> int:
+    return int(bounty_data.get("effective_awards_remaining", bounty_data["awards_remaining"]))
+
+
 def work_proof_guidance(bounty: Bounty, session: Session | None = None) -> str:
     bounty_data = bounty_to_dict(bounty, session=session)
-    remaining_awards = int(
-        bounty_data.get("effective_awards_remaining", bounty_data["awards_remaining"])
-    )
+    remaining_awards = _effective_awards_remaining_from_payload(bounty_data)
     availability = (
         "open for submissions"
         if bounty_data["status"] == "open" and remaining_awards > 0
@@ -50,9 +52,7 @@ def work_proof_guidance(bounty: Bounty, session: Session | None = None) -> str:
 
 
 def _submission_availability(bounty_data: dict[str, Any]) -> SubmissionAvailability:
-    awards_remaining = int(
-        bounty_data.get("effective_awards_remaining", bounty_data["awards_remaining"])
-    )
+    awards_remaining = _effective_awards_remaining_from_payload(bounty_data)
     if bounty_data["status"] == "open":
         return "open" if awards_remaining > 0 else "full"
     return "closed"
@@ -61,11 +61,12 @@ def _submission_availability(bounty_data: dict[str, Any]) -> SubmissionAvailabil
 def work_proof_guidance_json(bounty: Bounty, session: Session | None = None) -> dict[str, Any]:
     bounty_data = bounty_to_dict(bounty, session=session)
     submission_availability = _submission_availability(bounty_data)
+    effective_awards_remaining = _effective_awards_remaining_from_payload(bounty_data)
     can_submit = submission_availability == "open"
     availability_warnings = []
     if bounty_data["status"] != "open":
         availability_warnings.append(f"bounty is {bounty_data['status']}")
-    if bounty_data["effective_awards_remaining"] <= 0:
+    if effective_awards_remaining <= 0:
         availability_warnings.append("bounty has no award slots remaining")
     if bounty_data["availability_state"] not in {"open", "full", bounty_data["status"]}:
         availability_warnings.append(bounty_data["availability_note"])
@@ -77,7 +78,7 @@ def work_proof_guidance_json(bounty: Bounty, session: Session | None = None) -> 
         "can_submit": can_submit,
         "availability_warnings": availability_warnings,
         "awards_remaining": bounty_data["awards_remaining"],
-        "effective_awards_remaining": bounty_data["effective_awards_remaining"],
+        "effective_awards_remaining": effective_awards_remaining,
         "max_awards": bounty_data["max_awards"],
         "awards_paid": bounty_data["awards_paid"],
         "reward_mrwk": bounty_data["reward_mrwk"],
