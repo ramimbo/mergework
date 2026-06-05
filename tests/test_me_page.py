@@ -35,6 +35,28 @@ def test_me_page_context_defaults_for_anonymous_user(sqlite_url: str) -> None:
     }
 
 
+def test_me_page_context_reports_balance_without_linked_wallet(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        add_ledger_entry(
+            session,
+            entry_type="test_github_balance",
+            from_account=TREASURY_ACCOUNT,
+            to_account="github:alice",
+            amount_microunits=4_000_000,
+            reference="test-github-balance",
+        )
+
+        context = me_page_context(session, "alice")
+
+    assert context == {
+        "github_login": "alice",
+        "github_balance_mrwk": "4",
+        "linked_wallet_address": "",
+    }
+
+
 def test_me_page_context_reports_balance_and_linked_wallet(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     public_hex = _wallet_public_hex()
