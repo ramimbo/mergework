@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from sqlalchemy import create_engine, event, inspect, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import Base
@@ -46,29 +46,41 @@ def create_schema(database_url: str) -> None:
     engine.dispose()
 
 
+def _add_bounty_column_if_missing(
+    connection: Connection,
+    existing_columns: set[str],
+    column_name: str,
+    column_definition: str,
+) -> bool:
+    if column_name in existing_columns:
+        return False
+    connection.execute(text(f"ALTER TABLE bounties ADD COLUMN {column_name} {column_definition}"))
+    existing_columns.add(column_name)
+    return True
+
+
 def _migrate_schema(engine: Engine) -> None:
     inspector = inspect(engine)
     if "bounties" not in inspector.get_table_names():
         return
     bounty_columns = {column["name"] for column in inspector.get_columns("bounties")}
+    bounty_column_migrations = (
+        ("max_awards", "INTEGER NOT NULL DEFAULT 1", None),
+        (
+            "awards_paid",
+            "INTEGER NOT NULL DEFAULT 0",
+            "UPDATE bounties SET awards_paid = 1 WHERE status = 'paid'",
+        ),
+        ("github_paid_issue_finalized_at", "TIMESTAMP", None),
+        ("github_paid_issue_finalization", "TEXT", None),
+    )
     with engine.begin() as connection:
-        if "max_awards" not in bounty_columns:
-            connection.execute(
-                text("ALTER TABLE bounties ADD COLUMN max_awards INTEGER NOT NULL DEFAULT 1")
+        for column_name, column_definition, backfill_sql in bounty_column_migrations:
+            added = _add_bounty_column_if_missing(
+                connection, bounty_columns, column_name, column_definition
             )
-        if "awards_paid" not in bounty_columns:
-            connection.execute(
-                text("ALTER TABLE bounties ADD COLUMN awards_paid INTEGER NOT NULL DEFAULT 0")
-            )
-            connection.execute(text("UPDATE bounties SET awards_paid = 1 WHERE status = 'paid'"))
-        if "github_paid_issue_finalized_at" not in bounty_columns:
-            connection.execute(
-                text("ALTER TABLE bounties ADD COLUMN github_paid_issue_finalized_at TIMESTAMP")
-            )
-        if "github_paid_issue_finalization" not in bounty_columns:
-            connection.execute(
-                text("ALTER TABLE bounties ADD COLUMN github_paid_issue_finalization TEXT")
-            )
+            if added and backfill_sql is not None:
+                connection.execute(text(backfill_sql))
         if "submissions" in inspector.get_table_names():
             connection.execute(
                 text(

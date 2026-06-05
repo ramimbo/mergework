@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 
 from app.db import create_schema, make_engine, session_scope
 from app.ledger.service import (
@@ -628,7 +628,9 @@ def test_bounty_max_awards_must_be_positive(sqlite_url: str) -> None:
             )
 
 
-def test_create_schema_migrates_existing_bounty_award_columns(sqlite_url: str) -> None:
+def test_create_schema_migrates_existing_bounty_columns_and_submission_index(
+    sqlite_url: str,
+) -> None:
     engine = make_engine(sqlite_url)
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -669,6 +671,14 @@ def test_create_schema_migrates_existing_bounty_award_columns(sqlite_url: str) -
         assert bounty is not None
         assert bounty.max_awards == 1
         assert bounty.awards_paid == 1
+        assert bounty.github_paid_issue_finalized_at is None
+        assert bounty.github_paid_issue_finalization is None
+
+    engine = make_engine(sqlite_url)
+    submission_indexes = inspect(engine).get_indexes("submissions")
+    engine.dispose()
+
+    assert any(index["name"] == "uq_submission_bounty_url" for index in submission_indexes)
 
 
 def test_hash_chain_detects_tampering(sqlite_url: str) -> None:
