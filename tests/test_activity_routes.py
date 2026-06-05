@@ -22,4 +22,6 @@ def test_activity_context_preserves_empty_feed_shape(sqlite_url: str) -> None:
             "contributors": [],
             "pending_payouts": [],
             "recent": [],
+            "limit": 100,
+            "offset": 0,
         }

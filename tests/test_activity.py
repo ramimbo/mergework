@@ -293,6 +293,130 @@ def test_activity_api_filters_by_exact_account(sqlite_url: str) -> None:
     assert missing["recent"] == []
 
 
+def test_activity_api_honors_limit_and_offset(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number, account, reward in (
+            (180, "github:alice", "10"),
+            (181, "github:bob", "20"),
+            (182, "github:carol", "30"),
+        ):
+            bounty = create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=issue_number,
+                issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                title=f"Activity pagination bounty {issue_number}",
+                reward_mrwk=reward,
+                acceptance="Activity pagination should page public rows.",
+            )
+            pay_bounty(
+                session,
+                bounty_id=bounty.id,
+                to_account=account,
+                submission_url=f"https://github.com/ramimbo/mergework/pull/{issue_number}",
+                accepted_by="maintainer",
+                verifier_result={"label": "mrwk:accepted"},
+            )
+
+        pending_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=183,
+            issue_url="https://github.com/ramimbo/mergework/issues/183",
+            title="Activity pending pagination bounty",
+            reward_mrwk="5",
+            acceptance="Pending activity rows should page public rows.",
+        )
+        propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": pending_bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/183",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    first_page = client.get("/api/v1/activity?limit=1")
+    second_page = client.get("/api/v1/activity?limit=1&offset=1")
+    offset_only = client.get("/api/v1/activity?offset=1")
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert offset_only.status_code == 200
+
+    first_payload = first_page.json()
+    second_payload = second_page.json()
+    offset_payload = offset_only.json()
+
+    assert first_payload["limit"] == 1
+    assert first_payload["offset"] == 0
+    assert first_payload["totals"] == {
+        "accepted_awards": 3,
+        "accepted_mrwk": "60",
+        "contributors": 3,
+    }
+    assert first_payload["pending_totals"] == {
+        "pending_awards": 1,
+        "pending_mrwk": "5",
+    }
+    assert [row["account"] for row in first_payload["contributors"]] == ["github:carol"]
+    assert [row["account"] for row in first_payload["recent"]] == ["github:carol"]
+    assert [row["account"] for row in first_payload["pending_payouts"]] == ["github:alice"]
+
+    assert second_payload["limit"] == 1
+    assert second_payload["offset"] == 1
+    assert second_payload["totals"] == first_payload["totals"]
+    assert second_payload["pending_totals"] == first_payload["pending_totals"]
+    assert [row["account"] for row in second_payload["contributors"]] == ["github:bob"]
+    assert [row["account"] for row in second_payload["recent"]] == ["github:bob"]
+    assert second_payload["pending_payouts"] == []
+
+    assert offset_payload["limit"] == 100
+    assert offset_payload["offset"] == 1
+    assert [row["account"] for row in offset_payload["contributors"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+    assert [row["account"] for row in offset_payload["recent"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+    assert offset_payload["pending_payouts"] == []
+
+
+def test_activity_api_rejects_invalid_pagination_queries(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    noncanonical_limit = client.get("/api/v1/activity?limit=01")
+    repeated_limit = client.get("/api/v1/activity?limit=1&limit=2")
+    too_small_limit = client.get("/api/v1/activity?limit=0")
+    noncanonical_offset = client.get("/api/v1/activity?offset=01")
+    repeated_offset = client.get("/api/v1/activity?offset=1&offset=2")
+    negative_offset = client.get("/api/v1/activity?offset=-1")
+    controlled_offset = client.get("/api/v1/activity?offset=%C2%851")
+
+    assert noncanonical_limit.status_code == 400
+    assert noncanonical_limit.json()["detail"] == "limit must be a canonical positive integer"
+    assert repeated_limit.status_code == 400
+    assert repeated_limit.json()["detail"] == "limit must be provided at most once"
+    assert too_small_limit.status_code == 422
+    assert noncanonical_offset.status_code == 400
+    assert noncanonical_offset.json()["detail"] == "offset must be a canonical positive integer"
+    assert repeated_offset.status_code == 400
+    assert repeated_offset.json()["detail"] == "offset must be provided at most once"
+    assert negative_offset.status_code == 422
+    assert controlled_offset.status_code == 400
+    assert controlled_offset.json()["detail"] == "offset must not contain control characters"
+
+
 def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:

@@ -348,6 +348,7 @@ Read accepted-work activity summarized from proof-backed bounty payments:
 curl -s "$API_HOST/api/v1/activity"
 curl -s "$API_HOST/api/v1/activity?q=p3xill"
 curl -s "$API_HOST/api/v1/activity?account=github%3Ap3xill"
+curl -s "$API_HOST/api/v1/activity?limit=25&offset=25"
 ```
 
 Use `account=github:<login>` or `account=mrwk1...` for an exact account-scoped
@@ -357,6 +358,9 @@ activity rows. `q` filters proof-backed and pending activity rows by account,
 amount, submission URL, proof hash, proposal id, bounty repo, bounty issue URL,
 internal bounty id, or GitHub issue number. In other words, the same search can
 match bounty repo, bounty issue URL, proposal, proof, or submission evidence.
+Use `limit` from `1` to `200` and `offset` from `0` upward to page the
+`contributors`, `pending_payouts`, and `recent` arrays after filtering; aggregate
+totals still describe the full matching activity set.
 The response groups
 matching proof-backed bounty payments into `totals`, contributor rollups, and
 the most recent payment rows. Accepted-but-not-yet-executed `pay_bounty`
@@ -376,6 +380,8 @@ execution creates a ledger proof:
     "pending_mrwk": "50"
   },
   "query": "p3xill",
+  "limit": 25,
+  "offset": 0,
   "contributors": [
     {
       "account": "github:p3xill",
