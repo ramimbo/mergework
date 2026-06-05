@@ -318,10 +318,13 @@ Read recent ledger entries and inspect one entry:
 
 ```bash
 curl -s "$API_HOST/api/v1/ledger?limit=10"
+curl -s "$API_HOST/api/v1/ledger?limit=10&offset=10"
 curl -s "$API_HOST/api/v1/ledger/<sequence>"
 ```
 
 Ledger entries use the internal immutable sequence number as the API path key.
+Use `limit=1..200` and a canonical non-negative `offset` to page through the
+newest-first ledger list.
 Recent-list and single-entry responses share the same shape:
 
 ```json
