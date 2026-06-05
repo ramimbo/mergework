@@ -102,6 +102,59 @@ def test_ledger_api_rejects_repeated_limit_before_using_later_value(sqlite_url: 
     assert response.json()["detail"] == "limit must be provided at most once"
 
 
+def test_ledger_api_honors_offset(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        older_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=201,
+            issue_url="https://github.com/ramimbo/mergework/issues/201",
+            title="Older ledger row",
+            reward_mrwk="25",
+            acceptance="Ledger offset should skip newest rows.",
+        )
+        newer_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=202,
+            issue_url="https://github.com/ramimbo/mergework/issues/202",
+            title="Newer ledger row",
+            reward_mrwk="25",
+            acceptance="Ledger offset should return later pages.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    newest = client.get("/api/v1/ledger?limit=1")
+    offset_zero = client.get("/api/v1/ledger?limit=1&offset=0")
+    shifted = client.get("/api/v1/ledger?limit=1&offset=1")
+    exhausted = client.get("/api/v1/ledger?limit=1&offset=99")
+    max_valid = client.get("/api/v1/ledger?offset=9223372036854775807")
+    negative = client.get("/api/v1/ledger?offset=-1")
+    oversized = client.get("/api/v1/ledger?offset=9999999999999999999999999999999999999999")
+    noncanonical = client.get("/api/v1/ledger?offset=01")
+    repeated = client.get("/api/v1/ledger?offset=1&offset=2")
+
+    assert newest.status_code == 200
+    assert offset_zero.status_code == 200
+    assert shifted.status_code == 200
+    assert [entry["reference"] for entry in newest.json()] == [newer_bounty.issue_url]
+    assert [entry["reference"] for entry in offset_zero.json()] == [newer_bounty.issue_url]
+    assert [entry["reference"] for entry in shifted.json()] == [older_bounty.issue_url]
+    assert exhausted.status_code == 200
+    assert exhausted.json() == []
+    assert max_valid.status_code == 200
+    assert max_valid.json() == []
+    assert negative.status_code == 422
+    assert oversized.status_code == 422
+    assert noncanonical.status_code == 400
+    assert noncanonical.json()["detail"] == "offset must be a canonical positive integer"
+    assert repeated.status_code == 400
+    assert repeated.json()["detail"] == "offset must be provided at most once"
+
+
 def test_head_requests_match_get_routes_without_body(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -250,6 +303,10 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "status, q, sort, limit, and availability filters"
         in tools["result"]["tools"][0]["description"]
     )
+    list_bounties_schema = tools["result"]["tools"][0]["inputSchema"]
+    assert list_bounties_schema["additionalProperties"] is False
+    assert list_bounties_schema["properties"]["q"]["maxLength"] == 500
+    assert list_bounties_schema["properties"]["limit"]["maximum"] == 100
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
@@ -261,13 +318,65 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_schema["properties"]["bounty_id"]["minimum"] == 1
     assert submit_schema["properties"]["issue_number"]["minimum"] == 1
     assert submit_schema["properties"]["repo"]["maxLength"] == 200
-    assert submit_schema["not"] == {"required": ["bounty_id", "issue_number"]}
+    assert submit_schema["allOf"] == [
+        {"not": {"required": ["bounty_id", "issue_number"]}},
+        {
+            "if": {"required": ["repo"]},
+            "then": {
+                "required": ["issue_number"],
+                "not": {"required": ["bounty_id"]},
+            },
+        },
+        {"if": {"required": ["bounty_id"]}, "then": {"not": {"required": ["repo"]}}},
+    ]
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]
+    bounty_schema = bounty_tool["inputSchema"]
+    assert bounty_schema["additionalProperties"] is False
+    assert bounty_schema["properties"]["id"]["minimum"] == 1
+    assert bounty_schema["properties"]["bounty_id"]["minimum"] == 1
+    assert bounty_schema["properties"]["issue_number"]["minimum"] == 1
+    assert bounty_schema["properties"]["repo"]["maxLength"] == 200
+    assert bounty_schema["properties"]["include_awards"]["default"] is False
+    assert bounty_schema["oneOf"] == [
+        {"required": ["id"]},
+        {"required": ["bounty_id"]},
+        {"required": ["issue_number"]},
+    ]
+    assert bounty_schema["dependentRequired"] == {"repo": ["issue_number"]}
     attempt_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "list_bounty_attempts"
     )
     assert "active-attempt reservations" in attempt_tool["description"]
+    attempt_schema = attempt_tool["inputSchema"]
+    assert attempt_schema["additionalProperties"] is False
+    assert attempt_schema["properties"]["id"]["minimum"] == 1
+    assert attempt_schema["properties"]["bounty_id"]["minimum"] == 1
+    assert attempt_schema["properties"]["issue_number"]["minimum"] == 1
+    assert attempt_schema["properties"]["repo"]["maxLength"] == 200
+    assert attempt_schema["properties"]["include_expired"]["default"] is False
+    assert attempt_schema["properties"]["limit"]["minimum"] == 1
+    assert attempt_schema["properties"]["limit"]["maximum"] == 100
+    assert attempt_schema["properties"]["limit"]["default"] == 25
+    assert attempt_schema["oneOf"] == [
+        {"required": ["id"]},
+        {"required": ["bounty_id"]},
+        {"required": ["issue_number"]},
+    ]
+    assert attempt_schema["dependentRequired"] == {"repo": ["issue_number"]}
+    wallet_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_wallet")
+    wallet_schema = wallet_tool["inputSchema"]
+    assert wallet_schema["required"] == ["address"]
+    assert wallet_schema["additionalProperties"] is False
+    assert wallet_schema["properties"]["address"]["pattern"] == (
+        "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
+    )
+    balance_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance")
+    balance_schema = balance_tool["inputSchema"]
+    assert balance_schema["required"] == ["account"]
+    assert balance_schema["additionalProperties"] is False
+    assert balance_schema["properties"]["account"]["minLength"] == 1
+    assert "github:<login>" in balance_schema["properties"]["account"]["description"]
 
     balance = client.post(
         "/mcp",
@@ -281,6 +390,70 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance["result"]["content"][0]["type"] == "text"
     assert "100000000" in balance["result"]["content"][0]["text"]
     assert "structuredContent" not in balance["result"]
+
+
+def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "0.1.0"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "error" not in payload
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] == 1
+    result = payload["result"]
+    assert result["protocolVersion"] == "2025-06-18"
+    assert result["capabilities"] == {"tools": {"listChanged": False}}
+    assert result["serverInfo"] == {"name": "mergework", "version": "0.1.0"}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"jsonrpc": "2.0", "id": 2, "method": "initialize"},
+        {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "initialize",
+            "params": {"protocolVersion": 123},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "initialize",
+            "params": {"protocolVersion": "invalid-version"},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "initialize",
+            "params": {"protocolVersion": ""},
+        },
+    ],
+)
+def test_mcp_initialize_defaults_unsupported_protocol_versions(
+    sqlite_url: str, payload: dict[str, object]
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post("/mcp", json=payload)
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["protocolVersion"] == "2025-06-18"
 
 
 def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) -> None:
@@ -423,6 +596,54 @@ def test_mcp_list_bounty_attempts_accepts_issue_number_selector(sqlite_url: str)
     assert result["attempts"][0]["submitter_account"] == "github:alice"
 
 
+def test_mcp_list_bounty_attempts_accepts_id_alias(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=323,
+            issue_url="https://github.com/ramimbo/mergework/issues/323",
+            title="Attempt lookup by id alias",
+            reward_mrwk="250",
+            max_awards=2,
+            acceptance="Agents can reuse the id field from list_bounties.",
+        )
+        session.add(
+            BountyAttempt(
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+                source_url="https://github.com/ramimbo/mergework/pull/523",
+                status="active",
+                expires_at=now + timedelta(hours=1),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 25,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"id": bounty_id},
+            },
+        },
+    ).json()["result"]["structuredContent"]
+
+    assert result["bounty_id"] == bounty_id
+    assert result["issue_number"] == 323
+    assert result["attempts"][0]["submitter_account"] == "github:alice"
+
+
 def test_mcp_list_bounty_attempts_rejects_invalid_arguments(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -457,6 +678,44 @@ def test_mcp_list_bounty_attempts_rejects_invalid_arguments(sqlite_url: str) -> 
     assert response.json() == {
         "jsonrpc": "2.0",
         "id": 23,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_list_bounty_attempts_rejects_mixed_id_aliases(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=324,
+            issue_url="https://github.com/ramimbo/mergework/issues/324",
+            title="Attempt alias ambiguity",
+            reward_mrwk="250",
+            acceptance="Agents should not mix internal id aliases.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 26,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": bounty_id, "id": bounty_id},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 26,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
 
@@ -569,7 +828,7 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
     oversized_payload = json.loads(oversized_result["result"]["content"][0]["text"])
     assert oversized_payload == []
 
-    digit_limit_result = client.post(
+    max_length_search_result = client.post(
         "/mcp",
         json={
             "jsonrpc": "2.0",
@@ -577,12 +836,12 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
             "method": "tools/call",
             "params": {
                 "name": "list_bounties",
-                "arguments": {"q": "9" * 5000},
+                "arguments": {"q": "9" * 500},
             },
         },
     ).json()
-    digit_limit_payload = json.loads(digit_limit_result["result"]["content"][0]["text"])
-    assert digit_limit_payload == []
+    max_length_search_payload = json.loads(max_length_search_result["result"]["content"][0]["text"])
+    assert max_length_search_payload == []
 
 
 def test_mcp_list_bounties_honors_sort_argument(sqlite_url: str) -> None:
@@ -697,6 +956,7 @@ def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> No
         ({"limit": 101}, 35),
         ({"sort": "invalid"}, 36),
         ({"availability": "maybe"}, 37),
+        ({"q": "a" * 501}, 38),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
@@ -920,6 +1180,42 @@ def test_mcp_get_bounty_accepts_issue_number_selector(sqlite_url: str) -> None:
     assert payload["issue_number"] == 286
 
 
+def test_mcp_get_bounty_accepts_bounty_id_alias(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=289,
+            issue_url="https://github.com/ramimbo/mergework/issues/289",
+            title="MCP bounty id alias",
+            reward_mrwk="75",
+            acceptance="Agents may reuse bounty_id fields from other MCP payloads.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {"bounty_id": bounty_id},
+            },
+        },
+    ).json()
+
+    payload = json.loads(result["result"]["content"][0]["text"])
+    assert result["result"]["structuredContent"] == payload
+    assert payload["id"] == bounty_id
+    assert payload["issue_number"] == 289
+
+
 def test_mcp_get_bounty_rejects_ambiguous_issue_number_selector(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -1001,6 +1297,44 @@ def test_mcp_get_bounty_rejects_mixed_selectors(sqlite_url: str) -> None:
     assert response.json() == {
         "jsonrpc": "2.0",
         "id": 5,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+def test_mcp_get_bounty_rejects_mixed_internal_id_aliases(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=290,
+            issue_url="https://github.com/ramimbo/mergework/issues/290",
+            title="MCP internal selector validation",
+            reward_mrwk="75",
+            acceptance="Agents should pass one internal bounty selector.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {"id": bounty_id, "bounty_id": bounty_id},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 6,
         "error": {"code": -32602, "message": "invalid tool arguments"},
     }
 
@@ -1445,6 +1779,7 @@ def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:
     assert payload["hash"] == proof.hash
     assert payload["kind"] == "bounty_payment"
     assert payload["ledger_sequence"] == proof.ledger_sequence
+    assert payload["created_at"] == public_utc_timestamp(proof.created_at)
     assert payload["proof"]["repo"] == "ramimbo/mergework"
     assert payload["proof"]["submission_url"] == "https://github.com/ramimbo/mergework/pull/37"
     assert payload["proof"]["accepted_by"] == "maintainer"
@@ -1989,6 +2324,7 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
         ({"bounty_id": 1, "issue_number": 1}, 25),
         ({"format": "xml"}, 26),
         ({"format": 1}, 27),
+        ({"format": "\x85json"}, 28),
         ({"repo": "ramimbo/mergework"}, 29),
         ({"bounty_id": 1, "repo": "ramimbo/mergework"}, 30),
         ({"issue_number": 1, "repo": 1}, 31),
@@ -1996,6 +2332,42 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
     ],
 )
 def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
+    sqlite_url: str, arguments: dict[str, object], request_id: int
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "tools/call",
+            "params": {"name": "submit_work_proof", "arguments": arguments},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("arguments", "request_id"),
+    [
+        ({"unexpected": "ignored"}, 33),
+        ({"format": "json", "unexpected": "ignored"}, 34),
+        ({"formta": "json"}, 35),
+        ({"bounty_id": 1, "unexpected": "ignored"}, 36),
+    ],
+)
+def test_mcp_submit_work_proof_rejects_undeclared_arguments(
     sqlite_url: str, arguments: dict[str, object], request_id: int
 ) -> None:
     create_schema(sqlite_url)
@@ -2489,3 +2861,58 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert fetched_wallet["address"] == registered_wallet["address"]
     assert fetched_wallet["label"] == "MCP wallet"
     assert fetched_wallet["created_at"] == registered_wallet["created_at"]
+
+
+def test_mcp_wallet_write_tools_reject_unexpected_arguments(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    register_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "register_wallet",
+                "arguments": {
+                    "public_key_hex": "22" * 32,
+                    "label": "MCP wallet",
+                    "public_key": "22" * 32,
+                },
+            },
+        },
+    )
+
+    assert register_response.status_code == 200
+    assert register_response.json() == {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+    transfer_response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_wallet_transfer",
+                "arguments": {
+                    "from_address": "mrwk1" + "1" * 40,
+                    "to_address": "mrwk1" + "2" * 40,
+                    "amount_mrwk": "1",
+                    "nonce": 1,
+                    "memo": "test",
+                    "signature_hex": "aa" * 64,
+                    "signature": "aa" * 64,
+                },
+            },
+        },
+    )
+
+    assert transfer_response.status_code == 200
+    assert transfer_response.json()["error"] == {
+        "code": -32602,
+        "message": "invalid tool arguments",
+    }

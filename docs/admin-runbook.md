@@ -323,13 +323,13 @@ the intake queue before creating, rejecting, or consolidating future bounties:
 ```bash
 python scripts/proposed_work_triage.py \
   --repo ramimbo/mergework \
-  --payment-bounty-issue 722 \
   --format markdown
 ```
 
-During accepted-proposed-work round transitions, repeat
-`--payment-bounty-issue` for each intake bounty whose payment state should be
-included, such as `--payment-bounty-issue 649 --payment-bounty-issue 722`.
+The default payment-state lookup includes the original accepted-proposed-work
+round #649 and the current round #722. During future round transitions, repeat
+`--payment-bounty-issue` for each intake bounty whose payment state should
+override the default set.
 
 For deterministic review or incident write-ups, use an offline fixture instead:
 

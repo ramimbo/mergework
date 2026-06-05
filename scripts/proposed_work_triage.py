@@ -4,12 +4,18 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.api_host_args import public_api_host
 
 
 def _positive_int(value: str) -> int:
@@ -76,7 +82,7 @@ STOPWORDS = {
 GH_TIMEOUT_SECONDS = 30
 HTTP_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
-DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (649,)
+DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (649, 722)
 LIVE_ISSUE_SEARCHES = (
     "label:proposed-work",
     '"proposed work"',
@@ -394,7 +400,7 @@ def _run_gh(args: list[str]) -> Any:
 
 
 def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
-    return _run_gh(
+    rows = _run_gh(
         [
             "issue",
             "list",
@@ -410,6 +416,9 @@ def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
             "number",
         ]
     )
+    if not isinstance(rows, list):
+        raise RuntimeError("gh issue list returned non-list JSON")
+    return [cast(dict[str, Any], row) for row in rows if isinstance(row, dict)]
 
 
 def _load_public_json(url: str) -> Any:
@@ -518,7 +527,7 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--repo", help="GitHub repo for read-only gh live mode")
     parser.add_argument("--limit", type=_positive_int, default=50)
     parser.add_argument("--format", choices=("json", "markdown"), default="markdown")
-    parser.add_argument("--api-host", default=DEFAULT_API_HOST)
+    parser.add_argument("--api-host", default=DEFAULT_API_HOST, type=public_api_host)
     parser.add_argument(
         "--payment-bounty-issue",
         action="append",

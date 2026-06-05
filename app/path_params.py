@@ -4,6 +4,8 @@ import re
 
 from fastapi import HTTPException
 
+from app.control_chars import contains_control_character
+
 SQLITE_INTEGER_MAX = 2**63 - 1
 HEX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 POSITIVE_INTEGER_RE = re.compile(r"^[0-9]+$")
@@ -11,7 +13,7 @@ POSITIVE_INTEGER_RE = re.compile(r"^[0-9]+$")
 
 def reject_path_whitespace_padding(value: str, field: str) -> None:
     """Reject leading or trailing path whitespace before identifier normalization."""
-    if any(ord(char) < 32 or 127 <= ord(char) < 160 for char in value):
+    if contains_control_character(value):
         return
     if value.strip() and value != value.strip():
         raise HTTPException(

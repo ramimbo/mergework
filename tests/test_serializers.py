@@ -122,6 +122,31 @@ def test_bounty_list_summary_breaks_down_availability_states() -> None:
     }
 
 
+def test_bounty_list_summary_preserves_fractional_reward_pool_totals() -> None:
+    summary = bounty_list_summary(
+        [
+            {
+                "reward_mrwk": "0.5",
+                "awards_remaining": 3,
+                "effective_awards_remaining": 2,
+                "availability_state": "pending_payouts_partial",
+                "pending_payout_awards": 1,
+            },
+            {
+                "reward_mrwk": "1.25",
+                "awards_remaining": 2,
+                "availability_state": "open",
+                "pending_payout_awards": 0,
+            },
+        ]
+    )
+
+    assert summary["open_awards"] == 5
+    assert summary["open_pool_mrwk"] == "4"
+    assert summary["effective_open_awards"] == 4
+    assert summary["effective_open_pool_mrwk"] == "3.5"
+
+
 def test_bounty_serializer_marks_proposed_work_issue_submission_mode(
     sqlite_url: str,
 ) -> None:

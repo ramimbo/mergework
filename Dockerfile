@@ -17,4 +17,4 @@ RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin mergework \
 
 USER mergework
 EXPOSE 8000
-CMD ["sh", "-c", "python scripts/check_deploy_ready.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python scripts/check_deploy_ready.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-server-header"]

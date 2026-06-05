@@ -986,6 +986,76 @@ def test_submission_quality_gate_live_context_preserves_effective_availability(
     assert bounty["payability_verified"] is True
 
 
+def test_submission_quality_gate_live_context_scopes_referenced_bounty_checks(
+    monkeypatch,
+) -> None:
+    viewed_issues: list[int] = []
+    attempt_bounty_ids: list[int] = []
+
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {"number": 318, "title": "MRWK bounty: unrelated", "state": "OPEN"},
+                        {"number": 319, "title": "MRWK bounty: gate", "state": "OPEN"},
+                    ]
+                ),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            viewed_issues.append(int(args[3]))
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "author": {"login": "ramimbo"},
+                        "createdAt": "2026-05-20T00:00:00Z",
+                        "comments": [],
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError(args)
+
+    def fake_load_attempts(api_host, bounty_id):
+        attempt_bounty_ids.append(bounty_id)
+        return [{"submitter": "github:agent-one", "status": "active"}]
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        submission_quality_gate,
+        "_load_api_bounties",
+        lambda repo, api_host: {
+            318: {"id": 65, "number": 318, "state": "open", "awards_remaining": 1},
+            319: {"id": 66, "number": 319, "state": "open", "awards_remaining": 1},
+        },
+    )
+    monkeypatch.setattr(submission_quality_gate, "_load_api_attempts", fake_load_attempts)
+
+    data = submission_quality_gate._load_live_context(
+        "ramimbo/mergework",
+        "Summary: work\n\nRefs #319\n\nValidation: pytest passed",
+        "https://api.example.test",
+    )
+
+    assert viewed_issues == [319]
+    assert attempt_bounty_ids == [66]
+    assert data["bounties"][0]["number"] == 318
+    assert "active_attempts" not in data["bounties"][0]
+    assert "maintainer_activity_verified" not in data["bounties"][0]
+    assert data["bounties"][1]["number"] == 319
+    assert data["bounties"][1]["active_attempts"] == [
+        {"submitter": "github:agent-one", "status": "active"}
+    ]
+    assert data["bounties"][1]["maintainer_activity_verified"] is True
+
+
 def test_submission_quality_gate_live_context_warns_when_attempt_id_missing(
     monkeypatch,
 ) -> None:
@@ -1319,3 +1389,13 @@ def test_quality_gate_cli_rejects_negative_max_maintainer_age_days(tmp_path, cap
         main(["--input", str(fixture), "--max-maintainer-age-days", "-1"])
     assert excinfo.value.code == 2
     assert "must be >= 0" in capsys.readouterr().err
+
+
+def test_quality_gate_cli_rejects_invalid_api_host(tmp_path, capsys) -> None:
+    draft = tmp_path / "draft.md"
+    draft.write_text("Summary: work\n\nRefs #319\n\nValidation: pytest passed", encoding="utf-8")
+    for bad in ("", "   ", "/relative", "ftp://api.example.test"):
+        with pytest.raises(SystemExit) as excinfo:
+            main(["--text-file", str(draft), "--api-host", bad])
+        assert excinfo.value.code == 2
+        assert "api host must" in capsys.readouterr().err

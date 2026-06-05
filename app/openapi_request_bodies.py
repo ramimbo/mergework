@@ -3,13 +3,17 @@ from __future__ import annotations
 from typing import Any
 
 
+def _json_content(schema: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "application/json": {
+            "schema": schema,
+        },
+    }
+
+
 def _request_body(schema: dict[str, Any], *, required: bool = True) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "content": {
-            "application/json": {
-                "schema": schema,
-            },
-        },
+        "content": _json_content(schema),
     }
     if required:
         body["required"] = True
@@ -21,11 +25,7 @@ def _json_response(
 ) -> dict[str, Any]:
     return {
         "description": description,
-        "content": {
-            "application/json": {
-                "schema": schema,
-            },
-        },
+        "content": _json_content(schema),
     }
 
 

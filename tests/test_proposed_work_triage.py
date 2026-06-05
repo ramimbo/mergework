@@ -425,14 +425,19 @@ def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -
             )
         return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
 
+    loaded_urls: list[str] = []
+
     def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
         url = request.full_url
+        loaded_urls.append(url)
         if url.endswith("/api/v1/bounties?issue_number=649&limit=5"):
-            return FakeResponse([{"id": 96}])
-        if url.endswith("/api/v1/bounties/96"):
+            return FakeResponse([])
+        if url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
+            return FakeResponse([{"id": 101}])
+        if url.endswith("/api/v1/bounties/101"):
             return FakeResponse(
                 {
-                    "id": 96,
+                    "id": 101,
                     "pending_payout_proposals": [
                         {
                             "proposal_id": 100,
@@ -453,6 +458,8 @@ def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -
     output = json.loads(capsys.readouterr().out)
     assert output["summary"]["proposed_work_issues"] == 2
     assert output["summary"]["payment_counts"] == {"none": 1, "pending": 1}
+    assert any(url.endswith("/api/v1/bounties?issue_number=649&limit=5") for url in loaded_urls)
+    assert any(url.endswith("/api/v1/bounties?issue_number=722&limit=5") for url in loaded_urls)
     pending = next(item for item in output["proposals"] if item["number"] == 672)
     unlabeled = next(item for item in output["proposals"] if item["number"] == 673)
     assert "accepted_pending_payout" in pending["warnings"]
@@ -649,7 +656,8 @@ def test_proposed_work_triage_live_mode_warns_when_payment_state_is_incomplete(
 
     assert output["summary"]["payment_counts"] == {"none": 1}
     assert output["summary"]["data_warnings"] == [
-        "payment_state_incomplete: failed to load public bounty list for issue #649 (URLError)"
+        "payment_state_incomplete: failed to load public bounty list for issue #649 (URLError)",
+        "payment_state_incomplete: failed to load public bounty list for issue #722 (URLError)",
     ]
     markdown = format_markdown(output)
     assert "data warning: payment_state_incomplete" in markdown
@@ -677,6 +685,8 @@ def test_proposed_work_triage_live_mode_warns_when_bounty_detail_fetch_fails(
     def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
         if request.full_url.endswith("/api/v1/bounties?issue_number=649&limit=5"):
             return FakeResponse([{"id": 96}])
+        if request.full_url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
+            return FakeResponse([])
         raise urllib.error.URLError("offline")
 
     monkeypatch.setattr("scripts.proposed_work_triage.subprocess.run", fake_run)
@@ -762,3 +772,11 @@ def test_proposed_work_triage_rejects_non_integer_limit(capsys) -> None:
         main(["--repo", "ramimbo/mergework", "--format", "json", "--limit", "abc"])
     assert excinfo.value.code == 2
     assert "expected an integer" in capsys.readouterr().err
+
+
+def test_proposed_work_triage_rejects_invalid_api_host(capsys) -> None:
+    for bad in ("", "   ", "/relative", "ftp://api.example.test"):
+        with pytest.raises(SystemExit) as excinfo:
+            main(["--repo", "ramimbo/mergework", "--api-host", bad])
+        assert excinfo.value.code == 2
+        assert "api host must" in capsys.readouterr().err

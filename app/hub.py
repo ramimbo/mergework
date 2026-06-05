@@ -24,6 +24,26 @@ LTC_LAB_PROJECTS = (
     },
 )
 
+MERGEWORK_CONTRIBUTOR_STARTING_POINTS = (
+    {
+        "title": "Effectively open bounties",
+        "href": "/bounties?status=open&availability=effectively_open",
+        "description": "Start from live bounty rows that still have effective award capacity.",
+    },
+    {
+        "title": "Accepted work activity",
+        "href": "/activity",
+        "description": (
+            "Check proof-backed paid work and pending payout queues before claiming payment."
+        ),
+    },
+    {
+        "title": "Current bounty JSON",
+        "href": "/api/v1/bounties?status=open&availability=effectively_open",
+        "description": "Use the public API to verify live status, capacity, and requirements.",
+    },
+)
+
 
 def host_without_port(host_header: str) -> str:
     return host_header.split(":", 1)[0].lower()
@@ -44,4 +64,7 @@ def mergework_hub_context(status: dict[str, Any], public_base_url: str) -> dict[
     return {
         "status": status,
         "public_base_url": public_base_url,
+        "contributor_starting_points": [
+            dict(point) for point in MERGEWORK_CONTRIBUTOR_STARTING_POINTS
+        ],
     }

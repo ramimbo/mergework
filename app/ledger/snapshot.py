@@ -122,11 +122,7 @@ def ledger_snapshot(
     generated = generated_at or datetime.now(UTC)
     entries = list(session.scalars(select(LedgerEntry).order_by(LedgerEntry.sequence)).all())
     latest_entry = entries[-1] if entries else None
-    credited_microunits = sum(entry.amount_microunits for entry in entries)
-    debited_microunits = sum(
-        entry.amount_microunits for entry in entries if entry.from_account is not None
-    )
-    net_supply_microunits = credited_microunits - debited_microunits
+    totals = _ledger_totals(entries)
     return {
         "schema": LEDGER_SNAPSHOT_SCHEMA,
         "schema_version": LEDGER_SNAPSHOT_SCHEMA_VERSION,
@@ -145,11 +141,7 @@ def ledger_snapshot(
         },
         "genesis_supply_microunits": GENESIS_SUPPLY_MICRO,
         "accounts": _account_balances(entries),
-        "totals": {
-            "credited_microunits": credited_microunits,
-            "debited_microunits": debited_microunits,
-            "net_supply_microunits": net_supply_microunits,
-        },
+        "totals": totals,
         "verification": {
             "hash_chain_ok": verify_hash_chain(session),
             "supply_conservation_ok": verify_supply_conservation(session),
@@ -171,6 +163,18 @@ def ledger_snapshot_schema_json() -> str:
         )
         + "\n"
     )
+
+
+def _ledger_totals(entries: list[LedgerEntry]) -> dict[str, int]:
+    credited_microunits = sum(entry.amount_microunits for entry in entries)
+    debited_microunits = sum(
+        entry.amount_microunits for entry in entries if entry.from_account is not None
+    )
+    return {
+        "credited_microunits": credited_microunits,
+        "debited_microunits": debited_microunits,
+        "net_supply_microunits": credited_microunits - debited_microunits,
+    }
 
 
 def _account_balances(entries: list[LedgerEntry]) -> list[dict[str, Any]]:

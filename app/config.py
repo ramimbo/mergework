@@ -89,6 +89,21 @@ def _duplicate_github_logins(logins: tuple[str, ...]) -> bool:
     return len(set(present_logins)) != len(present_logins)
 
 
+def _github_login_list_errors(
+    name: str, logins: tuple[str, ...], *, required_detail: str
+) -> list[str]:
+    if not logins:
+        return [required_detail]
+    errors: list[str] = []
+    if "" in logins:
+        errors.append(f"{name} must not include empty entries")
+    if _duplicate_github_logins(logins):
+        errors.append(f"{name} must not include duplicate logins")
+    if _invalid_github_logins(logins):
+        errors.append(f"{name} must contain valid GitHub logins")
+    return errors
+
+
 def _is_valid_dns_hostname(hostname: str) -> bool:
     if IPV4_DOTTED_QUAD_RE.fullmatch(hostname):
         return False
@@ -183,24 +198,20 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
             "MERGEWORK_GITHUB_OAUTH_CLIENT_ID", settings.github_oauth_client_id
         )
     )
-    if not settings.admin_logins:
-        errors.append("MERGEWORK_ADMIN_LOGINS must list admin GitHub logins")
-    else:
-        if "" in settings.admin_logins:
-            errors.append("MERGEWORK_ADMIN_LOGINS must not include empty entries")
-        if _duplicate_github_logins(settings.admin_logins):
-            errors.append("MERGEWORK_ADMIN_LOGINS must not include duplicate logins")
-        if _invalid_github_logins(settings.admin_logins):
-            errors.append("MERGEWORK_ADMIN_LOGINS must contain valid GitHub logins")
-    if not settings.github_accepted_labelers:
-        errors.append("MERGEWORK_GITHUB_ACCEPTED_LABELERS must list maintainer logins")
-    else:
-        if "" in settings.github_accepted_labelers:
-            errors.append("MERGEWORK_GITHUB_ACCEPTED_LABELERS must not include empty entries")
-        if _duplicate_github_logins(settings.github_accepted_labelers):
-            errors.append("MERGEWORK_GITHUB_ACCEPTED_LABELERS must not include duplicate logins")
-        if _invalid_github_logins(settings.github_accepted_labelers):
-            errors.append("MERGEWORK_GITHUB_ACCEPTED_LABELERS must contain valid GitHub logins")
+    errors.extend(
+        _github_login_list_errors(
+            "MERGEWORK_ADMIN_LOGINS",
+            settings.admin_logins,
+            required_detail="MERGEWORK_ADMIN_LOGINS must list admin GitHub logins",
+        )
+    )
+    errors.extend(
+        _github_login_list_errors(
+            "MERGEWORK_GITHUB_ACCEPTED_LABELERS",
+            settings.github_accepted_labelers,
+            required_detail="MERGEWORK_GITHUB_ACCEPTED_LABELERS must list maintainer logins",
+        )
+    )
     if settings.admin_logins and settings.github_accepted_labelers:
         admin_login_set = {login for login in settings.admin_logins if login}
         accepted_labeler_set = {login for login in settings.github_accepted_labelers if login}

@@ -22,6 +22,32 @@ class ExecutorConfig:
     bounty_board_refresh_interval_seconds: int
 
 
+@dataclass(frozen=True)
+class _PositiveIntEnv:
+    name: str
+    default: int
+    minimum: int
+    maximum: int | None = None
+
+
+_INTERVAL_SECONDS_ENV = _PositiveIntEnv(
+    "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS",
+    DEFAULT_INTERVAL_SECONDS,
+    MIN_INTERVAL_SECONDS,
+)
+_BATCH_LIMIT_ENV = _PositiveIntEnv(
+    "MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT",
+    DEFAULT_BATCH_LIMIT,
+    1,
+    MAX_BATCH_LIMIT,
+)
+_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS_ENV = _PositiveIntEnv(
+    "MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS",
+    DEFAULT_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS,
+    MIN_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS,
+)
+
+
 def _enabled_from_env(value: str | None) -> bool:
     normalized = (value or "").strip().lower()
     if normalized in TRUE_VALUES:
@@ -31,18 +57,16 @@ def _enabled_from_env(value: str | None) -> bool:
     raise ValueError("MERGEWORK_TREASURY_EXECUTOR_ENABLED must be true or false")
 
 
-def _positive_int_from_env(
-    env: Mapping[str, str], name: str, default: int, *, minimum: int, maximum: int | None = None
-) -> int:
-    raw = env.get(name, str(default)).strip()
+def _positive_int_from_env(env: Mapping[str, str], setting: _PositiveIntEnv) -> int:
+    raw = env.get(setting.name, str(setting.default)).strip()
     try:
         value = int(raw)
     except ValueError as exc:
-        raise ValueError(f"{name} must be an integer") from exc
-    if value < minimum:
-        raise ValueError(f"{name} must be at least {minimum}")
-    if maximum is not None and value > maximum:
-        raise ValueError(f"{name} must be at most {maximum}")
+        raise ValueError(f"{setting.name} must be an integer") from exc
+    if value < setting.minimum:
+        raise ValueError(f"{setting.name} must be at least {setting.minimum}")
+    if setting.maximum is not None and value > setting.maximum:
+        raise ValueError(f"{setting.name} must be at most {setting.maximum}")
     return value
 
 
@@ -52,21 +76,14 @@ def executor_config_from_env(env: Mapping[str, str] | None = None) -> ExecutorCo
         enabled=_enabled_from_env(source.get("MERGEWORK_TREASURY_EXECUTOR_ENABLED")),
         interval_seconds=_positive_int_from_env(
             source,
-            "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS",
-            DEFAULT_INTERVAL_SECONDS,
-            minimum=MIN_INTERVAL_SECONDS,
+            _INTERVAL_SECONDS_ENV,
         ),
         batch_limit=_positive_int_from_env(
             source,
-            "MERGEWORK_TREASURY_EXECUTOR_BATCH_LIMIT",
-            DEFAULT_BATCH_LIMIT,
-            minimum=1,
-            maximum=MAX_BATCH_LIMIT,
+            _BATCH_LIMIT_ENV,
         ),
         bounty_board_refresh_interval_seconds=_positive_int_from_env(
             source,
-            "MERGEWORK_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS",
-            DEFAULT_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS,
-            minimum=MIN_BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS,
+            _BOUNTY_BOARD_REFRESH_INTERVAL_SECONDS_ENV,
         ),
     )

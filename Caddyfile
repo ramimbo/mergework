@@ -10,6 +10,9 @@ ltclab.site, www.ltclab.site, mrwk.online, www.mrwk.online, api.mrwk.online, mcp
 		?X-Content-Type-Options nosniff
 		?X-Frame-Options DENY
 		?Referrer-Policy no-referrer
+		-Server
 	}
-	reverse_proxy app:8000
+	reverse_proxy app:8000 {
+		header_down -Server
+	}
 }

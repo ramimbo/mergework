@@ -429,6 +429,46 @@ def test_treasury_proposals_list_honors_limit(
     assert controlled_limit.json()["detail"] == "limit must not contain control characters"
 
 
+def test_treasury_proposals_list_honors_offset(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(sqlite_url, monkeypatch)
+    first = client.post(
+        "/api/v1/bounties", headers=ADMIN_HEADERS, json=_bounty_payload(issue_number=170)
+    ).json()
+    second = client.post(
+        "/api/v1/bounties", headers=ADMIN_HEADERS, json=_bounty_payload(issue_number=171)
+    ).json()
+    third = client.post(
+        "/api/v1/bounties", headers=ADMIN_HEADERS, json=_bounty_payload(issue_number=172)
+    ).json()
+
+    newest = client.get("/api/v1/treasury/proposals?limit=1")
+    second_page = client.get("/api/v1/treasury/proposals?limit=1&offset=1")
+    zero_offset = client.get("/api/v1/treasury/proposals?limit=1&offset=0")
+    exhausted = client.get("/api/v1/treasury/proposals?limit=1&offset=3")
+    negative_offset = client.get("/api/v1/treasury/proposals?limit=1&offset=-1")
+    oversized_offset = client.get("/api/v1/treasury/proposals?limit=1&offset=9223372036854775808")
+    noncanonical_offset = client.get("/api/v1/treasury/proposals?limit=1&offset=01")
+    repeated_offset = client.get("/api/v1/treasury/proposals?limit=1&offset=1&offset=2")
+
+    assert newest.status_code == 200
+    assert [proposal["id"] for proposal in newest.json()] == [third["id"]]
+    assert second_page.status_code == 200
+    assert [proposal["id"] for proposal in second_page.json()] == [second["id"]]
+    assert zero_offset.status_code == 200
+    assert zero_offset.json() == newest.json()
+    assert exhausted.status_code == 200
+    assert exhausted.json() == []
+    assert first["id"] not in [proposal["id"] for proposal in second_page.json()]
+    assert negative_offset.status_code == 422
+    assert oversized_offset.status_code == 422
+    assert noncanonical_offset.status_code == 400
+    assert noncanonical_offset.json()["detail"] == "offset must be a canonical positive integer"
+    assert repeated_offset.status_code == 400
+    assert repeated_offset.json()["detail"] == "offset must be provided at most once"
+
+
 def test_treasury_proposals_list_filters_by_recipient_before_limit(
     sqlite_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -442,7 +482,7 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
             issue_url="https://github.com/ramimbo/mergework/issues/74",
             title="Recipient filter proposal",
             reward_mrwk="5",
-            max_awards=2,
+            max_awards=3,
             acceptance="Contributor comments with proof.",
         )
         bounty_id = bounty.id
@@ -465,10 +505,23 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
             "accepted_by": "maintainer",
         },
     )
+    alice_second = client.post(
+        f"/api/v1/bounties/{bounty_id}/pay",
+        headers=ADMIN_HEADERS,
+        json={
+            "to_account": "github:alice",
+            "submission_url": "https://github.com/ramimbo/mergework/pull/7403",
+            "accepted_by": "maintainer",
+        },
+    )
 
     filtered = client.get(
         "/api/v1/treasury/proposals"
         "?status=pending&action=pay_bounty&to_account=github%3Aalice&limit=1"
+    )
+    offset_filtered = client.get(
+        "/api/v1/treasury/proposals"
+        "?status=pending&action=pay_bounty&to_account=github%3Aalice&limit=1&offset=1"
     )
     uppercase_recipient_filtered = client.get(
         "/api/v1/treasury/proposals",
@@ -486,9 +539,12 @@ def test_treasury_proposals_list_filters_by_recipient_before_limit(
 
     assert alice.status_code == 200
     assert bob.status_code == 200
+    assert alice_second.status_code == 200
     assert filtered.status_code == 200
-    assert [proposal["id"] for proposal in filtered.json()] == [alice.json()["id"]]
+    assert [proposal["id"] for proposal in filtered.json()] == [alice_second.json()["id"]]
     assert filtered.json()[0]["payload"]["to_account"] == "github:alice"
+    assert offset_filtered.status_code == 200
+    assert [proposal["id"] for proposal in offset_filtered.json()] == [alice.json()["id"]]
     assert uppercase_recipient_filtered.status_code == 200
     assert uppercase_recipient_filtered.json() == filtered.json()
     assert bob_filtered.status_code == 200
@@ -702,6 +758,16 @@ def test_direct_proposal_creation_requires_admin_token(
                 "payload": {**_bounty_payload(issue_number=181), "title": "Proposal\x85Title"},
             },
             "title must not contain control characters",
+        ),
+        (
+            {
+                "action": "create_bounty",
+                "payload": {
+                    **_bounty_payload(issue_number=182),
+                    "acceptance": "Accepted\x85work.",
+                },
+            },
+            "acceptance must not contain control characters",
         ),
     ],
 )

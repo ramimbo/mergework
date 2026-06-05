@@ -3,7 +3,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from scripts.docs_smoke import REQUIRED, _issue_template_labels, _template_field_is_required
+from scripts.docs_smoke import (
+    REQUIRED,
+    _issue_template_labels,
+    _local_target_exists,
+    _markdown_anchors,
+    _markdown_heading_anchor,
+    _template_field_is_required,
+)
 
 
 def test_readme_lists_live_and_legacy_urls() -> None:
@@ -94,6 +101,7 @@ def test_api_examples_document_ledger_response_shape() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
     assert "/api/v1/ledger?limit=10" in examples
+    assert "/api/v1/ledger?limit=10&offset=10" in examples
     assert "/api/v1/ledger/<sequence>" in examples
     assert '"sequence": 329' in examples
     assert '"type": "bounty_reserve"' in examples
@@ -105,6 +113,7 @@ def test_api_examples_document_ledger_response_shape() -> None:
     )
     assert '"proof_hash": null' in examples
     assert "bounty-payment ledger entries" in examples
+    assert "offset` from `0` through SQLite's signed integer maximum" in examples
 
 
 def test_api_examples_document_auth_me_response_shape() -> None:
@@ -189,6 +198,53 @@ def test_issue_template_labels_parse_inline_and_block_styles() -> None:
     }
 
 
+def test_docs_smoke_validates_markdown_heading_anchors(tmp_path: Path) -> None:
+    source = tmp_path / "README.md"
+    target = tmp_path / "docs.md"
+    source.write_text("[Docs](docs.md#current-transfer-paths)", encoding="utf-8")
+    target.write_text("## Current Transfer Paths\n\nDetails.\n", encoding="utf-8")
+
+    assert _local_target_exists(source, "docs.md#current-transfer-paths") is True
+    assert _local_target_exists(source, "docs.md#missing-section") is False
+
+
+def test_docs_smoke_validates_duplicate_markdown_heading_anchors(tmp_path: Path) -> None:
+    source = tmp_path / "README.md"
+    target = tmp_path / "docs.md"
+    source.write_text(
+        "[First](docs.md#current-transfer-paths)\n[Second](docs.md#current-transfer-paths-1)\n",
+        encoding="utf-8",
+    )
+    target.write_text(
+        "## Current Transfer Paths\n\nDetails.\n\n## Current Transfer Paths\n\nMore details.\n",
+        encoding="utf-8",
+    )
+
+    assert _local_target_exists(source, "docs.md#current-transfer-paths") is True
+    assert _local_target_exists(source, "docs.md#current-transfer-paths-1") is True
+    assert _local_target_exists(source, "docs.md#current-transfer-paths-2") is False
+
+
+def test_markdown_anchors_ignore_fenced_code_headings(tmp_path: Path) -> None:
+    target = tmp_path / "docs.md"
+    target.write_text(
+        "## Real Heading\n\n"
+        "```markdown\n"
+        "## Pseudo Heading\n"
+        "```\n"
+        "~~~\n"
+        "## Other Pseudo Heading\n"
+        "~~~\n",
+        encoding="utf-8",
+    )
+
+    assert _markdown_anchors(target) == {"real-heading"}
+
+
+def test_markdown_heading_anchor_handles_inline_code() -> None:
+    assert _markdown_heading_anchor("Use `mrwk1` Wallets!") == "use-mrwk1-wallets"
+
+
 def test_bounty_rules_document_proposed_work_lifecycle() -> None:
     rules = Path("docs/bounty-rules.md").read_text(encoding="utf-8")
     squashed = " ".join(rules.split())
@@ -220,6 +276,18 @@ def test_agent_guide_tells_agents_not_to_claim_proposed_work() -> None:
     assert "Proposed work requests are intake issues, not live bounties" in guide
     assert "Do not submit `/claim`" in guide
     assert "wait for `mrwk:bounty`" in guide
+
+
+def test_docs_document_public_work_discovery_endpoint() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "GET /api/v1/work-discovery" in guide
+    assert "claimable_now" in guide
+    assert "opening_soon" in guide
+    assert "/api/v1/work-discovery" in examples
+    assert "live bounty rows from pending create-bounty proposals" in examples
+    assert '"availability_state": "pending_create"' in examples
 
 
 def test_admin_runbook_warns_to_validate_production_admin_token() -> None:
@@ -435,6 +503,19 @@ def test_docs_smoke_requires_bounty_evidence_exclusion_and_duplicate_fields() ->
     assert not _template_field_is_required(
         template.replace("required: true", "required: false", 1), "work"
     )
+
+
+def test_docs_smoke_matches_required_template_field_ids_exactly() -> None:
+    template = """
+body:
+  - type: textarea
+    id: evidence_extra
+    validations:
+      required: true
+"""
+
+    assert not _template_field_is_required(template, "evidence")
+    assert _template_field_is_required(template, "evidence_extra")
 
 
 def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:

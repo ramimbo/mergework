@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.config import Settings
+from app.control_chars import contains_control_character
 
 
 def oauth_configured(settings: Settings) -> bool:
@@ -32,8 +33,8 @@ def safe_next_path(next_path: str | None) -> str:
         or decoded_next_path.startswith("//")
         or len(decoded_next_path) > 2048
         or "\\" in decoded_next_path
-        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in next_path)
-        or any(ord(char) < 32 or 127 <= ord(char) < 160 for char in decoded_next_path)
+        or contains_control_character(next_path)
+        or contains_control_character(decoded_next_path)
     ):
         return "/me"
     return next_path
