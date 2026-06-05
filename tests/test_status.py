@@ -12,7 +12,7 @@ from app.ledger.service import (
     pay_bounty,
 )
 from app.models import LedgerEntry
-from app.status import health_status, system_status
+from app.status import health_status, public_path_status, system_status
 
 
 def test_health_status_reports_current_ledger_height(sqlite_url: str) -> None:
@@ -94,3 +94,23 @@ def test_system_status_counts_only_open_bounties(sqlite_url: str) -> None:
         "Future public snapshots, bridges, and onchain claims require separate "
         "maintainer/contributor discussion before implementation."
     )
+
+
+def test_public_path_status_returns_independent_lists() -> None:
+    first = public_path_status()
+    first["current_transfer_paths"].append("changed")
+    first["unsupported_public_paths"].append("changed")
+
+    assert public_path_status()["current_transfer_paths"] == [
+        "github:* balance claims into a linked wallet",
+        "payouts to linked mrwk1 wallets",
+        "signed wallet-to-wallet transfers between registered wallets",
+    ]
+    assert public_path_status()["unsupported_public_paths"] == [
+        "BTC",
+        "USDC",
+        "fiat",
+        "bridge",
+        "exchange",
+        "off-ramp",
+    ]

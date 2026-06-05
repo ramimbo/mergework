@@ -7,6 +7,7 @@ from app.path_params import (
     positive_ledger_sequence,
     positive_proposal_id,
     proof_hash_from_path,
+    reject_path_whitespace_padding,
 )
 
 
@@ -32,6 +33,10 @@ def test_issue_number_search_value_rejects_non_numeric_or_overflow_query():
     assert issue_number_search_value(" #340") is None
     assert issue_number_search_value("340a") is None
     assert issue_number_search_value(str(SQLITE_INTEGER_MAX + 1)) is None
+
+
+def test_reject_path_whitespace_padding_defers_control_characters():
+    reject_path_whitespace_padding("\u0085github:alice", "account")
 
 
 def test_positive_bounty_id_and_ledger_sequence_validate_bounds():

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -33,7 +33,7 @@ def read_only_session_scope(database_url: str) -> Iterator[Session]:
         engine.dispose()
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Export a read-only MRWK ledger snapshot.")
     parser.add_argument("--database-url", help="Database URL. Defaults to MERGEWORK_DATABASE_URL.")
     parser.add_argument("--source-host", help="Public source host/origin for snapshot metadata.")
@@ -47,7 +47,7 @@ def main() -> int:
         action="store_true",
         help="Print the ledger snapshot JSON Schema instead of a live snapshot.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.schema:
         sys.stdout.write(ledger_snapshot_schema_json())
         return 0

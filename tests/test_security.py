@@ -1002,6 +1002,7 @@ def test_admin_bounty_api_accepts_multi_award_count(
         ("//evil.example/me", "/me"),
         ("/\\evil.example/me", "/me"),
         ("/me\nLocation: https://evil.example", "/me"),
+        ("/me%0aLocation:%20https://evil.example", "/me"),
         ("/me" + chr(0x85), "/me"),
         ("/me\x7f", "/me"),
         ("/" + ("a" * 2048), "/me"),

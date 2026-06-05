@@ -37,7 +37,7 @@
 </nav>
 {% if query_text %}<p>Showing matches for “{{ query_text }}”.</p>{% endif %}
 {% if selected_repo or selected_issue_number %}
-<p>Source filter:{% if selected_repo %} {{ selected_repo }}{% endif %}{% if selected_issue_number %} #{{ selected_issue_number }}{% endif %}.</p>
+<p>Source filter:{% if selected_repo %} {{ selected_repo }}{% endif %}{% if selected_issue_number %} #{{ selected_issue_number }}{% endif %}. <a href="{{ clear_source_filter_url | safe }}">Clear source filter</a></p>
 {% endif %}
 <section class="bounty-list-summary" aria-label="Bounty list summary">
   <article>
@@ -59,6 +59,14 @@
   <article>
     <span>Effectively available</span>
     <strong>{{ summary.effective_open_pool_mrwk }} MRWK</strong>
+  </article>
+  <article>
+    <span>Capacity reduced</span>
+    <strong>{{ summary.reduced_capacity_bounties }}</strong>
+  </article>
+  <article>
+    <span>Effectively unavailable</span>
+    <strong>{{ summary.effectively_unavailable_bounties }}</strong>
   </article>
 </section>
 <p class="notice">
@@ -88,6 +96,11 @@
     <p class="notice">{{ bounty.availability_note }}</p>
     {% endif %}
     <p>{{ bounty.acceptance }}</p>
+    <div class="next-steps-actions" aria-label="Bounty action links for {{ bounty.id }}">
+      <a href="/bounties/{{ bounty.id }}">View details</a>
+      <a href="/api/v1/bounties/{{ bounty.id }}">JSON details</a>
+      <a href="/api/v1/bounties/{{ bounty.id }}/attempts">Active attempts</a>
+    </div>
   </article>
   {% else %}
   {% if query_text or selected_status or selected_availability != "all" %}

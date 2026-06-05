@@ -59,6 +59,44 @@
   </p>
   {% endif %}
 
+  {% if bounty.pending_payout_proposals or bounty.pending_close_proposal %}
+  <section class="acceptance-card" aria-labelledby="pending-proposals-heading">
+    <p class="eyebrow">Pending treasury proposals</p>
+    <h2 id="pending-proposals-heading">Capacity already in review</h2>
+    {% if bounty.pending_payout_proposals %}
+    <ul>
+      {% for proposal in bounty.pending_payout_proposals %}
+      <li>
+        <a href="/api/v1/treasury/proposals/{{ proposal.proposal_id }}">Proposal #{{ proposal.proposal_id }}</a>
+        would pay {{ proposal.to_account or "an account" }} for
+        {% set submission_url = safe_public_url(proposal.submission_url) %}
+        {% if submission_url %}
+        <a href="{{ submission_url }}" rel="nofollow noopener">submitted work</a>
+        {% else %}
+        submitted work
+        {% endif %}
+        after {{ proposal.executes_after }}.
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if bounty.pending_close_proposal %}
+    <p>
+      <a href="/api/v1/treasury/proposals/{{ bounty.pending_close_proposal.proposal_id }}">Proposal #{{ bounty.pending_close_proposal.proposal_id }}</a>
+      would close this bounty after {{ bounty.pending_close_proposal.executes_after }}.
+      {% if bounty.pending_close_proposal.reference %}
+      {% set close_reference_url = safe_public_url(bounty.pending_close_proposal.reference) %}
+      {% if close_reference_url %}
+      Reference: <a href="{{ close_reference_url }}" rel="nofollow noopener">{{ bounty.pending_close_proposal.reference | replace("https://github.com/", "") }}</a>.
+      {% else %}
+      Reference: <code>{{ bounty.pending_close_proposal.reference }}</code>.
+      {% endif %}
+      {% endif %}
+    </p>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <section class="acceptance-card" aria-labelledby="acceptance-heading">
     <p class="eyebrow">Acceptance</p>
     <h2 id="acceptance-heading">What has to be true</h2>
@@ -68,6 +106,27 @@
   <section class="next-steps-card" aria-labelledby="bounty-next-steps-heading">
     <p class="eyebrow">Contributor next steps</p>
     <h2 id="bounty-next-steps-heading">Before you start</h2>
+    {% set requirements = bounty.submission_requirements %}
+    <div class="submission-requirements" aria-label="Submission requirements">
+      <dl>
+        <div>
+          <dt>Claim command</dt>
+          <dd><code>{{ requirements.claim_command }}</code></dd>
+        </div>
+        <div>
+          <dt>Reference formats</dt>
+          <dd>
+            {% for reference_format in requirements.reference_formats %}
+            <code>{{ reference_format }}</code>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </dd>
+        </div>
+        <div>
+          <dt>Expected artifact</dt>
+          <dd>{{ requirements.expected_artifact }}</dd>
+        </div>
+      </dl>
+    </div>
     <ol>
       <li>Confirm the source issue is still open and your change is not already covered by another PR.</li>
       <li>Keep the PR focused, link the source issue as <strong>Bounty #{{ bounty.issue_number }}</strong>, and include test or smoke-check evidence.</li>
@@ -88,8 +147,9 @@
     </ol>
     <div class="next-steps-actions" aria-label="Bounty action links">
       {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">Open source issue</a>{% endif %}
+      <a href="/bounties?repo={{ bounty.repo | urlencode }}&amp;issue_number={{ bounty.issue_number }}">View source bounty matches</a>
       <a href="/api/v1/bounties/{{ bounty.id }}">View JSON details</a>
-      <a href="/api/v1/bounties/{{ bounty.id }}/attempts">Check active attempts</a>
+      <a href="{{ requirements.attempt_endpoint }}">Check active attempts</a>
     </div>
   </section>
 </section>

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -20,7 +22,14 @@ from app.ledger.service import (
     wallet_transfer_payload,
 )
 from app.models import Wallet
-from app.wallets import address_from_public_key_hex, canonical_wallet_json
+from app.wallets import (
+    WalletError,
+    address_from_public_key_hex,
+    canonical_wallet_json,
+    normalize_public_key_hex,
+    normalize_signature_hex,
+    normalize_wallet_address,
+)
 
 
 def _keypair() -> tuple[Ed25519PrivateKey, str, str]:
@@ -44,6 +53,21 @@ def test_wallet_address_is_derived_from_public_key() -> None:
     assert address.startswith("mrwk1")
     assert len(address) == 45
     assert address_from_public_key_hex(public_hex) == address
+
+
+@pytest.mark.parametrize(
+    ("normalizer", "value", "message"),
+    [
+        (normalize_public_key_hex, "a" * 63 + "\x85", "public key"),
+        (normalize_signature_hex, "b" * 127 + "\x85", "signature"),
+        (normalize_wallet_address, "mrwk1" + "c" * 39 + "\x85", "MRWK wallet address"),
+    ],
+)
+def test_wallet_normalizers_reject_c1_control_characters(
+    normalizer: Callable[[str], str], value: str, message: str
+) -> None:
+    with pytest.raises(WalletError, match=f"{message} must not contain control characters"):
+        normalizer(value)
 
 
 def test_wallet_registration_rejects_oversized_label(sqlite_url: str) -> None:

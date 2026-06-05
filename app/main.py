@@ -19,9 +19,9 @@ from app.bounty_attempts import (
     register_bounty_attempt_routes,
 )
 from app.config import get_settings
-from app.control_chars import contains_control_character
 from app.db import create_schema, session_scope
 from app.hub import is_ltc_lab_host, ltc_lab_context, mergework_hub_context
+from app.json_payloads import json_object, optional_int, optional_str, required_int, required_str
 from app.ledger.service import ensure_genesis, public_url_or_none
 from app.ledger_views import ledger_entry_to_dict, recent_ledger_entries
 from app.mcp import handle_mcp_request
@@ -114,67 +114,6 @@ def _preserve_forwarded_https_redirect(request: Request, response: Response) -> 
     )
 
 
-async def _json_object(request: Request) -> dict[str, Any]:
-    try:
-        data = await request.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="invalid json body") from exc
-    if not isinstance(data, dict):
-        raise HTTPException(status_code=400, detail="json body must be an object")
-    return data
-
-
-def _required_str(data: dict[str, Any], field: str) -> str:
-    if field not in data or data[field] is None:
-        raise HTTPException(status_code=400, detail=f"{field} is required")
-    value = data[field]
-    if not isinstance(value, str):
-        raise HTTPException(status_code=400, detail=f"{field} must be a string")
-    return value
-
-
-def _optional_str(data: dict[str, Any], field: str, default: str = "") -> str:
-    value = data.get(field, default)
-    if value is None:
-        return default
-    if not isinstance(value, str):
-        raise HTTPException(status_code=400, detail=f"{field} must be a string")
-    return value
-
-
-def _parse_int(value: Any, field: str) -> int:
-    if isinstance(value, bool):
-        raise HTTPException(status_code=400, detail=f"{field} must be an integer")
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str):
-        if contains_control_character(value):
-            raise HTTPException(
-                status_code=400, detail=f"{field} must not contain control characters"
-            )
-        clean = value.strip()
-        if clean and clean.lstrip("+-").isdigit():
-            try:
-                return int(clean)
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=f"{field} must be an integer") from exc
-    raise HTTPException(status_code=400, detail=f"{field} must be an integer")
-
-
-def _required_int(data: dict[str, Any], field: str) -> int:
-    value = data.get(field)
-    if value is None:
-        raise HTTPException(status_code=400, detail=f"{field} must be an integer")
-    return _parse_int(value, field)
-
-
-def _optional_int(data: dict[str, Any], field: str, default: int) -> int:
-    value = data.get(field, default)
-    if value is None:
-        raise HTTPException(status_code=400, detail=f"{field} must be an integer")
-    return _parse_int(value, field)
-
-
 def _csrf_token(action: str, login: str, secret: str) -> str:
     return _signed_value(f"{action}:{login}", secret)
 
@@ -255,11 +194,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         app,
         db_url=db_url,
         require_admin_token=auth.require_admin_token,
-        json_object=_json_object,
-        required_str=_required_str,
-        optional_str=_optional_str,
-        optional_int=_optional_int,
-        required_int=_required_int,
+        json_object=json_object,
+        required_str=required_str,
+        optional_str=optional_str,
+        optional_int=optional_int,
+        required_int=required_int,
         settings=settings,
     )
     list_bounties_by_status = _bounty_api["list_bounties_by_status"]
@@ -269,9 +208,9 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         app,
         db_url=db_url,
         require_github_login=auth.require_github_login,
-        json_object=_json_object,
-        required_str=_required_str,
-        optional_int=_optional_int,
+        json_object=json_object,
+        required_str=required_str,
+        optional_int=optional_int,
         normalized_account=normalized_account,
         positive_bounty_id=positive_bounty_id,
         sqlite_integer_max=SQLITE_INTEGER_MAX,
@@ -284,7 +223,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         public_base_url=settings.public_base_url,
         require_admin_token=auth.require_admin_token,
         require_github_login=auth.require_github_login,
-        json_object=_json_object,
+        json_object=json_object,
     )
 
     register_account_routes(app, db_url=db_url, templates=templates)
@@ -298,26 +237,28 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         app,
         db_url=db_url,
         require_github_login=auth.require_github_login,
-        json_object=_json_object,
-        required_str=_required_str,
-        required_int=_required_int,
-        optional_str=_optional_str,
+        json_object=json_object,
+        required_str=required_str,
+        required_int=required_int,
+        optional_str=optional_str,
         normalized_wallet_address=normalized_wallet_address,
         post_only_route=post_only_route,
     )
 
-    def ledger_rows(limit: int = 50) -> list[dict[str, Any]]:
+    def ledger_rows(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         with session_scope(db_url) as session:
-            return recent_ledger_entries(session, limit)
+            return recent_ledger_entries(session, limit, offset)
 
     @app.get("/api/v1/ledger")
     def api_ledger(
         request: Request,
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0, le=SQLITE_INTEGER_MAX)] = 0,
     ) -> list[dict[str, Any]]:
-        reject_repeated_query_param(request, "limit")
-        reject_noncanonical_int_query_param(request, "limit")
-        return ledger_rows(limit)
+        for name in ("limit", "offset"):
+            reject_repeated_query_param(request, name)
+            reject_noncanonical_int_query_param(request, name)
+        return ledger_rows(limit, offset)
 
     @app.get("/api/v1/ledger/{sequence}")
     def api_ledger_entry(sequence: int | str) -> dict[str, Any]:

@@ -15,7 +15,20 @@ from app.admin import (
 from app.config import Settings
 from app.db import session_scope
 from app.ledger.service import LedgerError
-from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_control_char_query_param,
+    reject_noncanonical_int_query_param,
+    reject_repeated_query_param,
+)
+
+
+def _validate_admin_page_query(request: Request) -> None:
+    reject_repeated_query_param(request, "webhook_status")
+    reject_repeated_query_param(request, "webhook_limit")
+    reject_repeated_query_param(request, "proposal_id")
+    reject_control_char_query_param(request, "webhook_status")
+    reject_noncanonical_int_query_param(request, "webhook_limit")
+    reject_noncanonical_int_query_param(request, "proposal_id")
 
 
 def register_admin_routes(
@@ -53,11 +66,7 @@ def register_admin_routes(
         webhook_limit: Annotated[int, Query(ge=1, le=max(ADMIN_WEBHOOK_LIMIT_OPTIONS))] = 25,
         proposal_id: Annotated[int | None, Query(ge=1)] = None,
     ) -> Any:
-        reject_repeated_query_param(request, "webhook_status")
-        reject_repeated_query_param(request, "webhook_limit")
-        reject_repeated_query_param(request, "proposal_id")
-        reject_noncanonical_int_query_param(request, "webhook_limit")
-        reject_noncanonical_int_query_param(request, "proposal_id")
+        _validate_admin_page_query(request)
         login = admin_login_from_request(request)
         if login is None:
             if oauth_configured(settings):

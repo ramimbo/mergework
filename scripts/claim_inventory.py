@@ -15,6 +15,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
@@ -251,6 +252,49 @@ def _duplicate_key(text: str, source_url: str, bounty_issue: int | None) -> str:
     return f"{bounty_issue or 'unknown'}:{core}"
 
 
+def _pending_row_fields(pending_details: dict[str, Any] | None) -> dict[str, Any]:
+    """Return normalized pending-payout fields for a claim inventory row."""
+    if pending_details is None:
+        return {
+            "pending_proposal_id": None,
+            "pending_proposal_url": None,
+            "pending_executes_after": None,
+            "pending_to_account": None,
+            "pending_bounty_id": None,
+            "pending_accepted_by": None,
+            "pending_submission_url": None,
+        }
+    return {
+        "pending_proposal_id": _int_or_none(pending_details.get("pending_proposal_id")),
+        "pending_proposal_url": (
+            str(pending_details.get("pending_proposal_url"))
+            if pending_details.get("pending_proposal_url")
+            else None
+        ),
+        "pending_executes_after": (
+            str(pending_details.get("pending_executes_after"))
+            if pending_details.get("pending_executes_after")
+            else None
+        ),
+        "pending_to_account": (
+            str(pending_details.get("pending_to_account"))
+            if pending_details.get("pending_to_account")
+            else None
+        ),
+        "pending_bounty_id": _int_or_none(pending_details.get("pending_bounty_id")),
+        "pending_accepted_by": (
+            str(pending_details.get("pending_accepted_by"))
+            if pending_details.get("pending_accepted_by")
+            else None
+        ),
+        "pending_submission_url": (
+            str(pending_details.get("pending_submission_url"))
+            if pending_details.get("pending_submission_url")
+            else None
+        ),
+    }
+
+
 def _surface_row(
     *,
     text: str,
@@ -297,37 +341,7 @@ def _surface_row(
         duplicate_key=duplicate_key,
         likely_status=likely_status,
         proof_url=proof_url,
-        pending_proposal_id=(
-            _int_or_none(pending_details.get("pending_proposal_id")) if pending_details else None
-        ),
-        pending_proposal_url=(
-            str(pending_details.get("pending_proposal_url"))
-            if pending_details and pending_details.get("pending_proposal_url")
-            else None
-        ),
-        pending_executes_after=(
-            str(pending_details.get("pending_executes_after"))
-            if pending_details and pending_details.get("pending_executes_after")
-            else None
-        ),
-        pending_to_account=(
-            str(pending_details.get("pending_to_account"))
-            if pending_details and pending_details.get("pending_to_account")
-            else None
-        ),
-        pending_bounty_id=(
-            _int_or_none(pending_details.get("pending_bounty_id")) if pending_details else None
-        ),
-        pending_accepted_by=(
-            str(pending_details.get("pending_accepted_by"))
-            if pending_details and pending_details.get("pending_accepted_by")
-            else None
-        ),
-        pending_submission_url=(
-            str(pending_details.get("pending_submission_url"))
-            if pending_details and pending_details.get("pending_submission_url")
-            else None
-        ),
+        **_pending_row_fields(pending_details),
     )
 
 
@@ -668,7 +682,7 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", help="Read public claim fixture JSON.")
     source.add_argument("--repo", help="Collect live public state with read-only gh calls.")
-    parser.add_argument("--api-host", default=DEFAULT_API_HOST)
+    parser.add_argument("--api-host", default=DEFAULT_API_HOST, type=public_api_host)
     parser.add_argument("--format", choices=["json", "markdown"], default="markdown")
     args = parser.parse_args(argv)
 

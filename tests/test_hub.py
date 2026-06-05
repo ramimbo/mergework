@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
+from app.db import create_schema, session_scope
 from app.hub import (
     host_without_port,
     is_ltc_lab_host,
     ltc_lab_context,
     mergework_hub_context,
 )
+from app.ledger.service import ensure_genesis
+from app.main import create_app
 
 
 def test_host_without_port_normalizes_host_headers() -> None:
@@ -46,7 +51,52 @@ def test_mergework_hub_context_preserves_status_and_base_url() -> None:
 
     context = mergework_hub_context(status, "https://mrwk.online")
 
-    assert context == {
-        "status": status,
-        "public_base_url": "https://mrwk.online",
-    }
+    assert context["status"] is status
+    assert context["public_base_url"] == "https://mrwk.online"
+    assert context["contributor_starting_points"] == [
+        {
+            "title": "Effectively open bounties",
+            "href": "/bounties?status=open&availability=effectively_open",
+            "description": "Start from live bounty rows that still have effective award capacity.",
+        },
+        {
+            "title": "Accepted work activity",
+            "href": "/activity",
+            "description": (
+                "Check proof-backed paid work and pending payout queues before claiming payment."
+            ),
+        },
+        {
+            "title": "Current bounty JSON",
+            "href": "/api/v1/bounties?status=open&availability=effectively_open",
+            "description": "Use the public API to verify live status, capacity, and requirements.",
+        },
+    ]
+
+    context["contributor_starting_points"][0]["title"] = "changed"
+
+    assert (
+        mergework_hub_context(status, "https://mrwk.online")["contributor_starting_points"][0][
+            "title"
+        ]
+        == "Effectively open bounties"
+    )
+
+
+def test_mergework_hub_renders_contributor_starting_points(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Contributor starting points" in response.text
+    assert "Effectively open bounties" in response.text
+    assert 'href="/bounties?status=open&amp;availability=effectively_open"' in response.text
+    assert "Accepted work activity" in response.text
+    assert 'href="/activity"' in response.text
+    assert "Current bounty JSON" in response.text
+    assert 'href="/api/v1/bounties?status=open&amp;availability=effectively_open"' in response.text

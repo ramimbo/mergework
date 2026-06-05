@@ -24,12 +24,7 @@ def _required_env(name: str) -> str:
 
 def _post_json(url: str, payload: dict[str, object], headers: dict[str, str]) -> dict[str, object]:
     _validate_http_url(url)
-    response = httpx.post(url, json=payload, headers=headers, timeout=20)
-    response.raise_for_status()
-    parsed = response.json()
-    if not isinstance(parsed, dict):
-        raise RuntimeError(f"{url} returned a non-object JSON payload")
-    return parsed
+    return _parse_object_response(url, httpx.post(url, json=payload, headers=headers, timeout=20))
 
 
 def _post_webhook(
@@ -38,17 +33,23 @@ def _post_webhook(
     _validate_http_url(url)
     body = json.dumps(payload, separators=(",", ":")).encode()
     signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    response = httpx.post(
+    return _parse_object_response(
         url,
-        content=body,
-        headers={
-            "Content-Type": "application/json",
-            "X-GitHub-Delivery": delivery_id,
-            "X-GitHub-Event": "issues",
-            "X-Hub-Signature-256": f"sha256={signature}",
-        },
-        timeout=20,
+        httpx.post(
+            url,
+            content=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Delivery": delivery_id,
+                "X-GitHub-Event": "issues",
+                "X-Hub-Signature-256": f"sha256={signature}",
+            },
+            timeout=20,
+        ),
     )
+
+
+def _parse_object_response(url: str, response: httpx.Response) -> dict[str, object]:
     response.raise_for_status()
     parsed = response.json()
     if not isinstance(parsed, dict):

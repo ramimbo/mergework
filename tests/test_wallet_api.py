@@ -740,6 +740,8 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     repeated_search_response = client.get("/wallets?q=Main&q=smoke")
     masked_type_response = client.get(f"/wallets/{address}?type=%C2%85test_funding&type=all")
     repeated_type_response = client.get(f"/wallets/{address}?type=test_funding&type=all")
+    max_length_search_response = client.get("/wallets", params={"q": "a" * 500})
+    oversized_search_response = client.get("/wallets", params={"q": "a" * 501})
 
     assert search_response.status_code == 400
     assert search_response.json()["detail"] == "q must not contain control characters"
@@ -756,6 +758,9 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     )
     assert repeated_type_response.status_code == 400
     assert repeated_type_response.json()["detail"] == "type must be provided at most once"
+    assert max_length_search_response.status_code == 200
+    assert oversized_search_response.status_code == 400
+    assert oversized_search_response.json()["detail"] == "q must be at most 500 characters"
 
 
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:

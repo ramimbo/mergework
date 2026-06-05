@@ -61,6 +61,18 @@ def _unavailable_bounties(open_bounties: Sequence[dict[str, Any]]) -> list[dict[
     ]
 
 
+def _bounty_table_row(bounty: dict[str, Any]) -> str:
+    return " | ".join(
+        [
+            f"| {_issue_link(bounty.get('issue_number'), bounty.get('issue_url'))}",
+            _work_lane(bounty.get("title")),
+            f"{_markdown_cell(bounty.get('reward_mrwk'))} MRWK",
+            str(_int_value(bounty.get("effective_awards_remaining"))),
+            f"{_markdown_cell(bounty.get('availability_note'))} |",
+        ]
+    )
+
+
 def _claimable_table(open_bounties: Sequence[dict[str, Any]]) -> list[str]:
     rows = [
         "| Issue | Work lane | Reward | Effective slots | Status |",
@@ -73,17 +85,7 @@ def _claimable_table(open_bounties: Sequence[dict[str, Any]]) -> list[str]:
             _int_value(item.get("issue_number")),
         ),
     ):
-        rows.append(
-            " | ".join(
-                [
-                    f"| {_issue_link(bounty.get('issue_number'), bounty.get('issue_url'))}",
-                    _work_lane(bounty.get("title")),
-                    f"{_markdown_cell(bounty.get('reward_mrwk'))} MRWK",
-                    str(_int_value(bounty.get("effective_awards_remaining"))),
-                    f"{_markdown_cell(bounty.get('availability_note'))} |",
-                ]
-            )
-        )
+        rows.append(_bounty_table_row(bounty))
     if len(rows) == 2:
         rows.append(
             "| - | No live bounty currently has effective capacity. | - | 0 | Check opening soon. |"
@@ -102,17 +104,7 @@ def _unavailable_table(open_bounties: Sequence[dict[str, Any]]) -> list[str]:
         "| --- | --- | ---: | ---: | --- |",
     ]
     for bounty in sorted(unavailable, key=lambda item: _int_value(item.get("issue_number"))):
-        rows.append(
-            " | ".join(
-                [
-                    f"| {_issue_link(bounty.get('issue_number'), bounty.get('issue_url'))}",
-                    _work_lane(bounty.get("title")),
-                    f"{_markdown_cell(bounty.get('reward_mrwk'))} MRWK",
-                    str(_int_value(bounty.get("effective_awards_remaining"))),
-                    f"{_markdown_cell(bounty.get('availability_note'))} |",
-                ]
-            )
-        )
+        rows.append(_bounty_table_row(bounty))
     return rows
 
 

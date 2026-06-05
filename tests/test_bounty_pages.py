@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi.testclient import TestClient
 
@@ -50,6 +51,9 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert "Open public bounty" in all_rows.text
     assert "Paid public bounty" in all_rows.text
     assert f'href="/bounties/{open_bounty.id}"' in all_rows.text
+    assert f'aria-label="Bounty action links for {open_bounty.id}"' in all_rows.text
+    assert f'href="/api/v1/bounties/{open_bounty.id}">JSON details</a>' in all_rows.text
+    assert f'href="/api/v1/bounties/{open_bounty.id}/attempts">Active attempts</a>' in all_rows.text
     assert (
         'href="https://github.com/ramimbo/mergework/issues/50" rel="nofollow noopener"'
         in all_rows.text
@@ -162,7 +166,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
             acceptance="Public pages should show effective capacity after pending payouts.",
         )
         bounty_id = bounty.id
-        propose_treasury_action(
+        proposal = propose_treasury_action(
             session,
             action="pay_bounty",
             payload={
@@ -173,6 +177,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
             },
             proposed_by="maintainer",
         )
+        proposal_id = proposal.id
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -182,6 +187,10 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert page.status_code == 200
     assert "Effectively open" in page.text
     assert "Effectively available" in page.text
+    assert "Capacity reduced" in page.text
+    assert "Effectively unavailable" in page.text
+    assert re.search(r"Capacity reduced</span>\s*<strong>1</strong>", page.text)
+    assert re.search(r"Effectively unavailable</span>\s*<strong>0</strong>", page.text)
     assert "50 MRWK still available before pending proposals" in page.text
     assert "25 MRWK effectively available" in page.text
     assert "1 award covered by pending payout proposal" in page.text
@@ -189,6 +198,16 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert "<span>Effective remaining</span>" in detail.text
     assert "<span>Effective available</span>" in detail.text
     assert "Visible capacity before pending proposals: 2 awards, 50 MRWK." in detail.text
+    assert "Pending treasury proposals" in detail.text
+    assert "Capacity already in review" in detail.text
+    assert f'href="/api/v1/treasury/proposals/{proposal_id}">Proposal #{proposal_id}</a>' in (
+        detail.text
+    )
+    assert "would pay github:alice for" in detail.text
+    assert (
+        'href="https://github.com/ramimbo/mergework/pull/67" rel="nofollow noopener">'
+        "submitted work</a>"
+    ) in detail.text
     assert "1 award still open for distinct accepted work after pending treasury proposals." in (
         detail.text
     )
@@ -211,7 +230,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
             acceptance="Public pages should show no effective capacity after pending close.",
         )
         bounty_id = bounty.id
-        propose_treasury_action(
+        proposal = propose_treasury_action(
             session,
             action="close_bounty",
             payload={
@@ -221,6 +240,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
             },
             proposed_by="maintainer",
         )
+        proposal_id = proposal.id
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -228,11 +248,22 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
     detail = client.get(f"/bounties/{bounty_id}")
 
     assert page.status_code == 200
+    assert re.search(r"Capacity reduced</span>\s*<strong>1</strong>", page.text)
+    assert re.search(r"Effectively unavailable</span>\s*<strong>1</strong>", page.text)
     assert "90 MRWK still available before pending proposals" in page.text
     assert "0 MRWK effectively available" in page.text
     assert "A pending close proposal would make this bounty unavailable if executed." in page.text
     assert detail.status_code == 200
     assert "Visible capacity before pending proposals: 3 awards, 90 MRWK." in detail.text
+    assert "Pending treasury proposals" in detail.text
+    assert f'href="/api/v1/treasury/proposals/{proposal_id}">Proposal #{proposal_id}</a>' in (
+        detail.text
+    )
+    assert "would close this bounty after" in detail.text
+    assert (
+        'Reference: <a href="https://github.com/ramimbo/mergework/issues/68#close" '
+        'rel="nofollow noopener">ramimbo/mergework/issues/68#close</a>.'
+    ) in detail.text
     assert (
         "No awards remain after pending treasury proposals; treat new work as unpaid unless "
         "maintainers reopen or free capacity."
@@ -418,9 +449,26 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert oversized_issue_search.status_code == 200
     assert oversized_issue_search.json() == []
 
-    digit_limit_issue_search = client.get("/api/v1/bounties", params={"q": "9" * 5000})
+    digit_limit_issue_search = client.get("/api/v1/bounties", params={"q": "9" * 500})
     assert digit_limit_issue_search.status_code == 200
     assert digit_limit_issue_search.json() == []
+
+    digit_limit_issue_page = client.get("/bounties", params={"q": "9" * 500})
+    assert digit_limit_issue_page.status_code == 200
+    assert "No bounties match these filters." in digit_limit_issue_page.text
+    assert 'href="/bounties">Clear filters</a>' in digit_limit_issue_page.text
+
+    oversized_query = "9" * 501
+    oversized_query_search = client.get("/api/v1/bounties", params={"q": oversized_query})
+    oversized_query_summary = client.get("/api/v1/bounties/summary", params={"q": oversized_query})
+    oversized_query_page = client.get("/bounties", params={"q": oversized_query})
+
+    assert oversized_query_search.status_code == 400
+    assert oversized_query_search.json()["detail"] == "q must be at most 500 characters"
+    assert oversized_query_summary.status_code == 400
+    assert oversized_query_summary.json()["detail"] == "q must be at most 500 characters"
+    assert oversized_query_page.status_code == 400
+    assert oversized_query_page.json()["detail"] == "q must be at most 500 characters"
 
     oversized_issue_page = client.get("/bounties", params={"q": "9" * 40})
     assert oversized_issue_page.status_code == 200
@@ -448,10 +496,13 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     leading_zero_source_filter_page = client.get(
         "/bounties?repo=ramimbo%2Fmergework&issue_number=0064"
     )
+    max_length_repo_filter_page = client.get("/bounties", params={"repo": "a" * 200})
+    oversized_repo_filter_page = client.get("/bounties", params={"repo": "a" * 201})
     plus_limit_page = client.get("/bounties?limit=%2B1")
     leading_zero_limit_page = client.get("/bounties?limit=01")
     assert source_filter_page.status_code == 200
     assert "Source filter: ramimbo/mergework #64." in source_filter_page.text
+    assert 'href="/bounties">Clear source filter</a>' in source_filter_page.text
     assert "Improve public bounty discovery" in source_filter_page.text
     assert "Other repo same issue" not in source_filter_page.text
     assert (
@@ -485,6 +536,9 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
         leading_zero_source_filter_page.json()["detail"]
         == "issue_number must be a canonical positive integer"
     )
+    assert max_length_repo_filter_page.status_code == 200
+    assert oversized_repo_filter_page.status_code == 400
+    assert oversized_repo_filter_page.json()["detail"] == "repo is too long"
     assert plus_limit_page.status_code == 400
     assert plus_limit_page.json()["detail"] == "limit must be a canonical positive integer"
     assert leading_zero_limit_page.status_code == 400
@@ -695,6 +749,14 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert "Focused PR improves status, reward, issue link, and acceptance text." in response.text
     assert "Contributor next steps" in response.text
     assert "Before you start" in response.text
+    assert "Submission requirements" in response.text
+    assert "<dt>Claim command</dt>" in response.text
+    assert "<code>/claim</code>" in response.text
+    assert "<dt>Reference formats</dt>" in response.text
+    assert "<code>Bounty #4</code>" in response.text
+    assert "<code>Refs #4</code>" in response.text
+    assert "<dt>Expected artifact</dt>" in response.text
+    assert "focused PR, issue, report, or evidence URL" in response.text
     assert "Confirm the source issue is still open" in response.text
     assert bounty.id != bounty.issue_number
     assert "link the source issue as <strong>Bounty #4</strong>" in response.text
@@ -707,6 +769,8 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
         'href="https://github.com/ramimbo/mergework/issues/4" rel="nofollow noopener"'
         in response.text
     )
+    assert "View source bounty matches" in response.text
+    assert 'href="/bounties?repo=ramimbo/mergework&amp;issue_number=4"' in response.text
     assert f'href="/api/v1/bounties/{bounty.id}"' in response.text
     assert f'href="/api/v1/bounties/{bounty.id}/attempts"' in response.text
 
@@ -736,6 +800,35 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert oversized_api_response.json()["detail"] == "bounty id is too large"
     oversized_page_response = client.get(f"/bounties/{oversized_bounty_id}")
     assert oversized_page_response.status_code == 400
+
+
+def test_bounty_detail_shows_issue_submission_requirements(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=649,
+            issue_url="https://github.com/ramimbo/mergework/issues/649",
+            title="Queue proposed-work requests",
+            reward_mrwk="40",
+            acceptance=(
+                "Accepted work is a new proposed-work issue with clear evidence, "
+                "duplicate search, and acceptance notes."
+            ),
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/bounties/{bounty.id}")
+
+    assert response.status_code == 200
+    assert "<code>/claim #649</code>" in response.text
+    assert "<code>Bounty #649</code>" in response.text
+    assert "<code>Refs #649</code>" in response.text
+    assert "<code>Linked bounty: #649</code>" in response.text
+    assert "new proposed-work GitHub issue URL" in response.text
 
 
 def test_bounty_detail_warns_when_no_awards_remain(sqlite_url: str) -> None:
@@ -923,6 +1016,7 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
         proof_hash = proof.hash
         payment_sequence = proof.ledger_sequence
         unsafe_proof_hash = unsafe_proof.hash
+        unsafe_payment_sequence = unsafe_proof.ledger_sequence
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -940,6 +1034,17 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
         in ledger_page.text
     )
     assert f'href="/proofs/{proof_hash}">Payment proof</a>' in ledger_page.text
+    limited_ledger_page = client.get("/ledger?limit=1")
+    assert limited_ledger_page.status_code == 200
+    assert limited_ledger_page.text.count('class="ledger-row ledger-row--') == 1
+    assert f'href="/ledger/{unsafe_payment_sequence}"' in limited_ledger_page.text
+    assert f'href="/ledger/{payment_sequence}"' not in limited_ledger_page.text
+    noncanonical_limit = client.get("/ledger?limit=01")
+    repeated_limit = client.get("/ledger?limit=1&limit=2")
+    assert noncanonical_limit.status_code == 400
+    assert noncanonical_limit.json()["detail"] == "limit must be a canonical positive integer"
+    assert repeated_limit.status_code == 400
+    assert repeated_limit.json()["detail"] == "limit must be provided at most once"
 
     ledger_entry_page = client.get(f"/ledger/{payment_sequence}")
     assert ledger_entry_page.status_code == 200

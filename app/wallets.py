@@ -8,10 +8,11 @@ from typing import Any
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from app.control_chars import contains_control_character
+
 ADDRESS_RE = re.compile(r"^mrwk1[0-9a-f]{40}$")
 PUBLIC_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 SIGNATURE_RE = re.compile(r"^[0-9a-f]{128}$")
-CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 class WalletError(ValueError):
@@ -23,7 +24,7 @@ def canonical_wallet_json(payload: dict[str, Any]) -> str:
 
 
 def _reject_control_characters(value: str, field: str) -> None:
-    if CONTROL_CHAR_RE.search(value):
+    if contains_control_character(value):
         raise WalletError(f"{field} must not contain control characters")
 
 

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import httpx
 import pytest
 
 from scripts.staging_webhook_dry_run import (
     _dry_run_contributor,
     _dry_run_repo,
     _enforce_staging_target,
+    _parse_object_response,
     _validate_http_url,
     main,
 )
@@ -44,6 +46,17 @@ def test_staging_webhook_dry_run_rejects_url_credentials() -> None:
         _validate_http_url("ftp://operator:secret@staging.mrwk.example.test")
 
     _validate_http_url("https://staging.mrwk.example.test")
+
+
+def test_staging_webhook_dry_run_rejects_non_object_json_response() -> None:
+    response = httpx.Response(
+        200,
+        json=["not", "an", "object"],
+        request=httpx.Request("POST", "https://staging.mrwk.example.test/api"),
+    )
+
+    with pytest.raises(RuntimeError, match="returned a non-object JSON payload"):
+        _parse_object_response("https://staging.mrwk.example.test/api", response)
 
 
 def test_staging_webhook_dry_run_uses_valid_default_identity_envs(

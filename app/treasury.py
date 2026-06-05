@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.control_chars import contains_control_character
 from app.ledger.service import (
     MICRO_UNITS,
     TREASURY_ACCOUNT,
@@ -69,14 +70,10 @@ def _required_payload_value(payload: dict[str, Any], field: str) -> Any:
     return value
 
 
-def _contains_control_character(value: str) -> bool:
-    return any(ord(char) < 32 or ord(char) == 127 or 0x80 <= ord(char) <= 0x9F for char in value)
-
-
 def _clean_string(value: Any, field: str, max_length: int = 500) -> str:
     if not isinstance(value, str):
         raise LedgerError(f"{field} must be a string")
-    if _contains_control_character(value):
+    if contains_control_character(value):
         raise LedgerError(f"{field} must not contain control characters")
     clean = value.strip()
     if not clean:
@@ -98,7 +95,7 @@ def _payload_int(value: Any, field: str) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, str):
-        if _contains_control_character(value):
+        if contains_control_character(value):
             raise LedgerError(f"{field} must not contain control characters")
         clean = value.strip()
         if clean and clean.lstrip("+-").isdigit():

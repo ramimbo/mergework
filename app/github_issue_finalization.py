@@ -69,9 +69,7 @@ def _post_json(
     github_token: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, payload)
-    with opener(request, timeout=10) as response:
-        return _read_json(response)
+    return _request_json(opener=opener, url=url, github_token=github_token, payload=payload)
 
 
 def _get_json(
@@ -80,7 +78,18 @@ def _get_json(
     url: str,
     github_token: str,
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, method="GET")
+    return _request_json(opener=opener, url=url, github_token=github_token, method="GET")
+
+
+def _request_json(
+    *,
+    opener: Callable[..., Any],
+    url: str,
+    github_token: str,
+    payload: dict[str, Any] | None = None,
+    method: str = "POST",
+) -> dict[str, Any]:
+    request = _github_request(url, github_token, payload, method=method)
     with opener(request, timeout=10) as response:
         return _read_json(response)
 
@@ -106,9 +115,13 @@ def _patch_json(
     github_token: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    request = _github_request(url, github_token, payload, method="PATCH")
-    with opener(request, timeout=10) as response:
-        return _read_json(response)
+    return _request_json(
+        opener=opener,
+        url=url,
+        github_token=github_token,
+        payload=payload,
+        method="PATCH",
+    )
 
 
 def _bounty_issue_target(bounty: dict[str, object]) -> tuple[str, int, int] | None:
