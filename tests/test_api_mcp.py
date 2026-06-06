@@ -4,20 +4,43 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
 from app.ledger.service import (
     GENESIS_SUPPLY_MICRO,
+    TREASURY_ACCOUNT,
+    add_ledger_entry,
     close_bounty,
     create_bounty,
     ensure_genesis,
     pay_bounty,
+    wallet_transfer_payload,
 )
 from app.main import create_app
 from app.models import BountyAttempt, Proof
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
+from app.wallets import canonical_wallet_json
+
+
+def _mcp_wallet_keypair() -> tuple[Ed25519PrivateKey, str]:
+    private_key = Ed25519PrivateKey.generate()
+    public_hex = (
+        private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
+    return private_key, public_hex
+
+
+def _sign_wallet_payload(private_key: Ed25519PrivateKey, payload: dict[str, object]) -> str:
+    return private_key.sign(canonical_wallet_json(payload).encode()).hex()
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -424,6 +447,28 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert wallet_schema["properties"]["address"]["pattern"] == (
         "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
     )
+    transfer_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "submit_wallet_transfer"
+    )
+    transfer_output_schema = transfer_tool["outputSchema"]
+    assert transfer_output_schema["additionalProperties"] is False
+    assert transfer_output_schema["required"] == [
+        "hash",
+        "type",
+        "ledger_sequence",
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "memo",
+        "created_at",
+    ]
+    assert transfer_output_schema["properties"]["hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert transfer_output_schema["properties"]["type"]["enum"] == ["wallet_transfer"]
+    assert transfer_output_schema["properties"]["from_address"]["pattern"] == (
+        "^mrwk1[0-9a-f]{40}$"
+    )
+    assert transfer_output_schema["properties"]["memo"]["type"] == ["string", "null"]
     balance_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance")
     balance_schema = balance_tool["inputSchema"]
     assert balance_schema["required"] == ["account"]
@@ -2930,6 +2975,91 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert fetched_wallet["address"] == registered_wallet["address"]
     assert fetched_wallet["label"] == "MCP wallet"
     assert fetched_wallet["created_at"] == registered_wallet["created_at"]
+
+
+def test_mcp_submit_wallet_transfer_returns_advertised_structured_payload(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    sender_key, sender_public_hex = _mcp_wallet_keypair()
+    _, receiver_public_hex = _mcp_wallet_keypair()
+
+    sender = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "register_wallet",
+                "arguments": {"public_key_hex": sender_public_hex, "label": "Sender"},
+            },
+        },
+    ).json()["result"]["structuredContent"]
+    receiver = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "register_wallet",
+                "arguments": {"public_key_hex": receiver_public_hex, "label": "Receiver"},
+            },
+        },
+    ).json()["result"]["structuredContent"]
+
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        add_ledger_entry(
+            session,
+            entry_type="test_funding",
+            from_account=TREASURY_ACCOUNT,
+            to_account=sender["address"],
+            amount_microunits=2_000_000,
+            reference=f"mcp-test-funding:{sender['address']}",
+        )
+
+    transfer_payload = wallet_transfer_payload(
+        from_address=sender["address"],
+        to_address=receiver["address"],
+        amount_microunits=1_000_000,
+        nonce=1,
+        memo="MCP transfer",
+    )
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_wallet_transfer",
+                "arguments": {
+                    "from_address": sender["address"],
+                    "to_address": receiver["address"],
+                    "amount_mrwk": "1",
+                    "nonce": 1,
+                    "memo": "MCP transfer",
+                    "signature_hex": _sign_wallet_payload(sender_key, transfer_payload),
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    transfer = result["structuredContent"]
+    assert json.loads(result["content"][0]["text"]) == transfer
+    assert transfer["type"] == "wallet_transfer"
+    assert transfer["from_address"] == sender["address"]
+    assert transfer["to_address"] == receiver["address"]
+    assert transfer["amount_mrwk"] == "1"
+    assert transfer["nonce"] == 1
+    assert transfer["memo"] == "MCP transfer"
+    assert len(transfer["hash"]) == 64
+    assert isinstance(transfer["ledger_sequence"], int)
+    assert transfer["created_at"]
 
 
 def test_mcp_wallet_write_tools_reject_unexpected_arguments(sqlite_url: str) -> None:
