@@ -52,7 +52,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(ledger_snapshot_schema_json())
         return 0
 
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ValueError as exc:
+        print(f"ledger snapshot export configuration invalid: {exc}", file=sys.stderr)
+        return 1
     database_url = args.database_url or settings.database_url
     source_host = args.source_host if args.source_host is not None else settings.public_base_url
     with read_only_session_scope(database_url) as session:
