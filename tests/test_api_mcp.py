@@ -395,6 +395,35 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert proof_schema["required"] == ["hash"]
     assert proof_schema["additionalProperties"] is False
     assert proof_schema["properties"]["hash"]["pattern"] == "^[0-9a-fA-F]{64}$"
+    register_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "register_wallet"
+    )
+    register_schema = register_tool["inputSchema"]
+    assert register_schema["required"] == ["public_key_hex"]
+    assert register_schema["additionalProperties"] is False
+    assert register_schema["properties"]["public_key_hex"]["pattern"] == "^[0-9a-fA-F]{64}$"
+    assert register_schema["properties"]["label"]["maxLength"] == 160
+    transfer_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "submit_wallet_transfer"
+    )
+    transfer_schema = transfer_tool["inputSchema"]
+    assert transfer_schema["required"] == [
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "signature_hex",
+    ]
+    assert transfer_schema["additionalProperties"] is False
+    assert transfer_schema["properties"]["from_address"]["pattern"] == (
+        "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
+    )
+    assert transfer_schema["properties"]["to_address"]["pattern"] == (
+        "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
+    )
+    assert transfer_schema["properties"]["nonce"]["minimum"] == 1
+    assert transfer_schema["properties"]["memo"]["maxLength"] == 240
+    assert transfer_schema["properties"]["signature_hex"]["pattern"] == "^[0-9a-fA-F]{128}$"
 
     balance = client.post(
         "/mcp",
