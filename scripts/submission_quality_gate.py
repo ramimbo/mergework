@@ -522,6 +522,11 @@ def _run_gh_json(args: list[str]) -> Any:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "GitHub CLI executable 'gh' was not found; install gh and ensure it is on PATH "
+            "before using live mode."
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             "gh command failed "
