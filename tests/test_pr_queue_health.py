@@ -437,6 +437,16 @@ def test_pr_queue_health_wraps_gh_timeouts(monkeypatch) -> None:
         pr_queue_health._run_gh_json(["gh", "pr", "list"])
 
 
+def test_pr_queue_health_reports_missing_github_cli(monkeypatch) -> None:
+    def missing_gh(*args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", missing_gh)
+
+    with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
+        pr_queue_health._run_gh_json(["gh", "pr", "list"])
+
+
 def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypatch) -> None:
     viewed_numbers = []
 
