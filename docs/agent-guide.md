@@ -307,7 +307,8 @@ Tools:
 - `list_bounties`
 - `get_bounty`
 - `list_bounty_attempts`
-- `get_balance`
+- `get_balance` (returns structured `account`, `balance_mrwk`, and `balance_microunits`;
+  `tools/list` advertises the matching `outputSchema`)
 - `register_wallet`
 - `get_wallet`
 - `submit_wallet_transfer`
