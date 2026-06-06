@@ -182,10 +182,18 @@ ATTEMPT_DUPLICATE_ACTIVE_RESPONSE_SCHEMA = _object_schema(
     required=["status", "attempt", "warnings"],
 )
 
+ATTEMPT_CONFLICT_FALLBACK_RESPONSE_SCHEMA = _object_schema(
+    {
+        "detail": {"type": "string"},
+    },
+    required=["detail"],
+)
+
 ATTEMPT_CONFLICT_RESPONSE_SCHEMA = {
     "oneOf": [
         ATTEMPT_NOT_AVAILABLE_RESPONSE_SCHEMA,
         ATTEMPT_DUPLICATE_ACTIVE_RESPONSE_SCHEMA,
+        ATTEMPT_CONFLICT_FALLBACK_RESPONSE_SCHEMA,
     ],
 }
 
