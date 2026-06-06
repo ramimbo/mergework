@@ -23,8 +23,19 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
+
+
+def _assert_nullable(schema: dict, expected_type: str) -> None:
+    assert {"type": expected_type} in schema["anyOf"]
+    assert {"type": "null"} in schema["anyOf"]
 
 
 def test_public_post_openapi_request_bodies_expose_expected_fields(sqlite_url: str) -> None:
@@ -328,6 +339,66 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_openapi_activity_response_schema_exposes_feed_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    activity_schema = _get_response_schema(openapi, "/api/v1/activity")
+    _assert_properties(
+        activity_schema,
+        {
+            "totals",
+            "pending_totals",
+            "query",
+            "contributors",
+            "pending_payouts",
+            "recent",
+            "account",
+            "api_activity_url",
+            "clear_activity_url",
+        },
+    )
+    assert set(activity_schema["required"]) == {
+        "totals",
+        "pending_totals",
+        "query",
+        "contributors",
+        "pending_payouts",
+        "recent",
+    }
+    _assert_properties(
+        activity_schema["properties"]["totals"],
+        {"accepted_awards", "accepted_mrwk", "contributors"},
+    )
+    _assert_properties(
+        activity_schema["properties"]["pending_totals"],
+        {"pending_awards", "pending_mrwk"},
+    )
+    _assert_properties(
+        activity_schema["properties"]["contributors"]["items"],
+        {"account", "accepted_awards", "accepted_mrwk", "latest_proof_url"},
+    )
+    contributor_props = activity_schema["properties"]["contributors"]["items"]["properties"]
+    _assert_nullable(contributor_props["latest_bounty_issue_number"], "integer")
+    _assert_nullable(contributor_props["latest_proof_url"], "string")
+    _assert_properties(
+        activity_schema["properties"]["pending_payouts"]["items"],
+        {"proposal_id", "proposal_url", "status", "account", "bounty_url"},
+    )
+    pending_props = activity_schema["properties"]["pending_payouts"]["items"]["properties"]
+    _assert_nullable(pending_props["account"], "string")
+    _assert_nullable(pending_props["bounty_id"], "integer")
+    _assert_properties(
+        activity_schema["properties"]["recent"]["items"],
+        {"ledger_sequence", "account", "amount_mrwk", "proof_hash", "created_at"},
+    )
+    recent_props = activity_schema["properties"]["recent"]["items"]["properties"]
+    _assert_nullable(recent_props["bounty_id"], "integer")
+    _assert_nullable(recent_props["bounty_url"], "string")
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
