@@ -103,6 +103,10 @@ def test_public_post_openapi_request_bodies_publish_stable_constraints(
         schema.get("type") == "string" and schema.get("pattern") == EXPECTED_TTL_STRING_PATTERN
         for schema in ttl_any_of
     )
+    assert attempt_props["source_url"]["format"] == "uri"
+    assert attempt_props["source_url"]["maxLength"] == 500
+    assert attempt_props["source_url"]["nullable"] is True
+    assert "public HTTP(S)" in attempt_props["source_url"]["description"]
 
     wallet_props = _post_schema(openapi, "/api/v1/wallets/register")["properties"]
     assert wallet_props["public_key_hex"]["minLength"] == 64
@@ -267,6 +271,7 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
         openapi, "/api/v1/bounties/{bounty_id}/attempts", "201"
     )
     _assert_properties(registered_attempt_schema, {"status", "attempt", "warnings"})
+    attempt_props = registered_attempt_schema["properties"]["attempt"]["properties"]
     _assert_properties(
         registered_attempt_schema["properties"]["attempt"],
         {
@@ -280,6 +285,9 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
             "updated_at",
         },
     )
+    assert attempt_props["source_url"]["format"] == "uri"
+    assert attempt_props["source_url"]["maxLength"] == 500
+    assert attempt_props["source_url"]["nullable"] is True
 
     conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
     _assert_properties(conflict_schema, {"status", "attempt", "bounty_id", "warnings"})
