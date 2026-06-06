@@ -11,7 +11,11 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
-from app.openapi_request_bodies import TREASURY_CHALLENGE_BODY, TREASURY_PROPOSAL_BODY
+from app.openapi_request_bodies import (
+    TREASURY_CHALLENGE_BODY,
+    TREASURY_PROPOSAL_BODY,
+    TREASURY_STATUS_RESPONSE,
+)
 from app.path_params import SQLITE_INTEGER_MAX, positive_proposal_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -194,7 +198,7 @@ def register_treasury_routes(
                     break
             return proposals
 
-    @app.get("/api/v1/treasury/status")
+    @app.get("/api/v1/treasury/status", openapi_extra=TREASURY_STATUS_RESPONSE)
     def api_treasury_status(request: Request) -> dict[str, Any]:
         _reject_treasury_status_filters(request)
         with session_scope(db_url) as session:

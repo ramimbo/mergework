@@ -220,6 +220,109 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+TREASURY_PENDING_CREATE_BOUNTY_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "issue_url": {"type": "string", "format": "uri"},
+        "title": {"type": "string"},
+        "reward_mrwk": MRWK_AMOUNT_SCHEMA,
+        "max_awards": {"type": "integer", "minimum": 1},
+        "reserve_mrwk": MRWK_DECIMAL_SCHEMA,
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+        "capacity_releases_at": {"type": "string"},
+    },
+    required=[
+        "proposal_id",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "max_awards",
+        "reserve_mrwk",
+        "proposed_at",
+        "executes_after",
+        "capacity_releases_at",
+    ],
+)
+
+TREASURY_PROJECTED_CAPACITY_EVENT_SCHEMA = _object_schema(
+    {
+        "at": {"type": "string"},
+        "event_type": {
+            "type": "string",
+            "enum": [
+                "recent_reserve_releases",
+                "pending_create_executes",
+                "pending_create_releases",
+            ],
+        },
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "available_create_reserve_mrwk": MRWK_DECIMAL_SCHEMA,
+        "note": {"type": "string"},
+    },
+    required=[
+        "at",
+        "event_type",
+        "amount_mrwk",
+        "available_create_reserve_mrwk",
+        "note",
+    ],
+)
+
+TREASURY_RECENT_RESERVE_SCHEMA = _object_schema(
+    {
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "reference": {"type": "string", "nullable": True},
+        "created_at": {"type": "string"},
+        "expires_at": {"type": "string"},
+    },
+    required=["ledger_sequence", "amount_mrwk", "reference", "created_at", "expires_at"],
+)
+
+TREASURY_STATUS_RESPONSE_SCHEMA = _object_schema(
+    {
+        "type": {"type": "string", "enum": ["treasury_status"]},
+        "epoch_window_hours": {"type": "integer", "minimum": 1},
+        "reserve_cap_mrwk": MRWK_DECIMAL_SCHEMA,
+        "executed_reserve_24h_mrwk": MRWK_DECIMAL_SCHEMA,
+        "pending_create_reserve_mrwk": MRWK_DECIMAL_SCHEMA,
+        "available_create_reserve_mrwk": MRWK_DECIMAL_SCHEMA,
+        "next_capacity_release_at": {"type": "string", "nullable": True},
+        "next_projected_capacity_release_at": {"type": "string", "nullable": True},
+        "pending_create_bounties": {
+            "type": "array",
+            "items": TREASURY_PENDING_CREATE_BOUNTY_SCHEMA,
+        },
+        "projected_capacity_events": {
+            "type": "array",
+            "items": TREASURY_PROJECTED_CAPACITY_EVENT_SCHEMA,
+        },
+        "recent_reserves": {"type": "array", "items": TREASURY_RECENT_RESERVE_SCHEMA},
+    },
+    required=[
+        "type",
+        "epoch_window_hours",
+        "reserve_cap_mrwk",
+        "executed_reserve_24h_mrwk",
+        "pending_create_reserve_mrwk",
+        "available_create_reserve_mrwk",
+        "next_capacity_release_at",
+        "next_projected_capacity_release_at",
+        "pending_create_bounties",
+        "projected_capacity_events",
+        "recent_reserves",
+    ],
+)
+
+TREASURY_STATUS_RESPONSE = {
+    "responses": {
+        "200": _json_response(TREASURY_STATUS_RESPONSE_SCHEMA),
+    },
+}
+
 OPTIONAL_ATTEMPT_BODY = {
     "requestBody": _request_body(
         _object_schema(
