@@ -134,6 +134,16 @@ def test_docs_page_marks_static_github_links_as_untrusted(sqlite_url: str) -> No
         assert f'href="{url}"' in page.text
 
 
+def test_docs_page_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for name in ("limit", "offset", "status", "q", "account", "repo"):
+        response = client.get(f"/docs?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"
+
+
 def test_ltc_lab_header_marks_github_nav_link_as_untrusted(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 

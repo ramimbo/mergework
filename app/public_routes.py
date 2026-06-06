@@ -26,6 +26,7 @@ from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unsupported_query_params,
 )
 from app.serializers import bounty_list_summary, wallet_to_dict
 from app.status import (
@@ -428,6 +429,7 @@ def register_public_routes(
 
     @app.get("/docs", response_class=HTMLResponse)
     def docs_page(request: Request) -> HTMLResponse:
+        reject_unsupported_query_params(request, set())
         return templates.TemplateResponse(
             request,
             "docs.html",
