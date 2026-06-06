@@ -305,6 +305,72 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
     )
 
 
+def test_public_post_openapi_attempt_and_treasury_responses_publish_required_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    attempt_required = [
+        "id",
+        "bounty_id",
+        "submitter_account",
+        "source_url",
+        "status",
+        "expires_at",
+        "created_at",
+        "updated_at",
+    ]
+    registered_attempt_schema = _post_response_schema(
+        openapi, "/api/v1/bounties/{bounty_id}/attempts", "201"
+    )
+    assert registered_attempt_schema["required"] == ["status", "attempt", "warnings"]
+    assert registered_attempt_schema["properties"]["attempt"]["required"] == attempt_required
+
+    conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
+    assert conflict_schema["required"] == ["status", "bounty_id", "attempt", "warnings"]
+    assert conflict_schema["properties"]["attempt"]["required"] == attempt_required
+
+    release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
+    assert release_schema["required"] == ["status", "attempt"]
+    assert release_schema["properties"]["attempt"]["required"] == attempt_required
+
+    proposal_required = [
+        "id",
+        "type",
+        "action",
+        "status",
+        "payload_hash",
+        "payload",
+        "proposed_by",
+        "executed_by",
+        "proposed_at",
+        "executes_after",
+        "executed_at",
+        "executed_ledger_sequence",
+        "result",
+        "challenges",
+    ]
+    proposal_schema = _post_response_schema(openapi, "/api/v1/treasury/proposals")
+    assert proposal_schema["required"] == proposal_required
+
+    challenge_required = [
+        "id",
+        "proposal_id",
+        "challenger_account",
+        "challenge_type",
+        "status",
+        "reason",
+        "created_at",
+    ]
+    assert proposal_schema["properties"]["challenges"]["items"]["required"] == challenge_required
+
+    challenge_schema = _post_response_schema(
+        openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
+    )
+    assert challenge_schema["required"] == challenge_required
+
+
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()

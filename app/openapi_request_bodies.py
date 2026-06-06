@@ -142,7 +142,17 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
         "expires_at": {"type": "string"},
         "created_at": {"type": "string"},
         "updated_at": {"type": "string"},
-    }
+    },
+    required=[
+        "id",
+        "bounty_id",
+        "submitter_account",
+        "source_url",
+        "status",
+        "expires_at",
+        "created_at",
+        "updated_at",
+    ],
 )
 
 ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
@@ -150,7 +160,8 @@ ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
         "status": {"type": "string"},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
         "warnings": {"type": "array", "items": {"type": "string"}},
-    }
+    },
+    required=["status", "attempt", "warnings"],
 )
 
 ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
@@ -159,14 +170,16 @@ ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
         "bounty_id": {"type": "integer", "minimum": 1},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
         "warnings": {"type": "array", "items": {"type": "string"}},
-    }
+    },
+    required=["status", "bounty_id", "attempt", "warnings"],
 )
 
 ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
     {
         "status": {"type": "string"},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
-    }
+    },
+    required=["status", "attempt"],
 )
 
 TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
@@ -178,7 +191,16 @@ TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
         "status": {"type": "string"},
         "reason": {"type": "string"},
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "id",
+        "proposal_id",
+        "challenger_account",
+        "challenge_type",
+        "status",
+        "reason",
+        "created_at",
+    ],
 )
 
 TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
@@ -197,7 +219,23 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
         "executed_ledger_sequence": {"type": "integer", "nullable": True},
         "result": {"type": "object", "additionalProperties": True},
         "challenges": {"type": "array", "items": TREASURY_CHALLENGE_RESPONSE_SCHEMA},
-    }
+    },
+    required=[
+        "id",
+        "type",
+        "action",
+        "status",
+        "payload_hash",
+        "payload",
+        "proposed_by",
+        "executed_by",
+        "proposed_at",
+        "executes_after",
+        "executed_at",
+        "executed_ledger_sequence",
+        "result",
+        "challenges",
+    ],
 )
 
 OPTIONAL_ATTEMPT_BODY = {
