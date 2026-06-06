@@ -314,7 +314,7 @@ Tools:
 - `get_ledger_entry`
 - `get_proof`
 - `submit_work_proof` (`format: "json"` returns structuredContent; `tools/list`
-  advertises the selector and format schema)
+  advertises the selector, format, and structured guidance output schemas)
 
 `tools/list` advertises required selector schemas for proof and ledger lookups:
 `get_proof` requires a 64-character proof `hash`, and `get_ledger_entry`
