@@ -129,6 +129,8 @@ def test_docs_page_marks_static_github_links_as_untrusted(sqlite_url: str) -> No
         assert f'href="{url}" rel="nofollow noopener"' in page.text
     for url in (
         "/api/v1/bounties/summary",
+        "/api/v1/work-discovery",
+        "/bounties?status=open&amp;availability=effectively_open",
         "/api/v1/treasury/proposals",
     ):
         assert f'href="{url}"' in page.text
