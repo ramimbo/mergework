@@ -38,7 +38,7 @@ class BountyAttemptResponse(BaseModel):
     id: int = Field(..., description="Stable, monotonic attempt id")
     bounty_id: int = Field(..., description="The bounty this attempt targets")
     submitter_account: str = Field(..., description="Normalized MRWK account name of the submitter")
-    source_url: str = Field(..., description="Public URL of the work being claimed as fulfilling the bounty")
+    source_url: str | None = Field(..., description="Public URL of the work being claimed as fulfilling the bounty; null when no URL was provided")
     status: AttemptStatus = Field(..., description="Effective attempt status at response time")
     expires_at: str = Field(..., description="ISO-8601 UTC timestamp at which the attempt expires")
     created_at: str = Field(..., description="ISO-8601 UTC timestamp of creation")
