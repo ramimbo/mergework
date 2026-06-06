@@ -64,6 +64,21 @@ def _fund_wallet(sqlite_url: str, address: str, amount_microunits: int = 10_000_
         )
 
 
+def test_health_endpoint_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    ok_response = client.get("/health")
+    assert ok_response.status_code == 200
+    assert ok_response.json()["ok"] is True
+
+    for name in ("limit", "offset", "status", "q", "account", "repo", "type", "tx_type"):
+        response = client.get(f"/health?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"
+
+
 def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     sender_key, sender_public, sender_address = _keypair()
