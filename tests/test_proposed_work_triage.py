@@ -775,7 +775,16 @@ def test_proposed_work_triage_rejects_non_integer_limit(capsys) -> None:
 
 
 def test_proposed_work_triage_rejects_invalid_api_host(capsys) -> None:
-    for bad in ("", "   ", "/relative", "ftp://api.example.test"):
+    for bad in (
+        "",
+        "   ",
+        "/relative",
+        "ftp://api.example.test",
+        "https://api.example.test/v1",
+        "https://api.example.test?debug=1",
+        "https://api.example.test#fragment",
+        "https://user:pass@api.example.test",
+    ):
         with pytest.raises(SystemExit) as excinfo:
             main(["--repo", "ramimbo/mergework", "--api-host", bad])
         assert excinfo.value.code == 2
