@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Typed OpenAPI response models for bounty attempts endpoints.
 
@@ -34,6 +33,8 @@ class BountyAttemptResponse(BaseModel):
     Mirrors `app.bounty_attempts.bounty_attempt_to_dict` exactly. Any change
     to that serializer must be reflected here.
     """
+from __future__ import annotations
+
 
     model_config = ConfigDict(extra="forbid")
 
