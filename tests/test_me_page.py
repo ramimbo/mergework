@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
 from app.ledger.service import TREASURY_ACCOUNT, add_ledger_entry, ensure_genesis, register_wallet
+from app.main import create_app
 from app.me import me_page_context
 from app.wallets import address_from_public_key_hex
 
@@ -58,3 +60,18 @@ def test_me_page_context_reports_balance_and_linked_wallet(sqlite_url: str) -> N
         "github_balance_mrwk": "4",
         "linked_wallet_address": address,
     }
+
+
+def test_me_page_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert client.get("/me").status_code == 200
+    for name in ("limit", "status", "repo", "offset", "q", "account"):
+        response = client.get(f"/me?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"

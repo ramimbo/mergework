@@ -59,3 +59,13 @@ def reject_repeated_query_param(request: Request, name: str) -> None:
             status_code=400,
             detail=f"{name} must be provided at most once",
         )
+
+
+def reject_unsupported_query_params(request: Request, allowed: set[str]) -> None:
+    """Reject query parameters that have no meaning on the current endpoint."""
+    for name in request.query_params:
+        if name not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{name} is not supported on this endpoint",
+            )
