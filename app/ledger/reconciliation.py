@@ -103,12 +103,13 @@ def duplicate_accepted_source_urls(session: Session) -> list[DuplicateAcceptedSo
 
 
 def _accepted_submission_rows(session: Session) -> Sequence[tuple[Submission, Bounty]]:
-    return session.execute(
+    rows = session.execute(
         select(Submission, Bounty)
         .join(Bounty, Bounty.id == Submission.bounty_id)
         .where(Submission.status == "accepted")
         .order_by(Submission.id)
     ).all()
+    return [(submission, bounty) for submission, bounty in rows]
 
 
 def payout_reconciliation_summary(checks: Sequence[AcceptedPayoutCheck]) -> dict[str, int]:
