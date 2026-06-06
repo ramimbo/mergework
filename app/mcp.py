@@ -170,6 +170,27 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["account"],
             "additionalProperties": False,
         },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "description": "Normalized ledger account selector.",
+                },
+                "balance_mrwk": {
+                    "type": "string",
+                    "pattern": r"^\d+(?:\.\d{1,6})?$",
+                    "description": "Decimal MRWK balance with at most six decimal places.",
+                },
+                "balance_microunits": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Raw MRWK microunit balance.",
+                },
+            },
+            "required": ["account", "balance_mrwk", "balance_microunits"],
+            "additionalProperties": False,
+        },
     },
     {
         "name": "register_wallet",

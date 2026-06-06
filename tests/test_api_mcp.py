@@ -383,6 +383,17 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance_schema["additionalProperties"] is False
     assert balance_schema["properties"]["account"]["minLength"] == 1
     assert "github:<login>" in balance_schema["properties"]["account"]["description"]
+    balance_output_schema = balance_tool["outputSchema"]
+    assert balance_output_schema["additionalProperties"] is False
+    assert balance_output_schema["required"] == [
+        "account",
+        "balance_mrwk",
+        "balance_microunits",
+    ]
+    assert balance_output_schema["properties"]["balance_mrwk"]["pattern"] == (
+        r"^\d+(?:\.\d{1,6})?$"
+    )
+    assert balance_output_schema["properties"]["balance_microunits"]["minimum"] == 0
     ledger_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "get_ledger_entry"
     )
@@ -412,6 +423,7 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "balance_mrwk": "100000000",
         "balance_microunits": GENESIS_SUPPLY_MICRO,
     }
+    assert set(balance["result"]["structuredContent"]) == set(balance_output_schema["required"])
 
 
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
