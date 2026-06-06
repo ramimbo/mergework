@@ -104,6 +104,11 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
             "source_urls": {
                 "bounty": f"/api/v1/bounties/{live_bounty.id}",
                 "attempts": f"/api/v1/bounties/{live_bounty.id}/attempts",
+                "public_bounty_page": f"/bounties/{live_bounty.id}",
+                "claimable_matches": (
+                    "/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=800"
+                    "&sort=reward&availability=effectively_open"
+                ),
                 "github_issue": "https://github.com/ramimbo/mergework/issues/800",
             },
             "submission_requirements": live_requirements,
@@ -137,10 +142,15 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
             "submission_requirements": pending_create_requirements,
         }
     ]
+    assert "public_bounty_page" not in body["opening_soon"][0]["source_urls"]
     assert pending_create_executes_after.endswith("Z")
     assert datetime.fromisoformat(pending_create_executes_after.replace("Z", "+00:00"))
     assert body["not_claimable"][0]["availability_state"] == "closed_or_exhausted"
     assert body["not_claimable"][0]["issue_number"] == 761
+    assert body["not_claimable"][0]["source_urls"]["public_bounty_page"] == (
+        f"/bounties/{paid_bounty.id}"
+    )
+    assert "claimable_matches" not in body["not_claimable"][0]["source_urls"]
 
 
 def test_work_discovery_limit_caps_public_buckets(sqlite_url: str) -> None:
