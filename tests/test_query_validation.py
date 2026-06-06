@@ -8,6 +8,7 @@ from app.query_validation import (
     reject_noncanonical_bool_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unsupported_query_params,
 )
 
 
@@ -63,3 +64,17 @@ def test_query_guards_keep_canonical_and_repeated_boundaries() -> None:
         reject_repeated_query_param(request, "status")
     assert repeated_error.value.status_code == 400
     assert repeated_error.value.detail == "status must be provided at most once"
+
+
+def test_unsupported_query_guard_reports_route_context() -> None:
+    request = _request("status=open&availability=effectively_open")
+
+    with pytest.raises(HTTPException) as unsupported_error:
+        reject_unsupported_query_params(
+            request,
+            ("availability", "sort"),
+            context="bounty detail pages",
+        )
+
+    assert unsupported_error.value.status_code == 400
+    assert unsupported_error.value.detail == "availability is not supported on bounty detail pages"
