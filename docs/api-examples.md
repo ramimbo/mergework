@@ -163,6 +163,7 @@ non-claimable states out of the claimable list, and accepts optional
   "state_definitions": {
     "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
     "pending_create": "Public treasury proposal exists but the bounty row is not live yet.",
+    "pending_create_due": "Public treasury proposal is past executes_after but the bounty row is not live yet.",
     "pending_payout": "Accepted work has a pending pay_bounty proposal, not proof-backed payment.",
     "closed_or_exhausted": "Bounty is closed, paid, or has no effective award capacity.",
     "proposed_work": "GitHub proposed-work issue is intake only until a create_bounty proposal executes.",
@@ -198,6 +199,7 @@ non-claimable states out of the claimable list, and accepts optional
       "max_awards": 8,
       "effective_awards_remaining": 0,
       "executes_after": "2026-06-03T11:41:52Z",
+      "execution_due": false,
       "source_urls": {
         "proposal": "/api/v1/treasury/proposals/125",
         "github_issue": "https://github.com/ramimbo/mergework/issues/798"
