@@ -339,11 +339,13 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert submit_output_schema["type"] == "object"
     assert submit_output_schema["additionalProperties"] is True
     assert submit_output_schema["properties"]["can_submit"]["type"] == ["boolean", "null"]
+    assert submit_output_schema["properties"]["acceptance"]["type"] == ["string", "null"]
     assert submit_output_schema["properties"]["submission_requirements"]["required"] == [
         "reference_formats",
         "claim_command",
         "next_actions",
     ]
+    assert "status" in submit_output_schema["required"]
     assert "submission_requirements" in submit_output_schema["required"]
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]

@@ -296,6 +296,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 "repository": {"type": ["string", "null"]},
                 "issue_url": {"type": ["string", "null"]},
                 "title": {"type": ["string", "null"]},
+                "acceptance": {"type": ["string", "null"]},
                 "submission_format": {"type": "string"},
                 "submission_requirements": {
                     "type": "object",
@@ -328,6 +329,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": [
                 "bounty_id",
                 "issue_number",
+                "status",
                 "availability",
                 "can_submit",
                 "availability_warnings",
