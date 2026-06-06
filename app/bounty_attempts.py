@@ -58,17 +58,13 @@ def _attempt_effective_status(attempt: BountyAttempt, now: datetime) -> str:
     return attempt.status
 
 
-async def _optional_json_object(
-    request: Request, json_object: JsonObjectLoader
-) -> dict[str, Any]:
+async def _optional_json_object(request: Request, json_object: JsonObjectLoader) -> dict[str, Any]:
     if not (await request.body()).strip():
         return {}
     return await json_object(request)
 
 
-def bounty_attempt_to_dict(
-    attempt: BountyAttempt, now: datetime | None = None
-) -> dict[str, Any]:
+def bounty_attempt_to_dict(attempt: BountyAttempt, now: datetime | None = None) -> dict[str, Any]:
     now = _as_utc(now or _utc_now())
     return {
         "id": attempt.id,
@@ -147,9 +143,7 @@ def active_bounty_attempt_counts(
     return {int(bounty_id): int(active_count or 0) for bounty_id, active_count in rows}
 
 
-def bounty_attempt_warnings(
-    session: Session, bounty: Bounty, now: datetime
-) -> list[str]:
+def bounty_attempt_warnings(session: Session, bounty: Bounty, now: datetime) -> list[str]:
     return _bounty_attempt_warnings_for_count(
         bounty,
         active_bounty_attempt_count(session, bounty.id, now),
@@ -264,9 +258,7 @@ def register_bounty_attempt_routes(
             return submitter_account
         requested_account = normalized_account(required_str(data, "submitter_account"))
         if requested_account != submitter_account:
-            raise HTTPException(
-                status_code=403, detail="submitter_account does not match login"
-            )
+            raise HTTPException(status_code=403, detail="submitter_account does not match login")
         return submitter_account
 
     @app.get(
@@ -314,8 +306,7 @@ def register_bounty_attempt_routes(
             },
             404: {"description": "Bounty not found"},
             409: {
-                "model": BountyAttemptNotAvailableResponse
-                | BountyAttemptDuplicateResponse,
+                "model": BountyAttemptNotAvailableResponse | BountyAttemptDuplicateResponse,
                 "description": "Bounty not claimable, or an active attempt already exists",
             },
         },
@@ -330,13 +321,9 @@ def register_bounty_attempt_routes(
         submitter_account = attempt_submitter_account(data, github_login)
         ttl_seconds = optional_int(data, "ttl_seconds", DEFAULT_ATTEMPT_TTL_SECONDS)
         if ttl_seconds < MIN_ATTEMPT_TTL_SECONDS:
-            raise HTTPException(
-                status_code=400, detail="ttl_seconds must be at least 60"
-            )
+            raise HTTPException(status_code=400, detail="ttl_seconds must be at least 60")
         if ttl_seconds > MAX_ATTEMPT_TTL_SECONDS:
-            raise HTTPException(
-                status_code=400, detail="ttl_seconds must be no more than 604800"
-            )
+            raise HTTPException(status_code=400, detail="ttl_seconds must be no more than 604800")
         source = data.get("source_url", "")
         if source is None:
             source = ""
@@ -380,9 +367,7 @@ def register_bounty_attempt_routes(
                 .limit(1)
             )
             if existing is not None:
-                return _duplicate_active_attempt_response(
-                    session, bounty, existing, now
-                )
+                return _duplicate_active_attempt_response(session, bounty, existing, now)
             attempt = BountyAttempt(
                 bounty_id=bounty_id_int,
                 submitter_account=submitter_account,
@@ -411,9 +396,7 @@ def register_bounty_attempt_routes(
                     raise HTTPException(
                         status_code=409, detail="active attempt already exists"
                     ) from None
-                return _duplicate_active_attempt_response(
-                    session, bounty, existing, now
-                )
+                return _duplicate_active_attempt_response(session, bounty, existing, now)
             return JSONResponse(
                 status_code=201,
                 content={
@@ -444,9 +427,7 @@ def register_bounty_attempt_routes(
             if attempt is None:
                 raise HTTPException(status_code=404, detail="attempt not found")
             if attempt.submitter_account != submitter_account:
-                raise HTTPException(
-                    status_code=403, detail="submitter_account does not match"
-                )
+                raise HTTPException(status_code=403, detail="submitter_account does not match")
             effective_status = _attempt_effective_status(attempt, now)
             if effective_status != "active":
                 return {
