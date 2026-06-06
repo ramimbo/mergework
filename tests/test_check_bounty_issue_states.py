@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts import check_bounty_issue_states
+from scripts import check_bounty_issue_states, github_json
 from scripts.check_bounty_issue_states import analyze_issue_states, main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,7 +98,7 @@ def test_issue_state_check_fix_reopens_closed_issues(monkeypatch) -> None:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
         raise AssertionError(args)
 
-    monkeypatch.setattr(check_bounty_issue_states.subprocess, "run", fake_run)
+    monkeypatch.setattr(github_json.subprocess, "run", fake_run)
 
     check_bounty_issue_states.reopen_violations(
         "ramimbo/mergework",

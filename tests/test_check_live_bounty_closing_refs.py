@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts import check_live_bounty_closing_refs
+from scripts import check_live_bounty_closing_refs, github_json
 from scripts.check_live_bounty_closing_refs import analyze_closing_refs, main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,7 +107,7 @@ def test_closing_ref_check_loads_specific_prs(monkeypatch) -> None:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
         raise AssertionError(args)
 
-    monkeypatch.setattr(check_live_bounty_closing_refs.subprocess, "run", fake_run)
+    monkeypatch.setattr(github_json.subprocess, "run", fake_run)
 
     prs = check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])
 
