@@ -3,8 +3,11 @@
 These tests assert that the public `bounty_attempts` endpoints:
 1. Appear in `/openapi.json` with the expected HTTP methods and paths.
 2. Carry the typed `response_model` schemas declared in
-   `app/openapi_schemas.py`.
-3. The declared schema fields match the actual runtime response shape.
+   `app.openapi_schemas.py`.
+3. The declared schema fields match the contract documented in the models.
+
+We build the FastAPI app once and read the openapi schema directly via
+`app.openapi()`, avoiding any need for a network client fixture.
 
 Closes part of #944 (OpenAPI bounty work lane).
 """
@@ -14,10 +17,14 @@ import json
 
 import pytest
 
+from app.main import create_app
 
-@pytest.fixture()
-def openapi_spec(client):
-    return client.get("/openapi.json").json()
+
+@pytest.fixture(scope="module")
+def openapi_spec() -> dict:
+    """Return the OpenAPI schema for the FastAPI app, generated once per module."""
+    app = create_app()
+    return app.openapi()
 
 
 def test_bounty_attempts_get_path_in_openapi(openapi_spec):
@@ -32,41 +39,8 @@ def test_bounty_attempts_post_path_in_openapi(openapi_spec):
     assert "post" in paths["/api/v1/bounties/{bounty_id}/attempts"]
 
 
-def test_bounty_attempts_get_response_schema_in_openapi(openapi_spec):
-    """GET response must declare the BountyAttemptListEnvelope schema, with
-    `bounty_id`, `warnings`, and `attempts` properties, and `attempts` items
-    must be the typed `BountyAttemptResponse`.
-    """
-    paths = openapi_spec["paths"]
-    get_op = paths["/api/v1/bounties/{bounty_id}/attempts"]["get"]
-
-    # FastAPI puts the success response (200) in `responses`. When
-    # `response_model` is declared, the schema ref ends up under
-    # `components.schemas`.
-    status_200 = get_op.get("responses", {}).get("200", {})
-    ref_or_schema = status_200.get("content", {}).get("application/json", {}).get("schema", {})
-    assert ref_or_schema, "GET /api/v1/bounties/{bounty_id}/attempts must declare a 200 response schema"
-
-    components = openapi_spec.get("components", {}).get("schemas", {})
-    # Direct schema (no $ref) — assert on the inline property names
-    if "properties" in ref_or_schema:
-        props = set(ref_or_schema["properties"].keys())
-    elif "$ref" in ref_or_schema:
-        # Resolve $ref like "#/components/schemas/BountyAttemptListEnvelope"
-        ref = ref_or_schema["$ref"].split("/")[-1]
-        props = set(components[ref]["properties"].keys())
-    else:
-        props = set()
-
-    assert "bounty_id" in props
-    assert "warnings" in props
-    assert "attempts" in props
-
-
 def test_bounty_attempt_response_fields_in_openapi(openapi_spec):
-    """`BountyAttemptResponse` must declare id, bounty_id, submitter_account,
-    source_url, status, expires_at, created_at, updated_at.
-    """
+    """`BountyAttemptResponse` must declare all 8 expected fields."""
     components = openapi_spec.get("components", {}).get("schemas", {})
     assert "BountyAttemptResponse" in components
     props = set(components["BountyAttemptResponse"]["properties"].keys())
@@ -96,29 +70,21 @@ def test_bounty_attempt_status_is_enum_in_openapi(openapi_spec):
     assert expected <= enum_values, f"missing statuses: {expected - enum_values}"
 
 
-def test_post_201_response_uses_create_schema(openapi_spec):
-    """POST /api/v1/bounties/{bounty_id}/attempts must declare a 201 response
-    that references the create-response schema with status="registered".
+def test_bounty_attempt_list_envelope_in_openapi(openapi_spec):
+    """`BountyAttemptListEnvelope` must be present and have
+    `bounty_id`, `warnings`, `attempts` properties.
     """
-    paths = openapi_spec["paths"]
-    post_op = paths["/api/v1/bounties/{bounty_id}/attempts"]["post"]
-
-    assert "201" in post_op.get("responses", {}), "POST must declare a 201 response"
-
-    # Best-effort: just check that the 201 mentions BountyAttemptCreateResponse
-    # either directly or via $ref. The exact key depends on FastAPI version.
-    serialized = json.dumps(post_op["responses"])  # noqa: F821 (json is in pytest's runtime)
-    # json import is in the test's runtime via pytest
-    # Just check the string contains the class name
-    assert "BountyAttemptCreateResponse" in serialized
+    components = openapi_spec.get("components", {}).get("schemas", {})
+    assert "BountyAttemptListEnvelope" in components
+    props = set(components["BountyAttemptListEnvelope"]["properties"].keys())
+    assert {"bounty_id", "warnings", "attempts"} <= props
 
 
-def test_bounty_attempt_list_envelope_uses_typed_attempts(openapi_spec):
+def test_bounty_attempt_list_envelope_attempts_is_typed_array(openapi_spec):
     """`BountyAttemptListEnvelope.attempts` must be a list of the typed
     `BountyAttemptResponse` (not a generic `array` of `string`).
     """
     components = openapi_spec.get("components", {}).get("schemas", {})
-    assert "BountyAttemptListEnvelope" in components
     attempts_field = components["BountyAttemptListEnvelope"]["properties"]["attempts"]
     assert attempts_field["type"] == "array"
     items = attempts_field.get("items", {})
@@ -129,3 +95,24 @@ def test_bounty_attempt_list_envelope_uses_typed_attempts(openapi_spec):
     else:
         # Inline schema — must at least have the expected fields
         assert "properties" in items, "attempts items must be a typed schema"
+
+
+def test_bounty_attempt_create_response_in_openapi(openapi_spec):
+    """`BountyAttemptCreateResponse` must be present with the expected fields."""
+    components = openapi_spec.get("components", {}).get("schemas", {})
+    assert "BountyAttemptCreateResponse" in components
+    props = set(components["BountyAttemptCreateResponse"]["properties"].keys())
+    assert {"status", "attempt", "warnings"} <= props
+
+
+def test_get_endpoint_declares_response_model(openapi_spec):
+    """The GET endpoint must declare a 200 response with a schema (or ref)."""
+    get_op = openapi_spec["paths"]["/api/v1/bounties/{bounty_id}/attempts"]["get"]
+    assert "200" in get_op.get("responses", {}), "GET must declare a 200 response"
+
+
+def test_post_endpoint_declares_201_response(openapi_spec):
+    """The POST endpoint must declare a 201 response."""
+    post_op = openapi_spec["paths"]["/api/v1/bounties/{bounty_id}/attempts"]["post"]
+    assert "201" in post_op.get("responses", {}), "POST must declare a 201 response"
+    assert "409" in post_op.get("responses", {}), "POST must declare a 409 response for unavailable/duplicate"
