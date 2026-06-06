@@ -84,6 +84,16 @@ def test_review_bounty_candidates_classifies_review_states(tmp_path, capsys) -> 
                 "reviews": [],
             },
             {
+                "number": 10,
+                "title": "Already reviewed without standard CI",
+                "author": {"login": "alice"},
+                "headRefOid": "h10",
+                "mergeStateStatus": "CLEAN",
+                "labels": [],
+                "statusCheckRollup": [],
+                "reviews": [_review("reviewer", "APPROVED", "h10")],
+            },
+            {
                 "number": 6,
                 "title": "Needs info",
                 "author": {"login": "alice"},
@@ -135,6 +145,7 @@ def test_review_bounty_candidates_classifies_review_states(tmp_path, capsys) -> 
         3: "candidate_for_fresh_review",
         4: "dirty_or_conflicted",
         5: "missing_standard_quality_check",
+        10: "already_reviewed_current_head_by_reviewer",
         6: "needs_info",
         7: "waiting_for_author_update",
         8: "already_has_sufficient_current_head_human_reviews",
@@ -157,7 +168,7 @@ def test_review_bounty_candidates_classifies_review_states(tmp_path, capsys) -> 
     )
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
-    assert output["summary"]["pull_requests"] == 9
+    assert output["summary"]["pull_requests"] == 10
 
 
 @pytest.mark.parametrize(
