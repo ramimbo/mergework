@@ -45,7 +45,7 @@ def test_tracked_paths_decodes_git_output_as_utf8(monkeypatch: pytest.MonkeyPatc
         return subprocess.CompletedProcess(
             args,
             0,
-            stdout="AGENTS.md\ndocs/AGENTS.md\nnotes/unicode-name.md\n",
+            stdout="AGENTS.md\ndocs/AGENTS.md\nnotes/naïve-名.md\n",
             stderr="",
         )
 
@@ -54,7 +54,7 @@ def test_tracked_paths_decodes_git_output_as_utf8(monkeypatch: pytest.MonkeyPatc
     assert check_agents.tracked_paths() == [
         "AGENTS.md",
         "docs/AGENTS.md",
-        "notes/unicode-name.md",
+        "notes/naïve-名.md",
     ]
 
 
