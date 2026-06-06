@@ -100,3 +100,14 @@ def test_mergework_hub_renders_contributor_starting_points(sqlite_url: str) -> N
     assert 'href="/activity"' in response.text
     assert "Current bounty JSON" in response.text
     assert 'href="/api/v1/bounties?status=open&amp;availability=effectively_open"' in response.text
+
+
+def test_mergework_hub_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for name in ("limit", "offset", "status", "q", "account", "repo"):
+        response = client.get(f"/?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"

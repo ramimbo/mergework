@@ -37,7 +37,11 @@ from app.path_params import (
     proof_hash_from_path,
 )
 from app.public_routes import register_public_routes
-from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_noncanonical_int_query_param,
+    reject_repeated_query_param,
+    reject_unsupported_query_params,
+)
 from app.status import health_status, system_status
 from app.treasury_routes import register_treasury_routes
 from app.wallet_api import register_wallet_api_routes
@@ -312,6 +316,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     @app.get("/", response_class=HTMLResponse)
     def hub(request: Request) -> HTMLResponse:
+        reject_unsupported_query_params(request, set())
         if is_ltc_lab_host(request.headers.get("host", "")):
             return templates.TemplateResponse(
                 request,
