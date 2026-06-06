@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.treasury_contract import CHALLENGE_TYPES, TREASURY_ACTIONS
+
 
 def _json_content(schema: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -174,7 +176,7 @@ TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
         "id": {"type": "integer", "minimum": 1},
         "proposal_id": {"type": "integer", "minimum": 1},
         "challenger_account": {"type": "string"},
-        "challenge_type": {"type": "string"},
+        "challenge_type": {"type": "string", "enum": sorted(CHALLENGE_TYPES)},
         "status": {"type": "string"},
         "reason": {"type": "string"},
         "created_at": {"type": "string"},
@@ -185,7 +187,7 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     {
         "id": {"type": "integer", "minimum": 1},
         "type": {"type": "string"},
-        "action": {"type": "string"},
+        "action": {"type": "string", "enum": sorted(TREASURY_ACTIONS)},
         "status": {"type": "string"},
         "payload_hash": LOWERCASE_HEX_64_SCHEMA,
         "payload": {"type": "object", "additionalProperties": True},
@@ -331,7 +333,11 @@ TREASURY_PROPOSAL_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "action": {"type": "string", "description": "Treasury action name."},
+                "action": {
+                    "type": "string",
+                    "enum": sorted(TREASURY_ACTIONS),
+                    "description": "Treasury action name.",
+                },
                 "payload": {
                     "type": "object",
                     "additionalProperties": True,
@@ -350,7 +356,11 @@ TREASURY_CHALLENGE_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "challenge_type": {"type": "string", "description": "Challenge category."},
+                "challenge_type": {
+                    "type": "string",
+                    "enum": sorted(CHALLENGE_TYPES),
+                    "description": "Challenge category.",
+                },
                 "reason": {"type": "string", "description": "Public challenge reason."},
             },
             required=["challenge_type", "reason"],
