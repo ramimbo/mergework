@@ -20,6 +20,10 @@ small, verifiable, and easy for maintainers to review.
 - Do not submit generated noise, duplicate reports, or unrelated rewrites.
 - Do not claim payout, acceptance, or ledger status that has not happened.
 
+## Reviewing Pull Requests
+
+When reviewing open MergeWork pull requests, follow the [PR Review Guide](docs/pr-review-guide.md) to provide concrete evidence. This applies to bounty rounds and general contributions.
+
 ## Security Work
 
 Report private security findings through the security policy. Public issues and
