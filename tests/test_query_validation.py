@@ -78,3 +78,13 @@ def test_unsupported_query_guard_reports_route_context() -> None:
 
     assert unsupported_error.value.status_code == 400
     assert unsupported_error.value.detail == "availability is not supported on bounty detail pages"
+
+
+def test_unsupported_query_guard_allows_supported_params() -> None:
+    request = _request("status=open&limit=10")
+
+    reject_unsupported_query_params(
+        request,
+        ("availability", "sort"),
+        context="bounty detail pages",
+    )
