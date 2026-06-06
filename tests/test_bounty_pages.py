@@ -1124,6 +1124,13 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert f'href="/activity?q={proof_hash}"' in proof_page.text
     assert f'href="/activity?q={bounty.id}"' in proof_page.text
     assert 'href="/activity?q=https%3A//github.com/ramimbo/mergework/pull/99"' in proof_page.text
+    for name in ("limit", "status", "repo", "offset", "q"):
+        api_response = client.get(f"/api/v1/proofs/{proof_hash}?{name}=1")
+        assert api_response.status_code == 400
+        assert api_response.json()["detail"] == f"{name} is not supported on this endpoint"
+        page_response = client.get(f"/proofs/{proof_hash}?{name}=1")
+        assert page_response.status_code == 400
+        assert page_response.json()["detail"] == f"{name} is not supported on this endpoint"
 
     uppercase_proof_page = client.get(f"/proofs/{proof_hash.upper()}")
     assert uppercase_proof_page.status_code == 200

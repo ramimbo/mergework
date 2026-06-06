@@ -26,6 +26,7 @@ from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unsupported_query_params,
 )
 from app.serializers import bounty_list_summary, wallet_to_dict
 from app.status import (
@@ -419,6 +420,7 @@ def register_public_routes(
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
+        reject_unsupported_query_params(request, allowed=set())
         normalized_proof_hash = proof_hash_from_path(proof_hash)
         return templates.TemplateResponse(
             request,

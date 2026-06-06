@@ -37,7 +37,11 @@ from app.path_params import (
     proof_hash_from_path,
 )
 from app.public_routes import register_public_routes
-from app.query_validation import reject_noncanonical_int_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_noncanonical_int_query_param,
+    reject_repeated_query_param,
+    reject_unsupported_query_params,
+)
 from app.status import health_status, system_status
 from app.treasury_routes import register_treasury_routes
 from app.wallet_api import register_wallet_api_routes
@@ -269,8 +273,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="ledger entry not found")
             return entry
 
-    @app.get("/api/v1/proofs/{proof_hash}")
-    def api_proof(proof_hash: str) -> dict[str, Any]:
+    def proof_payload(proof_hash: str) -> dict[str, Any]:
         proof_hash = proof_hash_from_path(proof_hash)
         with session_scope(db_url) as session:
             proof = session.get(Proof, proof_hash)
@@ -283,6 +286,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             if not isinstance(data, dict):
                 raise HTTPException(status_code=500, detail="invalid proof payload")
             return data
+
+    @app.get("/api/v1/proofs/{proof_hash}")
+    def api_proof(request: Request, proof_hash: str) -> dict[str, Any]:
+        reject_unsupported_query_params(request, allowed=set())
+        return proof_payload(proof_hash)
 
     register_activity_routes(app, db_url=db_url, templates=templates)
 
@@ -333,7 +341,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         api_bounty=api_bounty,
         api_ledger=ledger_rows,
         api_ledger_entry=api_ledger_entry,
-        api_proof=api_proof,
+        api_proof=proof_payload,
     )
 
     @app.get("/me", response_class=HTMLResponse)
