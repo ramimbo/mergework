@@ -263,6 +263,53 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
     _assert_properties(release_schema, {"status", "attempt"})
 
 
+def test_public_post_openapi_wallet_response_schemas_publish_required_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    wallet_required = [
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "created_at",
+    ]
+    assert _post_response_schema(openapi, "/api/v1/wallets/register")["required"] == wallet_required
+    assert (
+        _post_response_schema(openapi, "/api/v1/wallets/link-github")["required"] == wallet_required
+    )
+
+    assert _post_response_schema(openapi, "/api/v1/github/claim")["required"] == [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ]
+
+    assert _post_response_schema(openapi, "/api/v1/transfers")["required"] == [
+        "hash",
+        "type",
+        "ledger_sequence",
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "memo",
+        "created_at",
+    ]
+
+
 def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()

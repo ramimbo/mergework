@@ -100,7 +100,17 @@ WALLET_RESPONSE_SCHEMA = _object_schema(
         "nonce": {"type": "integer", "minimum": 0},
         "next_nonce": {"type": "integer", "minimum": 1},
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "created_at",
+    ],
 )
 
 LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
@@ -115,7 +125,19 @@ LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
         "entry_hash": LOWERCASE_HEX_64_SCHEMA,
         "proof_hash": {**LOWERCASE_HEX_64_SCHEMA, "nullable": True},
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ],
 )
 
 WALLET_TRANSFER_RESPONSE_SCHEMA = _object_schema(
@@ -129,7 +151,18 @@ WALLET_TRANSFER_RESPONSE_SCHEMA = _object_schema(
         "nonce": {"type": "integer", "minimum": 1},
         "memo": {"type": "string", "nullable": True},
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "hash",
+        "type",
+        "ledger_sequence",
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "memo",
+        "created_at",
+    ],
 )
 
 BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
