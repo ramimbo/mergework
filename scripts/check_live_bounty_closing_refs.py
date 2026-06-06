@@ -136,6 +136,8 @@ def _run_gh_json(args: list[str]) -> Any:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"gh executable not found while running: {command}") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             "gh command failed "
@@ -165,8 +167,9 @@ def _load_public_bounties(api_host: str) -> list[dict[str, Any]]:
 
 def _load_pull_requests(repo: str, state: str, pr_numbers: list[int]) -> list[dict[str, Any]]:
     if pr_numbers:
-        return [
-            _run_gh_json(
+        rows: list[dict[str, Any]] = []
+        for number in pr_numbers:
+            data = _run_gh_json(
                 [
                     "gh",
                     "pr",
@@ -178,8 +181,10 @@ def _load_pull_requests(repo: str, state: str, pr_numbers: list[int]) -> list[di
                     "number,title,url,body,state",
                 ]
             )
-            for number in pr_numbers
-        ]
+            if not isinstance(data, dict):
+                raise RuntimeError("expected a JSON object from gh pr view")
+            rows.append(data)
+        return rows
     prs = _run_gh_json(
         [
             "gh",

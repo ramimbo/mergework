@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import check_bounty_issue_states
 from scripts.check_bounty_issue_states import analyze_issue_states, main
 
@@ -109,3 +111,25 @@ def test_issue_state_check_fix_reopens_closed_issues(monkeypatch) -> None:
     )
 
     assert calls == [["gh", "issue", "reopen", "936", "--repo", "ramimbo/mergework"]]
+
+
+def test_issue_state_check_reports_missing_gh_for_live_issue_lookup(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(check_bounty_issue_states.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh executable not found"):
+        check_bounty_issue_states._load_issue("ramimbo/mergework", 936)
+
+
+def test_issue_state_check_reports_missing_gh_for_fix(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(check_bounty_issue_states.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh executable not found"):
+        check_bounty_issue_states.reopen_violations(
+            "ramimbo/mergework", [{"issue_number": 936, "issue_state": "closed"}]
+        )
