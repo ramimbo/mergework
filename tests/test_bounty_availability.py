@@ -12,6 +12,7 @@ from app.bounty_availability import (
 def test_bounty_availability_filter_defaults_and_normalizes_values() -> None:
     assert normalize_bounty_availability_filter(None) == "all"
     assert normalize_bounty_availability_filter("") == "all"
+    assert normalize_bounty_availability_filter("   ") == "all"
     assert normalize_bounty_availability_filter("  EFFECTIVELY_OPEN  ") == "effectively_open"
 
 
