@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Typed OpenAPI response models for bounty attempts endpoints.
 
 This module exists to make the public `bounty_attempts` API self-documenting
@@ -14,7 +15,6 @@ from here, so this file must not import back.
 Closes part of #944 (OpenAPI bounty work lane).
 """
 
-from __future__ import annotations
 
 from typing import Literal
 
