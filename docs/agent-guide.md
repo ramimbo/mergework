@@ -380,6 +380,31 @@ the previous envelope. `KeyError`, `TypeError`, `LedgerError`, and
 `HTTPException` paths still go through the legacy envelope with no
 `error.data`.
 
+For the field-less `unknown tool` phrase, the `error.data` payload may
+additionally carry a `did_you_mean` field with a single close-match
+suggestion from the static MCP tool list:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "error": {
+    "code": -32602,
+    "message": "invalid tool arguments",
+    "data": {
+      "code": "invalid_argument",
+      "tool": "lis_bounties",
+      "field": null,
+      "message": "unknown tool",
+      "did_you_mean": "list_bounties"
+    }
+  }
+}
+```
+
+`did_you_mean` is always one of the names advertised by `tools/list` (or
+`null` when no close match is found). The rejected name is never echoed.
+
 ## Contribution Rules
 
 - Read `AGENTS.md` before starting.

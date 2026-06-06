@@ -3193,6 +3193,79 @@ def test_mcp_field_error_data_attaches_known_fieldless_unknown_tool(sqlite_url: 
             "tool": None,
             "field": None,
             "message": "unknown tool",
+            "did_you_mean": None,
+        },
+    )
+
+
+def test_mcp_unknown_tool_suggests_close_match(sqlite_url: str) -> None:
+    """A typo'd tool name that is close to a real one surfaces a suggestion."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    # ``lis_bounties`` is missing the trailing ``t`` and is a single edit
+    # away from ``list_bounties``; difflib at cutoff=0.6 should match it.
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {
+                "name": "lis_bounties",
+                "arguments": {},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=7,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "lis_bounties",
+            "field": None,
+            "message": "unknown tool",
+            "did_you_mean": "list_bounties",
+        },
+    )
+
+
+def test_mcp_unknown_tool_does_not_suggest_for_unrelated_name(
+    sqlite_url: str,
+) -> None:
+    """A typo that is not close to any real tool name returns no suggestion."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "zzz_nope_xyz_garbage",
+                "arguments": {},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=8,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "zzz_nope_xyz_garbage",
+            "field": None,
+            "message": "unknown tool",
+            "did_you_mean": None,
         },
     )
 
