@@ -82,6 +82,10 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
             "pull_requests": [3, 4],
         }
     ]
+    assert (
+        "- Bounty #292: guard mcp bounty search oversized numeric query (#3, #4)"
+        in format_text_report(report)
+    )
 
     input_path = tmp_path / "queue.json"
     input_path.write_text(json.dumps(fixture), encoding="utf-8")
@@ -385,6 +389,7 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "PR has mrwk:needs-info label" in markdown
     assert "### Likely duplicate bounty scope" in markdown
     assert "- Bounty #292: guard mcp bounty search oversized numeric query (#3, #4)" in markdown
+    assert markdown.count("guard mcp bounty search oversized numeric query (#3, #4)") == 1
 
 
 def test_pr_queue_health_markdown_no_issues_output_is_pasteable(tmp_path, capsys) -> None:

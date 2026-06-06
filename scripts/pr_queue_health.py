@@ -251,6 +251,12 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
     )
 
 
+def _format_duplicate_scope_group(item: dict[str, Any], *, normalize_scope: bool = False) -> str:
+    prs = ", ".join(f"#{number}" for number in item["pull_requests"])
+    scope = _single_line(item["scope"]) if normalize_scope else item["scope"]
+    return f"- Bounty #{item['bounty']}: {scope} ({prs})"
+
+
 def format_text_report(report: dict[str, Any]) -> str:
     lines = ["PR queue health summary"]
     for key, value in report["summary"].items():
@@ -269,8 +275,7 @@ def format_text_report(report: dict[str, Any]) -> str:
         lines.append("")
         lines.append("Likely duplicate bounty scope")
         for item in report["duplicate_scope_groups"]:
-            prs = ", ".join(f"#{number}" for number in item["pull_requests"])
-            lines.append(f"- Bounty #{item['bounty']}: {item['scope']} ({prs})")
+            lines.append(_format_duplicate_scope_group(item))
     return "\n".join(lines)
 
 
@@ -305,8 +310,7 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         lines.append("")
         lines.append("### Likely duplicate bounty scope")
         for item in report["duplicate_scope_groups"]:
-            prs = ", ".join(f"#{number}" for number in item["pull_requests"])
-            lines.append(f"- Bounty #{item['bounty']}: {_single_line(item['scope'])} ({prs})")
+            lines.append(_format_duplicate_scope_group(item, normalize_scope=True))
     return "\n".join(lines)
 
 
