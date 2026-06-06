@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -316,6 +322,51 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
     challenge_schema = _post_response_schema(
         openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
     )
+    _assert_properties(
+        challenge_schema,
+        {
+            "id",
+            "proposal_id",
+            "challenger_account",
+            "challenge_type",
+            "status",
+            "reason",
+            "created_at",
+        },
+    )
+
+
+def test_public_get_openapi_response_schemas_expose_treasury_proposal_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    proposal_fields = {
+        "id",
+        "type",
+        "action",
+        "status",
+        "payload_hash",
+        "payload",
+        "proposed_by",
+        "executed_by",
+        "proposed_at",
+        "executes_after",
+        "executed_at",
+        "executed_ledger_sequence",
+        "result",
+        "challenges",
+    }
+
+    list_schema = _get_response_schema(openapi, "/api/v1/treasury/proposals")
+    assert list_schema["type"] == "array"
+    _assert_properties(list_schema["items"], proposal_fields)
+
+    detail_schema = _get_response_schema(openapi, "/api/v1/treasury/proposals/{proposal_id}")
+    _assert_properties(detail_schema, proposal_fields)
+
+    challenge_schema = detail_schema["properties"]["challenges"]["items"]
     _assert_properties(
         challenge_schema,
         {

@@ -220,6 +220,24 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+TREASURY_PROPOSAL_LIST_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            {"type": "array", "items": TREASURY_PROPOSAL_RESPONSE_SCHEMA},
+            description="Treasury proposals.",
+        ),
+    },
+}
+
+TREASURY_PROPOSAL_DETAIL_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            TREASURY_PROPOSAL_RESPONSE_SCHEMA,
+            description="Treasury proposal.",
+        ),
+    },
+}
+
 OPTIONAL_ATTEMPT_BODY = {
     "requestBody": _request_body(
         _object_schema(
