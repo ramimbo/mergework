@@ -123,6 +123,22 @@ WALLET_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+AUTH_ME_RESPONSE_SCHEMA = _object_schema(
+    {
+        "authenticated": {
+            "type": "boolean",
+            "description": "Whether the request has a valid GitHub session.",
+        },
+        "github_login": {
+            "type": "string",
+            "nullable": True,
+            "description": "Authenticated GitHub login, or null when signed out.",
+        },
+    },
+    required=["authenticated", "github_login"],
+    description="Current GitHub session state for the caller.",
+)
+
 LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
     {
         "sequence": {"type": "integer", "minimum": 1},
@@ -315,6 +331,12 @@ SIGNED_WALLET_ACTION_BODY = {
     ),
     "responses": {
         "200": _json_response(WALLET_RESPONSE_SCHEMA),
+    },
+}
+
+AUTH_ME_RESPONSE = {
+    "responses": {
+        "200": _json_response(AUTH_ME_RESPONSE_SCHEMA),
     },
 }
 
