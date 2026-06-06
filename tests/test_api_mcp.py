@@ -313,6 +313,46 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert list_bounties_schema["additionalProperties"] is False
     assert list_bounties_schema["properties"]["q"]["maxLength"] == 500
     assert list_bounties_schema["properties"]["limit"]["maximum"] == 100
+    list_bounties_output_schema = tools["result"]["tools"][0]["outputSchema"]
+    assert list_bounties_output_schema["type"] == "array"
+    bounty_output_schema = list_bounties_output_schema["items"]
+    assert bounty_output_schema["additionalProperties"] is True
+    assert bounty_output_schema["properties"]["id"]["minimum"] == 1
+    assert bounty_output_schema["properties"]["issue_number"]["minimum"] == 1
+    assert bounty_output_schema["properties"]["pending_close_proposal"]["type"] == [
+        "object",
+        "null",
+    ]
+    assert bounty_output_schema["properties"]["active_attempt_warnings"]["items"] == {
+        "type": "string"
+    }
+    assert bounty_output_schema["required"] == [
+        "id",
+        "repo",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "available_mrwk",
+        "reserved_mrwk",
+        "max_awards",
+        "awards_paid",
+        "awards_remaining",
+        "effective_available_mrwk",
+        "effective_awards_remaining",
+        "pending_payout_awards",
+        "pending_payout_proposals",
+        "pending_close_proposal",
+        "availability_state",
+        "availability_note",
+        "submission_requirements",
+        "status",
+        "acceptance",
+        "created_at",
+        "active_attempt_count",
+        "active_attempt_warnings",
+        "attempt_endpoint",
+    ]
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
@@ -802,6 +842,15 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
     default_payload = json.loads(default_result["result"]["content"][0]["text"])
     assert default_result["result"]["structuredContent"] == default_payload
     assert [item["id"] for item in default_payload] == [open_bounty.id]
+    assert set(default_payload[0]) >= set(
+        next(
+            tool
+            for tool in client.post(
+                "/mcp", json={"jsonrpc": "2.0", "id": 0, "method": "tools/list"}
+            ).json()["result"]["tools"]
+            if tool["name"] == "list_bounties"
+        )["outputSchema"]["items"]["required"]
+    )
 
     paid_result = client.post(
         "/mcp",

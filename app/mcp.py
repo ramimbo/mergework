@@ -14,6 +14,77 @@ MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCP
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
+MCP_BOUNTY_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "id": {"type": "integer", "minimum": 1},
+            "repo": {"type": "string"},
+            "issue_number": {"type": "integer", "minimum": 1},
+            "issue_url": {"type": "string", "format": "uri"},
+            "title": {"type": "string"},
+            "reward_mrwk": {"type": "string"},
+            "available_mrwk": {"type": "string"},
+            "reserved_mrwk": {"type": "string"},
+            "max_awards": {"type": "integer", "minimum": 1},
+            "awards_paid": {"type": "integer", "minimum": 0},
+            "awards_remaining": {"type": "integer", "minimum": 0},
+            "effective_available_mrwk": {"type": "string"},
+            "effective_awards_remaining": {"type": "integer", "minimum": 0},
+            "pending_payout_awards": {"type": "integer", "minimum": 0},
+            "pending_payout_proposals": {
+                "type": "array",
+                "items": {"type": "object", "additionalProperties": True},
+            },
+            "pending_close_proposal": {
+                "type": ["object", "null"],
+                "additionalProperties": True,
+            },
+            "availability_state": {"type": "string"},
+            "availability_note": {"type": "string"},
+            "submission_requirements": {
+                "type": "object",
+                "additionalProperties": True,
+            },
+            "status": {"type": "string"},
+            "acceptance": {"type": "string"},
+            "created_at": {"type": "string"},
+            "active_attempt_count": {"type": "integer", "minimum": 0},
+            "active_attempt_warnings": {"type": "array", "items": {"type": "string"}},
+            "attempt_endpoint": {"type": "string"},
+        },
+        "required": [
+            "id",
+            "repo",
+            "issue_number",
+            "issue_url",
+            "title",
+            "reward_mrwk",
+            "available_mrwk",
+            "reserved_mrwk",
+            "max_awards",
+            "awards_paid",
+            "awards_remaining",
+            "effective_available_mrwk",
+            "effective_awards_remaining",
+            "pending_payout_awards",
+            "pending_payout_proposals",
+            "pending_close_proposal",
+            "availability_state",
+            "availability_note",
+            "submission_requirements",
+            "status",
+            "acceptance",
+            "created_at",
+            "active_attempt_count",
+            "active_attempt_warnings",
+            "attempt_endpoint",
+        ],
+    },
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -56,6 +127,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             },
             "additionalProperties": False,
         },
+        "outputSchema": MCP_BOUNTY_OUTPUT_SCHEMA,
     },
     {
         "name": "get_bounty",
