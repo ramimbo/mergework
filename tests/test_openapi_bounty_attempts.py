@@ -10,6 +10,8 @@ Closes part of #944 (OpenAPI bounty work lane).
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 
