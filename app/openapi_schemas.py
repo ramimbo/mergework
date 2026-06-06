@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Typed OpenAPI response models for bounty attempts endpoints.
 
 This module exists to make the public `bounty_attempts` API self-documenting
@@ -38,15 +39,23 @@ class BountyAttemptResponse(BaseModel):
 
     id: int = Field(..., description="Stable, monotonic attempt id")
     bounty_id: int = Field(..., description="The bounty this attempt targets")
-    submitter_account: str = Field(..., description="Normalized MRWK account name of the submitter")
+    submitter_account: str = Field(
+        ..., description="Normalized MRWK account name of the submitter"
+    )
     source_url: str | None = Field(
         ...,
         description="Public URL of the work claimed; null when no URL was provided",
     )
-    status: AttemptStatus = Field(..., description="Effective attempt status at response time")
-    expires_at: str = Field(..., description="ISO-8601 UTC timestamp at which the attempt expires")
+    status: AttemptStatus = Field(
+        ..., description="Effective attempt status at response time"
+    )
+    expires_at: str = Field(
+        ..., description="ISO-8601 UTC timestamp at which the attempt expires"
+    )
     created_at: str = Field(..., description="ISO-8601 UTC timestamp of creation")
-    updated_at: str = Field(..., description="ISO-8601 UTC timestamp of last status change")
+    updated_at: str = Field(
+        ..., description="ISO-8601 UTC timestamp of last status change"
+    )
 
 
 class BountyAttemptListEnvelope(BaseModel):
@@ -73,7 +82,9 @@ class BountyAttemptCreateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["registered"] = Field(..., description="Operation result marker")
-    attempt: BountyAttemptResponse = Field(..., description="The newly-registered attempt")
+    attempt: BountyAttemptResponse = Field(
+        ..., description="The newly-registered attempt"
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description="Non-fatal warnings about the bounty at the time of registration",
@@ -86,7 +97,9 @@ class BountyAttemptNotAvailableResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["not_available"] = Field(..., description="Operation result marker")
-    bounty_id: int = Field(..., description="The bounty that was found to be unavailable")
+    bounty_id: int = Field(
+        ..., description="The bounty that was found to be unavailable"
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description="Reasons the bounty was unavailable",
@@ -99,7 +112,9 @@ class BountyAttemptDuplicateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["duplicate"] = Field(..., description="Operation result marker")
-    attempt: BountyAttemptResponse = Field(..., description="The pre-existing active attempt")
+    attempt: BountyAttemptResponse = Field(
+        ..., description="The pre-existing active attempt"
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description="Non-fatal warnings at the time of the duplicate response",
