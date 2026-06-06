@@ -116,6 +116,36 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
 
+def test_account_api_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    for name in ("limit", "status", "repo", "offset"):
+        response = client.get(f"/api/v1/accounts/github:alice?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"
+
+
+def test_account_page_rejects_unsupported_query_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert client.get("/accounts/github:alice?tx_type=genesis").status_code == 200
+
+    for name in ("limit", "status", "repo", "offset"):
+        response = client.get(f"/accounts/github:alice?{name}=1")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{name} is not supported on this endpoint"
+
+
 def test_account_action_urls_escape_query_accounts() -> None:
     assert account_action_urls("github:alice") == {
         "account_json": "/api/v1/accounts/github:alice",

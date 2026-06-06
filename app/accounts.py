@@ -15,7 +15,7 @@ from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
-from app.query_validation import reject_repeated_query_param
+from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
@@ -189,8 +189,9 @@ def account_page_context(
 
 def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
     @app.get("/api/v1/accounts/{account}")
-    def api_account(account: str) -> dict[str, Any]:
+    def api_account(request: Request, account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_unsupported_query_params(request, allowed=set())
         with session_scope(db_url) as session:
             return account_api_context(session, account)
 
@@ -205,6 +206,7 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
         request: Request, account: str, tx_type: str | None = Query(None)
     ) -> HTMLResponse:
         reject_path_whitespace_padding(account, "account")
+        reject_unsupported_query_params(request, allowed={"tx_type"})
         for value in request.query_params.getlist("tx_type"):
             if contains_control_character(value):
                 raise HTTPException(
