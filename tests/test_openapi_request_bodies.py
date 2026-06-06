@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -328,6 +334,103 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_work_discovery_openapi_response_schema_exposes_buckets(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    schema = _get_response_schema(openapi, "/api/v1/work-discovery")
+    _assert_properties(
+        schema,
+        {
+            "type",
+            "summary",
+            "state_definitions",
+            "claimable_now",
+            "opening_soon",
+            "not_claimable",
+            "non_claimable_issue_states",
+        },
+    )
+    assert schema["properties"]["type"]["enum"] == ["work_discovery"]
+    assert set(schema["required"]) == {
+        "type",
+        "summary",
+        "state_definitions",
+        "claimable_now",
+        "opening_soon",
+        "not_claimable",
+        "non_claimable_issue_states",
+    }
+
+    summary = schema["properties"]["summary"]
+    _assert_properties(
+        summary,
+        {"claimable_now_count", "opening_soon_count", "not_claimable_count", "limit"},
+    )
+    assert summary["properties"]["limit"]["minimum"] == 1
+    assert schema["properties"]["state_definitions"]["additionalProperties"] == {"type": "string"}
+
+    bounty_item = schema["properties"]["claimable_now"]["items"]
+    _assert_properties(
+        bounty_item,
+        {
+            "availability_state",
+            "bounty_id",
+            "issue_number",
+            "title",
+            "issue_url",
+            "reward_mrwk",
+            "max_awards",
+            "effective_awards_remaining",
+            "bounty_availability_state",
+            "pending_payout_awards",
+            "source_urls",
+            "next_action",
+            "submission_requirements",
+        },
+    )
+    assert "live_bounty" in bounty_item["properties"]["availability_state"]["enum"]
+    assert bounty_item["properties"]["issue_url"]["format"] == "uri"
+    assert bounty_item["properties"]["reward_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert bounty_item["properties"]["source_urls"]["required"] == [
+        "bounty",
+        "attempts",
+        "github_issue",
+    ]
+    assert bounty_item["properties"]["next_action"]["required"] == ["id", "required", "text"]
+    assert "next_actions" in bounty_item["properties"]["submission_requirements"]["required"]
+
+    pending_item = schema["properties"]["opening_soon"]["items"]
+    _assert_properties(
+        pending_item,
+        {
+            "availability_state",
+            "proposal_id",
+            "issue_number",
+            "title",
+            "issue_url",
+            "reward_mrwk",
+            "max_awards",
+            "effective_awards_remaining",
+            "executes_after",
+            "source_urls",
+            "next_action",
+            "submission_requirements",
+        },
+    )
+    assert pending_item["properties"]["availability_state"]["enum"] == ["pending_create"]
+    assert pending_item["properties"]["source_urls"]["required"] == ["proposal", "github_issue"]
+
+    non_claimable = schema["properties"]["non_claimable_issue_states"]["items"]
+    assert non_claimable["properties"]["availability_state"]["enum"] == [
+        "proposed_work",
+        "board_or_index",
+    ]
+    assert set(non_claimable["required"]) == {"availability_state", "note"}
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
