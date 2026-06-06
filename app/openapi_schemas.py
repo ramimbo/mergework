@@ -89,7 +89,7 @@ class BountyAttemptNotAvailableResponse(BaseModel):
     bounty_id: int = Field(..., description="The bounty that was found to be unavailable")
     warnings: list[str] = Field(
         default_factory=list,
-        description="Reasons the bounty was unavailable (e.g. no awards remaining, status not open)",
+        description="Reasons the bounty was unavailable",
     )
 
 
