@@ -36,7 +36,11 @@ MCP_WALLET_OUTPUT_SCHEMA: dict[str, Any] = {
         },
         "nonce": {"type": "integer", "minimum": 0},
         "next_nonce": {"type": "integer", "minimum": 1},
-        "created_at": {"type": "string", "format": "date-time"},
+        "created_at": {
+            "type": "string",
+            "pattern": r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$",
+            "description": "UTC-normalized timestamp without timezone suffix.",
+        },
     },
     "required": [
         "address",

@@ -387,6 +387,10 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert wallet_output_schema["properties"]["public_key_hex"]["pattern"] == "^[0-9a-f]{64}$"
     assert wallet_output_schema["properties"]["label"]["maxLength"] == 160
     assert wallet_output_schema["properties"]["balance_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert wallet_output_schema["properties"]["created_at"]["pattern"] == (
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$"
+    )
+    assert "format" not in wallet_output_schema["properties"]["created_at"]
     balance_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance")
     balance_schema = balance_tool["inputSchema"]
     assert balance_schema["required"] == ["account"]
