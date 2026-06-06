@@ -447,7 +447,10 @@ def test_claim_inventory_live_mode_fails_fast_when_issue_fetch_hits_cap(monkeypa
 
     monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
 
-    with pytest.raises(RuntimeError, match="issue list reached the 200 item safety cap"):
+    with pytest.raises(
+        RuntimeError,
+        match=rf"issue list reached the {claim_inventory.GH_ISSUE_SAFETY_CAP} item safety cap",
+    ):
         claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.example.test")
 
 
@@ -471,7 +474,10 @@ def test_claim_inventory_live_mode_fails_fast_when_pr_fetch_hits_cap(monkeypatch
 
     monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
 
-    with pytest.raises(RuntimeError, match="pr list reached the 200 item safety cap"):
+    with pytest.raises(
+        RuntimeError,
+        match=rf"pr list reached the {claim_inventory.GH_PR_SAFETY_CAP} item safety cap",
+    ):
         claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.example.test")
 
 
