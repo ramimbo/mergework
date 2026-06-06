@@ -322,8 +322,10 @@ requires a positive integer `sequence`.
 
 Successful MCP tools that return JSON objects or lists include both the
 backward-compatible JSON string in `result.content[0].text` and parsed
-`result.structuredContent`. Prefer `structuredContent` when present, and fall
-back to text for human-readable not-found messages.
+`result.structuredContent`. `tools/list` advertises the `list_bounties` array
+output schema for agents that validate bounty rows before acting. Prefer
+`structuredContent` when present, and fall back to text for human-readable
+not-found messages.
 
 `get_balance` keeps the legacy balance text and also includes
 `result.structuredContent.account`, `balance_mrwk`, and `balance_microunits` so
