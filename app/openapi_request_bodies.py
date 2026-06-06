@@ -61,6 +61,26 @@ MRWK_AMOUNT_SCHEMA = {
     "pattern": r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$",
 }
 
+MRWK_WALLET_ADDRESS_SCHEMA = {
+    "type": "string",
+    "description": "Registered mrwk1 wallet address.",
+    "minLength": 45,
+    "maxLength": 45,
+    "pattern": "^mrwk1[0-9a-f]{40}$",
+}
+
+WALLET_LABEL_SCHEMA = {
+    "type": "string",
+    "description": "Optional wallet display label.",
+    "maxLength": 160,
+}
+
+WALLET_TRANSFER_MEMO_SCHEMA = {
+    "type": "string",
+    "description": "Optional transfer memo.",
+    "maxLength": 240,
+}
+
 MRWK_DECIMAL_SCHEMA = {
     "type": "string",
     "description": "Decimal MRWK amount with at most six decimal places.",
@@ -267,7 +287,7 @@ WALLET_REGISTER_BODY = {
                     **LOWERCASE_HEX_64_SCHEMA,
                     "description": "64-character lowercase hex Ed25519 public key.",
                 },
-                "label": {"type": "string", "description": "Optional wallet display label."},
+                "label": WALLET_LABEL_SCHEMA,
             },
             required=["public_key_hex"],
         ),
@@ -278,7 +298,7 @@ WALLET_REGISTER_BODY = {
 }
 
 SIGNED_WALLET_ACTION_PROPERTIES = {
-    "address": {"type": "string", "description": "Registered mrwk1 wallet address."},
+    "address": MRWK_WALLET_ADDRESS_SCHEMA,
     "nonce": INTEGER_OR_STRING_SCHEMA,
     "signature_hex": {
         **LOWERCASE_HEX_128_SCHEMA,
@@ -309,11 +329,17 @@ WALLET_TRANSFER_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "from_address": {"type": "string", "description": "Sender mrwk1 wallet address."},
-                "to_address": {"type": "string", "description": "Receiver mrwk1 wallet address."},
+                "from_address": {
+                    **MRWK_WALLET_ADDRESS_SCHEMA,
+                    "description": "Sender mrwk1 wallet address.",
+                },
+                "to_address": {
+                    **MRWK_WALLET_ADDRESS_SCHEMA,
+                    "description": "Receiver mrwk1 wallet address.",
+                },
                 "amount_mrwk": MRWK_AMOUNT_SCHEMA,
                 "nonce": INTEGER_OR_STRING_SCHEMA,
-                "memo": {"type": "string", "description": "Optional transfer memo."},
+                "memo": WALLET_TRANSFER_MEMO_SCHEMA,
                 "signature_hex": {
                     **LOWERCASE_HEX_128_SCHEMA,
                     "description": "128-character lowercase hex Ed25519 signature.",

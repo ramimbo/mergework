@@ -108,14 +108,25 @@ def test_public_post_openapi_request_bodies_publish_stable_constraints(
     assert wallet_props["public_key_hex"]["minLength"] == 64
     assert wallet_props["public_key_hex"]["maxLength"] == 64
     assert wallet_props["public_key_hex"]["pattern"] == "^[0-9a-f]{64}$"
+    assert wallet_props["label"]["maxLength"] == 160
 
     link_props = _post_schema(openapi, "/api/v1/wallets/link-github")["properties"]
+    assert link_props["address"]["minLength"] == 45
+    assert link_props["address"]["maxLength"] == 45
+    assert link_props["address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
     assert link_props["signature_hex"]["minLength"] == 128
     assert link_props["signature_hex"]["maxLength"] == 128
     assert link_props["signature_hex"]["pattern"] == "^[0-9a-f]{128}$"
     assert {"type": "integer", "minimum": 1} in link_props["nonce"]["anyOf"]
 
     transfer_props = _post_schema(openapi, "/api/v1/transfers")["properties"]
+    assert transfer_props["from_address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
+    assert transfer_props["from_address"]["minLength"] == 45
+    assert transfer_props["from_address"]["maxLength"] == 45
+    assert transfer_props["to_address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
+    assert transfer_props["to_address"]["minLength"] == 45
+    assert transfer_props["to_address"]["maxLength"] == 45
+    assert transfer_props["memo"]["maxLength"] == 240
     assert transfer_props["signature_hex"]["pattern"] == "^[0-9a-f]{128}$"
 
 
