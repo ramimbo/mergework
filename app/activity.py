@@ -15,6 +15,130 @@ from app.query_validation import reject_control_char_query_param, reject_repeate
 from app.serializers import activity_to_dict
 
 
+def _nullable(schema: dict[str, Any]) -> dict[str, Any]:
+    return {"anyOf": [schema, {"type": "null"}]}
+
+
+ACTIVITY_RESPONSE_SCHEMA = {
+    "description": "Public activity feed with accepted and pending MRWK bounty work.",
+    "content": {
+        "application/json": {
+            "schema": {
+                "type": "object",
+                "required": [
+                    "totals",
+                    "pending_totals",
+                    "query",
+                    "contributors",
+                    "pending_payouts",
+                    "recent",
+                ],
+                "properties": {
+                    "totals": {
+                        "type": "object",
+                        "required": ["accepted_awards", "accepted_mrwk", "contributors"],
+                        "properties": {
+                            "accepted_awards": {"type": "integer", "minimum": 0},
+                            "accepted_mrwk": {"type": "string"},
+                            "contributors": {"type": "integer", "minimum": 0},
+                        },
+                    },
+                    "pending_totals": {
+                        "type": "object",
+                        "required": ["pending_awards", "pending_mrwk"],
+                        "properties": {
+                            "pending_awards": {"type": "integer", "minimum": 0},
+                            "pending_mrwk": {"type": "string"},
+                        },
+                    },
+                    "query": {"type": "string"},
+                    "account": _nullable({"type": "string"}),
+                    "contributors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["account", "accepted_awards", "accepted_mrwk"],
+                            "properties": {
+                                "account": _nullable({"type": "string"}),
+                                "accepted_awards": {"type": "integer", "minimum": 0},
+                                "accepted_mrwk": {"type": "string"},
+                                "latest_submission_url": _nullable({"type": "string"}),
+                                "latest_bounty_repo": _nullable({"type": "string"}),
+                                "latest_bounty_issue_number": _nullable({"type": "integer"}),
+                                "latest_bounty_issue_url": _nullable({"type": "string"}),
+                                "latest_proof_hash": _nullable({"type": "string"}),
+                                "latest_proof_url": _nullable({"type": "string"}),
+                            },
+                        },
+                    },
+                    "pending_payouts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "proposal_id",
+                                "proposal_url",
+                                "status",
+                                "account",
+                                "bounty_id",
+                                "bounty_url",
+                            ],
+                            "properties": {
+                                "proposal_id": {"type": "integer"},
+                                "proposal_url": {"type": "string"},
+                                "status": {"type": "string"},
+                                "account": _nullable({"type": "string"}),
+                                "amount_mrwk": _nullable({"type": "string"}),
+                                "submission_url": _nullable({"type": "string"}),
+                                "bounty_repo": _nullable({"type": "string"}),
+                                "bounty_issue_number": _nullable({"type": "integer"}),
+                                "bounty_issue_url": _nullable({"type": "string"}),
+                                "bounty_id": _nullable({"type": "integer"}),
+                                "bounty_url": _nullable({"type": "string"}),
+                                "accepted_by": _nullable({"type": "string"}),
+                                "proposed_at": {"type": "string"},
+                                "executes_after": {"type": "string"},
+                            },
+                        },
+                    },
+                    "recent": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "ledger_sequence",
+                                "account",
+                                "amount_mrwk",
+                                "submission_url",
+                                "proof_hash",
+                                "proof_url",
+                                "created_at",
+                            ],
+                            "properties": {
+                                "ledger_sequence": {"type": "integer"},
+                                "account": _nullable({"type": "string"}),
+                                "amount_mrwk": _nullable({"type": "string"}),
+                                "submission_url": _nullable({"type": "string"}),
+                                "bounty_repo": _nullable({"type": "string"}),
+                                "bounty_issue_number": _nullable({"type": "integer"}),
+                                "bounty_issue_url": _nullable({"type": "string"}),
+                                "proof_hash": {"type": "string"},
+                                "proof_url": {"type": "string"},
+                                "bounty_id": _nullable({"type": "integer"}),
+                                "bounty_url": _nullable({"type": "string"}),
+                                "created_at": {"type": "string"},
+                            },
+                        },
+                    },
+                    "api_activity_url": {"type": "string"},
+                    "clear_activity_url": {"type": "string"},
+                },
+            }
+        }
+    },
+}
+
+
 def activity_context(
     session: Session, query: str | None = None, account: str | None = None
 ) -> dict[str, Any]:
@@ -47,7 +171,7 @@ def _validate_activity_filter_params(request: Request) -> None:
 
 
 def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/activity")
+    @app.get("/api/v1/activity", responses={200: ACTIVITY_RESPONSE_SCHEMA})
     def api_activity(
         request: Request,
         q: str | None = Query(None),
