@@ -193,6 +193,15 @@ def public_bounties_context(
             None,
             selected_availability,
         ),
+        "clear_availability_filter_url": _bounties_page_url(
+            selected_status,
+            query_text,
+            selected_sort,
+            limit,
+            selected_repo,
+            issue_number,
+            "all",
+        ),
         "status_filter_urls": {
             "all": _bounties_page_url(
                 None,

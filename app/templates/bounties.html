@@ -39,6 +39,9 @@
 {% if selected_repo or selected_issue_number %}
 <p>Source filter:{% if selected_repo %} {{ selected_repo }}{% endif %}{% if selected_issue_number %} #{{ selected_issue_number }}{% endif %}. <a href="{{ clear_source_filter_url | safe }}">Clear source filter</a></p>
 {% endif %}
+{% if selected_availability == "effectively_open" %}
+<p>Showing only effectively open bounties. <a href="{{ clear_availability_filter_url | safe }}">Show all visible rows</a></p>
+{% endif %}
 <section class="bounty-list-summary" aria-label="Bounty list summary">
   <article>
     <span>Bounties shown</span>
