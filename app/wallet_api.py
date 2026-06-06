@@ -17,6 +17,7 @@ from app.models import Wallet
 from app.openapi_request_bodies import (
     GITHUB_CLAIM_BODY,
     SIGNED_WALLET_ACTION_BODY,
+    WALLET_LOOKUP_RESPONSE,
     WALLET_REGISTER_BODY,
     WALLET_TRANSFER_BODY,
 )
@@ -66,7 +67,7 @@ def register_wallet_api_routes(
     def api_link_wallet_github_get() -> None:
         post_only_route()
 
-    @app.get("/api/v1/wallets/{address}")
+    @app.get("/api/v1/wallets/{address}", openapi_extra=WALLET_LOOKUP_RESPONSE)
     def api_wallet(request: Request, address: str) -> dict[str, Any]:
         reject_path_whitespace_padding(address, "MRWK wallet address")
         if request.query_params.getlist("type") or request.query_params.getlist("tx_type"):
