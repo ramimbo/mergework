@@ -13,6 +13,44 @@ MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
+MCP_WALLET_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "address": {
+            "type": "string",
+            "pattern": "^mrwk1[0-9a-f]{40}$",
+            "description": "Canonical lowercase MRWK wallet address.",
+        },
+        "public_key_hex": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+        },
+        "label": {"type": ["string", "null"], "maxLength": 160},
+        "github_login": {"type": ["string", "null"]},
+        "balance_mrwk": {
+            "type": "string",
+            "pattern": r"^\d+(?:\.\d{1,6})?$",
+            "description": "Decimal MRWK balance with at most six decimal places.",
+        },
+        "nonce": {"type": "integer", "minimum": 0},
+        "next_nonce": {"type": "integer", "minimum": 1},
+        "created_at": {"type": "string", "format": "date-time"},
+    },
+    "required": [
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "created_at",
+    ],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -189,6 +227,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["address"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_wallet_transfer",

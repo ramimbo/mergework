@@ -309,7 +309,7 @@ Tools:
 - `list_bounty_attempts`
 - `get_balance`
 - `register_wallet`
-- `get_wallet`
+- `get_wallet` (`tools/list` advertises its structured wallet output schema)
 - `submit_wallet_transfer`
 - `get_ledger_entry`
 - `get_proof`
