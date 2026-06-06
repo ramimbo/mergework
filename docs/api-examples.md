@@ -16,6 +16,11 @@ publish request and response schemas for attempt reservations, wallet actions,
 transfers, and treasury challenges so clients can discover payload and result
 fields without reading source code.
 
+The human-readable contributor docs page at `https://mrwk.online/docs` is a
+static page and must be requested without query parameters. Requests such as
+`/docs?limit=1` or `/docs?status=open` return HTTP 400 because the page does not
+support list, search, account, repository, or status filters.
+
 ## Status And Bounties
 
 Check service status and list bounties:

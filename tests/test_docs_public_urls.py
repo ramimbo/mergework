@@ -562,6 +562,15 @@ def test_api_examples_document_activity_response_shape() -> None:
     assert "/api/v1/proofs/<proof_hash>" in examples
 
 
+def test_api_examples_document_docs_page_query_rejection() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert "https://mrwk.online/docs" in examples
+    assert "/docs?limit=1" in examples
+    assert "/docs?status=open" in examples
+    assert "return HTTP 400" in examples
+
+
 def test_api_examples_document_accepted_work_bounty_context() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
