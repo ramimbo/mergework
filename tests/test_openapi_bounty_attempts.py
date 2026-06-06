@@ -11,6 +11,7 @@ We build the FastAPI app once and read the openapi schema directly via
 
 Closes part of #944 (OpenAPI bounty work lane).
 """
+
 from __future__ import annotations
 
 import json
@@ -115,4 +116,6 @@ def test_post_endpoint_declares_201_response(openapi_spec):
     """The POST endpoint must declare a 201 response."""
     post_op = openapi_spec["paths"]["/api/v1/bounties/{bounty_id}/attempts"]["post"]
     assert "201" in post_op.get("responses", {}), "POST must declare a 201 response"
-    assert "409" in post_op.get("responses", {}), "POST must declare a 409 response for unavailable/duplicate"
+    assert "409" in post_op.get("responses", {}), (
+        "POST must declare a 409 response for unavailable/duplicate"
+    )
