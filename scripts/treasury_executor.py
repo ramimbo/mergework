@@ -78,7 +78,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--once", action="store_true", help="Run one enabled pass and exit.")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    config = executor_config_from_env()
+    try:
+        config = executor_config_from_env()
+    except ValueError as exc:
+        logging.error("treasury executor configuration invalid: %s", exc)
+        return 1
     if not config.enabled:
         logging.info("treasury executor disabled by MERGEWORK_TREASURY_EXECUTOR_ENABLED")
         if args.once:

@@ -174,3 +174,20 @@ def test_executor_once_returns_failure_when_pass_fails(monkeypatch: pytest.Monke
     monkeypatch.setattr(executor_script, "run_once", fake_run_once)
 
     assert executor_script.main(["--once"]) == 1
+
+
+def test_executor_main_reports_invalid_config_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(
+        executor_script,
+        "executor_config_from_env",
+        lambda: (_ for _ in ()).throw(
+            ValueError("MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS must be at least 15")
+        ),
+    )
+
+    assert executor_script.main(["--once"]) == 1
+    assert "treasury executor configuration invalid" in caplog.text
+    assert "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS must be at least 15" in caplog.text
