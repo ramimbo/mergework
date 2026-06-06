@@ -14,6 +14,66 @@ MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCP
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
+MCP_LEDGER_ENTRY_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "type": {"type": "string"},
+        "from": {"type": ["string", "null"]},
+        "to": {"type": "string"},
+        "amount_mrwk": {
+            "type": "string",
+            "description": "Decimal MRWK amount with at most six decimal places.",
+            "pattern": r"^\d+(?:\.\d{1,6})?$",
+        },
+        "reference": {"type": ["string", "null"]},
+        "previous_hash": {"type": ["string", "null"]},
+        "entry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "proof_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ],
+    "additionalProperties": False,
+}
+
+MCP_PROOF_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "kind": {"type": "string"},
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "bounty_id": {"type": ["integer", "null"], "minimum": 1},
+        "submission_id": {"type": ["integer", "null"], "minimum": 1},
+        "created_at": {"type": "string"},
+        "proof": {
+            "type": "object",
+            "description": "Stored public proof payload.",
+            "additionalProperties": True,
+        },
+    },
+    "required": [
+        "hash",
+        "kind",
+        "ledger_sequence",
+        "bounty_id",
+        "submission_id",
+        "created_at",
+        "proof",
+    ],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -210,6 +270,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["sequence"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_LEDGER_ENTRY_OUTPUT_SCHEMA,
     },
     {
         "name": "get_proof",
@@ -228,6 +289,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["hash"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_PROOF_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_work_proof",

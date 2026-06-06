@@ -320,6 +320,10 @@ Tools:
 `get_proof` requires a 64-character proof `hash`, and `get_ledger_entry`
 requires a positive integer `sequence`.
 
+`tools/list` also advertises output schemas for `get_proof` and
+`get_ledger_entry`, including the proof metadata fields and ledger-entry
+fields agents receive in `result.structuredContent`.
+
 Successful MCP tools that return JSON objects or lists include both the
 backward-compatible JSON string in `result.content[0].text` and parsed
 `result.structuredContent`. Prefer `structuredContent` when present, and fall
