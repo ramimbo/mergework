@@ -415,6 +415,12 @@ def register_public_routes(
 
     @app.get("/transfer", response_class=HTMLResponse)
     def transfer_page(request: Request) -> HTMLResponse:
+        for name in ("limit", "offset", "status", "q", "account", "repo", "type", "tx_type"):
+            if request.query_params.getlist(name):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{name} is not supported on transfer page",
+                )
         return templates.TemplateResponse(request, "transfer.html")
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)

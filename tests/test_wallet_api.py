@@ -763,6 +763,30 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     assert oversized_search_response.json()["detail"] == "q must be at most 500 characters"
 
 
+def test_transfer_page_rejects_unsupported_query_filters(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/transfer")
+
+    assert response.status_code == 200
+    assert "Signed transfer" in response.text
+    for name, value in {
+        "limit": "1",
+        "offset": "1",
+        "status": "open",
+        "q": "bounty",
+        "account": "github:alice",
+        "repo": "ramimbo/mergework",
+        "type": "bounty_payment",
+        "tx_type": "bounty_payment",
+    }.items():
+        unsupported_response = client.get("/transfer", params={name: value})
+        assert unsupported_response.status_code == 400
+        assert unsupported_response.json()["detail"] == (
+            f"{name} is not supported on transfer page"
+        )
+
+
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
     create_schema(sqlite_url)
