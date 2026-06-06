@@ -350,6 +350,16 @@ def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, va
     return value
 
 
+def _positive_int_arg(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected an integer, got {value!r}") from None
+    if parsed < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {parsed}")
+    return parsed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Rank open PRs for reviewer-specific review-bounty work."
@@ -358,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--input", help="Read candidate data from a JSON fixture file.")
     source.add_argument("--repo", help="Collect live open PR data with gh.")
     parser.add_argument("--reviewer", required=True, help="GitHub login of the reviewer.")
-    parser.add_argument("--sufficient-reviews", type=int, default=1)
+    parser.add_argument("--sufficient-reviews", type=_positive_int_arg, default=1)
     parser.add_argument("--format", choices=["json", "markdown", "text"], default="text")
     args = parser.parse_args(argv)
 

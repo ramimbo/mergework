@@ -226,6 +226,37 @@ def test_analyze_candidates_rejects_invalid_arguments() -> None:
         analyze_candidates(data, reviewer="reviewer", sufficient_reviews=0)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected_message"),
+    (
+        ("0", "must be >= 1"),
+        ("abc", "expected an integer"),
+    ),
+)
+def test_review_bounty_candidates_rejects_invalid_sufficient_reviews(
+    value: str,
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "--input",
+                "tests/fixtures/missing.json",
+                "--reviewer",
+                "reviewer",
+                "--sufficient-reviews",
+                value,
+            ]
+        )
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
+
+
 def test_review_bounty_candidate_reports_are_pasteable() -> None:
     report = analyze_candidates(
         {
