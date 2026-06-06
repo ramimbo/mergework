@@ -390,6 +390,11 @@ def _run_gh(args: list[str]) -> Any:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "GitHub CLI executable 'gh' was not found; install gh and ensure it is on PATH "
+            "before using live mode."
+        ) from exc
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
     try:
