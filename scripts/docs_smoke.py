@@ -180,6 +180,26 @@ def _markdown_anchors(path: Path) -> set[str]:
     return anchors
 
 
+def _markdown_links_outside_fences(text: str) -> list[str]:
+    links: list[str] = []
+    fence_marker = ""
+
+    for line in text.splitlines():
+        fence_match = FENCE_RE.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if not fence_marker:
+                fence_marker = marker
+            elif marker.startswith(fence_marker[0]) and len(marker) >= len(fence_marker):
+                fence_marker = ""
+            continue
+        if fence_marker:
+            continue
+        links.extend(LINK_RE.findall(line))
+
+    return links
+
+
 def _local_target_exists(source: Path, target: str) -> bool:
     clean, separator, fragment = target.partition("#")
     if clean.startswith(("http://", "https://", "mailto:")):
@@ -267,7 +287,7 @@ def main() -> int:
             if _squash(phrase) not in squashed:
                 print(f"missing required public phrase in {relative}: {phrase}")
                 ok = False
-        for link in LINK_RE.findall(text):
+        for link in _markdown_links_outside_fences(text):
             if not _local_target_exists(path, link):
                 print(f"broken local link in {relative}: {link}")
                 ok = False

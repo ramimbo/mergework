@@ -9,6 +9,7 @@ from scripts.docs_smoke import (
     _local_target_exists,
     _markdown_anchors,
     _markdown_heading_anchor,
+    _markdown_links_outside_fences,
     _template_field_is_required,
 )
 
@@ -239,6 +240,24 @@ def test_markdown_anchors_ignore_fenced_code_headings(tmp_path: Path) -> None:
     )
 
     assert _markdown_anchors(target) == {"real-heading"}
+
+
+def test_markdown_links_outside_fences_ignore_code_examples() -> None:
+    text = (
+        "[Real](docs/bounty-lifecycle.md)\n"
+        "```markdown\n"
+        "[Example](definitely-missing.md)\n"
+        "```\n"
+        "~~~md\n"
+        "[Other Example](also-missing.md)\n"
+        "~~~\n"
+        "[Second](docs/api-examples.md#account-response-shape)\n"
+    )
+
+    assert _markdown_links_outside_fences(text) == [
+        "docs/bounty-lifecycle.md",
+        "docs/api-examples.md#account-response-shape",
+    ]
 
 
 def test_markdown_heading_anchor_handles_inline_code() -> None:
