@@ -1,15 +1,17 @@
 """Typed OpenAPI response models for bounty attempts endpoints.
 
-Closes part of #944 (OpenAPI bounty work lane) — gives `bounty_attempts`
-endpoints explicit `response_model` declarations so they appear in
-`/openapi.json` with full schema, making the API self-documenting for
-SDK generators and agent clients.
+This module exists to make the public `bounty_attempts` API self-documenting
+for clients, SDK generators, and AI agents. The Pydantic models here mirror
+the dicts produced by the existing `*_to_dict` and response builders in
+`app/bounty_attempts.py` and `app/bounty_attempt_response.py` *exactly* — the
+wire format is unchanged. The schemas are purely declarative so that
+`/openapi.json` carries a complete contract.
 
-The shapes here match what `bounty_attempt_to_dict` already returns
-runtime, so the wire format is unchanged. The schemas are purely
-declarative — they exist so OpenAPI consumers (Claude agents, code
-generators, OpenAPI client SDKs) can understand the contract without
-reading Python source.
+This module deliberately does NOT import from `app/bounty_attempts` to
+avoid a circular import: `bounty_attempts.py` imports the response models
+from here, so this file must not import back.
+
+Closes part of #944 (OpenAPI bounty work lane).
 """
 from __future__ import annotations
 
@@ -18,16 +20,17 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# Status values that may appear in `_attempt_effective_status`. The model
-# has to cover all of them so the OpenAPI enum is exhaustive.
-AttemptStatus = Literal["active", "expired", "released", "superseded"]
+# All status values that can appear in `_attempt_effective_status` or in the
+# `status` field of `BountyAttempt`. Kept exhaustive so OpenAPI consumers see
+# a closed enum, not `string`.
+AttemptStatus = Literal["active", "expired", "released", "superseded", "registered"]
 
 
 class BountyAttemptResponse(BaseModel):
-    """One bounty attempt as returned by `/api/v1/bounties/{bounty_id}/attempts`.
+    """One bounty attempt as returned by `bounty_attempt_to_dict`.
 
-    Mirrors the dict produced by `app.bounty_attempts.bounty_attempt_to_dict`
-    exactly. Any change to that serializer must be reflected here.
+    Mirrors `app.bounty_attempts.bounty_attempt_to_dict` exactly. Any change
+    to that serializer must be reflected here.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -42,17 +45,44 @@ class BountyAttemptResponse(BaseModel):
     updated_at: str = Field(..., description="ISO-8601 UTC timestamp of last status change")
 
 
-class BountyAttemptListResponse(BaseModel):
-    """Top-level shape returned by `GET /api/v1/bounties/{bounty_id}/attempts`.
+class BountyAttemptListEnvelope(BaseModel):
+    """Envelope returned by `GET /api/v1/bounties/{bounty_id}/attempts`.
 
-    The list endpoint currently returns the bare list, not an envelope.
-    We document it as an array-of-`BountyAttemptResponse` so OpenAPI
-    consumers can iterate without inspecting the response.
+    The GET endpoint returns this object, not a bare list.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    bounty_id: int = Field(..., description="The bounty whose attempts are listed")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings about the bounty at the time of the request")
+    attempts: list[BountyAttemptResponse] = Field(..., description="The matching attempts, newest first")
 
-# FastAPI can take a `list[BountyAttemptResponse]` directly in
-# `response_model=`, but we also export the alias for clarity in callers.
-BountyAttemptList = list[BountyAttemptResponse]
+
+class BountyAttemptCreateResponse(BaseModel):
+    """Envelope returned by `POST /api/v1/bounties/{bounty_id}/attempts` on success (201)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["registered"] = Field(..., description="Operation result marker")
+    attempt: BountyAttemptResponse = Field(..., description="The newly-registered attempt")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings about the bounty at the time of registration")
+
+
+class BountyAttemptNotAvailableResponse(BaseModel):
+    """Envelope returned by `POST /api/v1/bounties/{bounty_id}/attempts` when the bounty is not claimable (409)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["not_available"] = Field(..., description="Operation result marker")
+    bounty_id: int = Field(..., description="The bounty that was found to be unavailable")
+    warnings: list[str] = Field(default_factory=list, description="Reasons the bounty was unavailable (e.g. no awards remaining, status not open)")
+
+
+class BountyAttemptDuplicateResponse(BaseModel):
+    """Envelope returned by `POST /api/v1/bounties/{bounty_id}/attempts` when an active attempt already exists (409)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["duplicate"] = Field(..., description="Operation result marker")
+    attempt: BountyAttemptResponse = Field(..., description="The pre-existing active attempt")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings at the time of the duplicate response")
