@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -48,11 +49,28 @@ def _bounty_source_urls(row: dict[str, Any]) -> dict[str, str]:
     return {
         "bounty": f"/api/v1/bounties/{bounty_id}",
         "attempts": f"/api/v1/bounties/{bounty_id}/attempts",
+        "public_bounty_page": f"/bounties/{bounty_id}",
         "github_issue": str(row["issue_url"]),
     }
 
 
+def _claimable_matches_url(row: dict[str, Any]) -> str:
+    query = urlencode(
+        {
+            "status": "open",
+            "repo": str(row["repo"]),
+            "issue_number": int(row["issue_number"]),
+            "sort": "reward",
+            "availability": "effectively_open",
+        }
+    )
+    return f"/bounties?{query}"
+
+
 def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str, Any]:
+    source_urls = _bounty_source_urls(row)
+    if availability_state == "live_bounty":
+        source_urls["claimable_matches"] = _claimable_matches_url(row)
     return {
         "availability_state": availability_state,
         "bounty_id": int(row["id"]),
@@ -64,7 +82,7 @@ def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str,
         "effective_awards_remaining": int(row["effective_awards_remaining"]),
         "bounty_availability_state": str(row["availability_state"]),
         "pending_payout_awards": int(row["pending_payout_awards"]),
-        "source_urls": _bounty_source_urls(row),
+        "source_urls": source_urls,
         "submission_requirements": row["submission_requirements"],
     }
 

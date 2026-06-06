@@ -183,6 +183,8 @@ non-claimable states out of the claimable list, and accepts optional
       "source_urls": {
         "bounty": "/api/v1/bounties/108",
         "attempts": "/api/v1/bounties/108/attempts",
+        "public_bounty_page": "/bounties/108",
+        "claimable_matches": "/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=800&sort=reward&availability=effectively_open",
         "github_issue": "https://github.com/ramimbo/mergework/issues/800"
       }
     }
@@ -219,6 +221,7 @@ non-claimable states out of the claimable list, and accepts optional
       "source_urls": {
         "bounty": "/api/v1/bounties/102",
         "attempts": "/api/v1/bounties/102/attempts",
+        "public_bounty_page": "/bounties/102",
         "github_issue": "https://github.com/ramimbo/mergework/issues/761"
       }
     }
