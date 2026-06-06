@@ -377,6 +377,8 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance_schema["additionalProperties"] is False
     assert balance_schema["properties"]["account"]["minLength"] == 1
     assert "github:<login>" in balance_schema["properties"]["account"]["description"]
+    assert balance_schema["properties"]["format"]["enum"] == ["text", "json"]
+    assert balance_schema["properties"]["format"]["default"] == "text"
 
     balance = client.post(
         "/mcp",
@@ -390,6 +392,23 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance["result"]["content"][0]["type"] == "text"
     assert "100000000" in balance["result"]["content"][0]["text"]
     assert "structuredContent" not in balance["result"]
+    structured_balance = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "get_balance",
+                "arguments": {"account": "treasury:mrwk", "format": "json"},
+            },
+        },
+    ).json()
+    structured_payload = structured_balance["result"]["structuredContent"]
+    assert structured_payload["account"] == "treasury:mrwk"
+    assert structured_payload["balance_microunits"] > 0
+    assert structured_payload["balance_mrwk"] == "100000000"
+    assert json.loads(structured_balance["result"]["content"][0]["text"]) == structured_payload
 
 
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
@@ -1633,6 +1652,7 @@ def test_mcp_accepts_canonical_integer_string_arguments(sqlite_url: str) -> None
         ("get_balance", {"account": True}, 13),
         ("get_balance", {"account": 123}, 14),
         ("get_balance", {"account": ""}, 15),
+        ("get_balance", {"account": "treasury:mrwk", "format": "yaml"}, 19),
         ("get_wallet", {"address": 123}, 16),
         ("get_proof", {"hash": 123}, 17),
         ("get_wallet", {"address": "not-a-wallet"}, 18),

@@ -259,6 +259,9 @@ curl -s -X POST "$MCP_HOST/mcp" \
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_balance","arguments":{"account":"treasury:mrwk"}}}
 ```
 
+Pass `{"format":"json"}` when you need `account`, `balance_microunits`,
+and `balance_mrwk` in `result.structuredContent`.
+
 List open bounties through MCP:
 
 ```bash
@@ -307,7 +310,7 @@ Tools:
 - `list_bounties`
 - `get_bounty`
 - `list_bounty_attempts`
-- `get_balance`
+- `get_balance` (`format: "json"` returns structuredContent)
 - `register_wallet`
 - `get_wallet`
 - `submit_wallet_transfer`
@@ -319,8 +322,7 @@ Tools:
 Successful MCP tools that return JSON objects or lists include both the
 backward-compatible JSON string in `result.content[0].text` and parsed
 `result.structuredContent`. Prefer `structuredContent` when present, and fall
-back to text for human-readable responses such as balances or not-found
-messages.
+back to text for human-readable responses such as not-found messages.
 
 ## Contribution Rules
 

@@ -165,6 +165,12 @@ MCP_TOOLS: list[dict[str, Any]] = [
                         "reserve:bounty:<id>, or an mrwk1 wallet address."
                     ),
                 },
+                "format": {
+                    "type": "string",
+                    "enum": ["text", "json"],
+                    "default": "text",
+                    "description": "Use json for machine-readable structuredContent.",
+                },
             },
             "required": ["account"],
             "additionalProperties": False,

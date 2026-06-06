@@ -253,8 +253,16 @@ def call_mcp_tool(database_url: str, name: str, args: dict[str, Any]) -> str | d
                 "attempts": attempt_listing["attempts"],
             }
         if name == "get_balance":
+            require_known_fields("account", "format")
             account = normalized_account(str_arg("account"))
-            return f"{account}: {format_mrwk(get_balance(session, account))} MRWK"
+            balance_microunits = get_balance(session, account)
+            if output_format_arg() == "json":
+                return {
+                    "account": account,
+                    "balance_microunits": balance_microunits,
+                    "balance_mrwk": format_mrwk(balance_microunits),
+                }
+            return f"{account}: {format_mrwk(balance_microunits)} MRWK"
         if name == "register_wallet":
             reject_unexpected_args("register_wallet", {"public_key_hex", "label"})
             wallet = register_wallet(

@@ -444,6 +444,10 @@ def test_api_examples_document_mcp_wallet_transfer_response() -> None:
 def test_api_examples_document_mcp_lookup_response_shapes() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
+    assert '"name":"get_balance"' in examples
+    assert '"format":"json"' in examples
+    assert "balance_microunits" in examples
+    assert "balance_mrwk" in examples
     assert '"name":"get_ledger_entry"' in examples
     assert '"arguments":{"sequence":42}' in examples
     assert "same ledger-entry shape as" in examples

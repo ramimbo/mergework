@@ -778,6 +778,15 @@ curl -s -X POST "$MCP_HOST/mcp" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_balance","arguments":{"account":"treasury:mrwk"}}}'
 ```
 
+Pass `{"format":"json"}` when an agent needs `account`,
+`balance_microunits`, and `balance_mrwk` in `result.structuredContent`.
+
+```bash
+curl -s -X POST "$MCP_HOST/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_balance","arguments":{"account":"treasury:mrwk","format":"json"}}}'
+```
+
 Call `list_bounties`:
 
 ```bash
