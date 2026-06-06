@@ -191,3 +191,4 @@ def test_executor_main_reports_invalid_config_without_traceback(
     assert executor_script.main(["--once"]) == 1
     assert "treasury executor configuration invalid" in caplog.text
     assert "MERGEWORK_TREASURY_EXECUTOR_INTERVAL_SECONDS must be at least 15" in caplog.text
+    assert "Traceback (most recent call last)" not in caplog.text
