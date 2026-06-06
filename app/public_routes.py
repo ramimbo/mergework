@@ -114,6 +114,27 @@ def _bounties_api_url(
     )
 
 
+def _bounties_summary_api_url(
+    status: str | None,
+    query_text: str,
+    selected_sort: str,
+    limit: int | None,
+    repo: str,
+    issue_number: int | None,
+    selected_availability: str,
+) -> str:
+    return _bounties_url(
+        "/api/v1/bounties/summary",
+        status,
+        query_text,
+        selected_sort,
+        limit,
+        repo,
+        issue_number,
+        selected_availability,
+    )
+
+
 def _bounties_page_url(
     status: str | None,
     query_text: str,
@@ -174,6 +195,25 @@ def public_bounties_context(
             selected_repo,
             issue_number,
             selected_availability,
+        ),
+        "api_summary_url": _bounties_summary_api_url(
+            selected_status,
+            query_text,
+            selected_sort,
+            limit,
+            selected_repo,
+            issue_number,
+            selected_availability,
+        ),
+        "work_discovery_url": "/api/v1/work-discovery",
+        "claimable_now_url": _bounties_page_url(
+            "open",
+            query_text,
+            "reward",
+            limit,
+            selected_repo,
+            issue_number,
+            "effectively_open",
         ),
         "clear_search_url": _bounties_page_url(
             selected_status,
