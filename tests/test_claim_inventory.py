@@ -430,6 +430,51 @@ def test_run_gh_json_reports_missing_gh(monkeypatch) -> None:
         raise AssertionError("expected missing gh RuntimeError")
 
 
+def test_claim_inventory_live_mode_fails_fast_when_issue_fetch_hits_cap(monkeypatch) -> None:
+    def fake_run_gh_json(args: list[str]) -> object:
+        if args[:3] == ["gh", "issue", "list"]:
+            return [
+                {
+                    "number": number,
+                    "title": "MRWK bounty: many",
+                    "url": f"https://github.com/ramimbo/mergework/issues/{number}",
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "author": {"login": "ramimbo"},
+                }
+                for number in range(1, claim_inventory.GH_ISSUE_SAFETY_CAP + 1)
+            ]
+        raise AssertionError(args)
+
+    monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
+
+    with pytest.raises(RuntimeError, match="issue list reached the 200 item safety cap"):
+        claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.example.test")
+
+
+def test_claim_inventory_live_mode_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
+    def fake_run_gh_json(args: list[str]) -> object:
+        if args[:3] == ["gh", "issue", "list"]:
+            return []
+        if args[:3] == ["gh", "pr", "list"]:
+            return [
+                {
+                    "number": number,
+                    "title": "Open PR",
+                    "url": f"https://github.com/ramimbo/mergework/pull/{number}",
+                    "body": "Refs #1",
+                    "author": {"login": "contributor"},
+                    "labels": [],
+                }
+                for number in range(1, claim_inventory.GH_PR_SAFETY_CAP + 1)
+            ]
+        raise AssertionError(args)
+
+    monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
+
+    with pytest.raises(RuntimeError, match="pr list reached the 200 item safety cap"):
+        claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.example.test")
+
+
 def test_claim_inventory_script_entrypoint_loads_shared_parser() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/claim_inventory.py", "--help"],
