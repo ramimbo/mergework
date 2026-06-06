@@ -10,7 +10,12 @@ from app.treasury_executor_config import executor_config_from_env
 
 
 def main() -> int:
-    errors = validate_deploy_settings(get_settings())
+    try:
+        settings = get_settings()
+    except ValueError as exc:
+        errors = [str(exc)]
+    else:
+        errors = validate_deploy_settings(settings)
     try:
         executor_config_from_env()
     except ValueError as exc:

@@ -512,6 +512,15 @@ def test_deploy_readiness_accepts_treasury_executor_minimum_bounds() -> None:
     assert result.stdout.strip() == "Deploy readiness check passed."
 
 
+def test_deploy_readiness_reports_malformed_settings_without_traceback() -> None:
+    result = _run_deploy_ready(_deploy_ready_env(MERGEWORK_BOUNTY_BOARD_ISSUE_NUMBER="notanumber"))
+
+    assert result.returncode == 1, result.stdout
+    assert "Deploy readiness check failed:" in result.stdout
+    assert "- MERGEWORK_BOUNTY_BOARD_ISSUE_NUMBER must be an integer" in result.stdout
+    assert "Traceback" not in result.stderr
+
+
 @pytest.mark.parametrize(
     ("name", "value", "expected_error"),
     [
