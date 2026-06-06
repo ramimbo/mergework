@@ -288,6 +288,8 @@ def test_docs_document_public_work_discovery_endpoint() -> None:
     assert "/api/v1/work-discovery" in examples
     assert "live bounty rows from pending create-bounty proposals" in examples
     assert '"availability_state": "pending_create"' in examples
+    assert "label%3Aproposed-work" in examples
+    assert "/docs/bounty-rules#proposed-work-requests" in examples
 
 
 def test_admin_runbook_warns_to_validate_production_admin_token() -> None:

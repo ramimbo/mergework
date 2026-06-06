@@ -241,7 +241,13 @@ non-claimable states out of the claimable list, and accepts optional
   "non_claimable_issue_states": [
     {
       "availability_state": "proposed_work",
-      "note": "GitHub proposed-work issue is intake only until a create_bounty proposal executes."
+      "repo": "ramimbo/mergework",
+      "title": "Proposed work requests",
+      "note": "GitHub proposed-work issue is intake only until a create_bounty proposal executes.",
+      "source_urls": {
+        "github_label": "https://github.com/ramimbo/mergework/issues?q=is%3Aissue+is%3Aopen+label%3Aproposed-work",
+        "lifecycle_docs": "/docs/bounty-rules#proposed-work-requests"
+      }
     },
     {
       "availability_state": "board_or_index",

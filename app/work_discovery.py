@@ -30,7 +30,16 @@ STATE_DEFINITIONS = {
 NON_CLAIMABLE_ISSUE_STATES = [
     {
         "availability_state": "proposed_work",
+        "repo": "ramimbo/mergework",
+        "title": "Proposed work requests",
         "note": STATE_DEFINITIONS["proposed_work"],
+        "source_urls": {
+            "github_label": (
+                "https://github.com/ramimbo/mergework/issues"
+                "?q=is%3Aissue+is%3Aopen+label%3Aproposed-work"
+            ),
+            "lifecycle_docs": "/docs/bounty-rules#proposed-work-requests",
+        },
     },
     {
         "availability_state": "board_or_index",
