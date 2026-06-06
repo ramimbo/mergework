@@ -21,6 +21,7 @@ def tracked_paths() -> list[str]:
         cwd=ROOT,
         check=True,
         capture_output=True,
+        encoding="utf-8",
         text=True,
     )
     return [line for line in result.stdout.splitlines() if line]
