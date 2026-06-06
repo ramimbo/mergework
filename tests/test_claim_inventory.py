@@ -429,7 +429,16 @@ def test_claim_inventory_script_entrypoint_loads_shared_parser() -> None:
 
 
 def test_claim_inventory_rejects_invalid_api_host(capsys) -> None:
-    for bad in ("", "   ", "/relative", "ftp://api.example.test"):
+    for bad in (
+        "",
+        "   ",
+        "/relative",
+        "ftp://api.example.test",
+        "https://api.example.test/v1",
+        "https://api.example.test?debug=1",
+        "https://api.example.test#fragment",
+        "https://user:pass@api.example.test",
+    ):
         with pytest.raises(SystemExit) as excinfo:
             main(["--repo", "ramimbo/mergework", "--api-host", bad])
         assert excinfo.value.code == 2
