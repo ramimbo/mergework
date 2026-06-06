@@ -377,6 +377,20 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance_schema["additionalProperties"] is False
     assert balance_schema["properties"]["account"]["minLength"] == 1
     assert "github:<login>" in balance_schema["properties"]["account"]["description"]
+    ledger_entry_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "get_ledger_entry"
+    )
+    ledger_entry_schema = ledger_entry_tool["inputSchema"]
+    assert ledger_entry_schema["required"] == ["sequence"]
+    assert ledger_entry_schema["additionalProperties"] is False
+    assert ledger_entry_schema["properties"]["sequence"]["minimum"] == 1
+    proof_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_proof")
+    proof_schema = proof_tool["inputSchema"]
+    assert proof_schema["required"] == ["hash"]
+    assert proof_schema["additionalProperties"] is False
+    assert proof_schema["properties"]["hash"]["minLength"] == 64
+    assert proof_schema["properties"]["hash"]["maxLength"] == 64
+    assert proof_schema["properties"]["hash"]["pattern"] == "^[0-9a-f]{64}$"
 
     balance = client.post(
         "/mcp",

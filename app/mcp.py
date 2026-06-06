@@ -194,8 +194,40 @@ MCP_TOOLS: list[dict[str, Any]] = [
         "name": "submit_wallet_transfer",
         "description": "Submit a signed MRWK wallet transfer",
     },
-    {"name": "get_ledger_entry", "description": "Get a ledger entry"},
-    {"name": "get_proof", "description": "Get a public proof by hash"},
+    {
+        "name": "get_ledger_entry",
+        "description": "Get a public ledger entry by sequence number",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "sequence": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Public MRWK ledger sequence number.",
+                },
+            },
+            "required": ["sequence"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_proof",
+        "description": "Get a public proof by 64-character lowercase hex hash",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "hash": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "description": "Public proof hash.",
+                },
+            },
+            "required": ["hash"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "submit_work_proof",
         "description": (
