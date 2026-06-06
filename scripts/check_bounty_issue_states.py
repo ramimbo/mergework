@@ -133,6 +133,8 @@ def _run_gh_json(args: list[str]) -> Any:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"gh executable not found while running: {command}") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             "gh command failed "
@@ -157,6 +159,8 @@ def _run_gh(args: list[str]) -> None:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"gh executable not found while running: {command}") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             "gh command failed "
@@ -184,7 +188,7 @@ def _load_public_bounties(api_host: str) -> list[dict[str, Any]]:
 
 
 def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
-    return _run_gh_json(
+    data = _run_gh_json(
         [
             "gh",
             "issue",
@@ -196,6 +200,9 @@ def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
             "number,state,url,closed,closedAt",
         ]
     )
+    if not isinstance(data, dict):
+        raise RuntimeError("expected a JSON object from gh issue view")
+    return data
 
 
 def load_live_data(repo: str, api_host: str) -> dict[str, Any]:

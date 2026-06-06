@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import check_live_bounty_closing_refs
 from scripts.check_live_bounty_closing_refs import analyze_closing_refs, main
 
@@ -113,3 +115,24 @@ def test_closing_ref_check_loads_specific_prs(monkeypatch) -> None:
 
     assert prs[0]["number"] == 1015
     assert calls[0][:4] == ["gh", "pr", "view", "1015"]
+
+
+def test_closing_ref_check_reports_missing_gh_for_live_pr_lookup(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(check_live_bounty_closing_refs.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh executable not found"):
+        check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])
+
+
+def test_closing_ref_check_reports_invalid_gh_pr_json(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        stdout = json.dumps([{"number": 1015}])
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(check_live_bounty_closing_refs.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="expected a JSON object from gh pr view"):
+        check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])
