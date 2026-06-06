@@ -185,10 +185,22 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             return health_status(session)
 
-    @app.get("/api/v1/status")
-    def api_status() -> dict[str, Any]:
+    def reject_status_query_filters(request: Request) -> None:
+        for name in ("limit", "offset", "status", "q", "account", "repo"):
+            if request.query_params.getlist(name):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{name} is not supported on status",
+                )
+
+    def status_detail() -> dict[str, Any]:
         with session_scope(db_url) as session:
             return system_status(session)
+
+    @app.get("/api/v1/status")
+    def api_status(request: Request) -> dict[str, Any]:
+        reject_status_query_filters(request)
+        return status_detail()
 
     _bounty_api = register_bounty_api_routes(
         app,
@@ -318,7 +330,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 "ltc_lab.html",
                 ltc_lab_context(),
             )
-        status_data = api_status()
+        status_data = status_detail()
         return templates.TemplateResponse(
             request,
             "hub.html",

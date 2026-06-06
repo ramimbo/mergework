@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.db import create_schema, session_scope
@@ -11,6 +12,7 @@ from app.ledger.service import (
     get_balance,
     pay_bounty,
 )
+from app.main import create_app
 from app.models import LedgerEntry
 from app.status import health_status, public_path_status, system_status
 
@@ -94,6 +96,26 @@ def test_system_status_counts_only_open_bounties(sqlite_url: str) -> None:
         "Future public snapshots, bridges, and onchain claims require separate "
         "maintainer/contributor discussion before implementation."
     )
+
+
+def test_status_api_rejects_list_query_filters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert client.get("/api/v1/status").status_code == 200
+    for query, field in (
+        ("limit=1", "limit"),
+        ("offset=1", "offset"),
+        ("status=open", "status"),
+        ("q=bounty", "q"),
+        ("account=github:alice", "account"),
+        ("repo=ramimbo/mergework", "repo"),
+    ):
+        response = client.get(f"/api/v1/status?{query}")
+        assert response.status_code == 400
+        assert response.json()["detail"] == f"{field} is not supported on status"
 
 
 def test_public_path_status_returns_independent_lists() -> None:
