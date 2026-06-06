@@ -125,3 +125,14 @@ def test_closing_ref_check_reports_missing_gh_for_live_pr_lookup(monkeypatch) ->
 
     with pytest.raises(RuntimeError, match="gh executable not found"):
         check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])
+
+
+def test_closing_ref_check_reports_invalid_gh_pr_json(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        stdout = json.dumps([{"number": 1015}])
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(check_live_bounty_closing_refs.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="expected a JSON object from gh pr view"):
+        check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])

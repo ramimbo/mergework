@@ -123,6 +123,17 @@ def test_issue_state_check_reports_missing_gh_for_live_issue_lookup(monkeypatch)
         check_bounty_issue_states._load_issue("ramimbo/mergework", 936)
 
 
+def test_issue_state_check_reports_invalid_gh_issue_json(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        stdout = json.dumps([{"number": 936}])
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(check_bounty_issue_states.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="expected a JSON object from gh issue view"):
+        check_bounty_issue_states._load_issue("ramimbo/mergework", 936)
+
+
 def test_issue_state_check_reports_missing_gh_for_fix(monkeypatch) -> None:
     def fake_run(args, **kwargs):
         raise FileNotFoundError("gh")
