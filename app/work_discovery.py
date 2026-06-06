@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -17,6 +18,9 @@ MAX_OPEN_BOUNTY_SCAN_ROWS = 500
 STATE_DEFINITIONS = {
     "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
     "pending_create": "Public treasury proposal exists but the bounty row is not live yet.",
+    "pending_create_due": (
+        "Public treasury proposal is past executes_after but the bounty row is not live yet."
+    ),
     "pending_payout": "Accepted work has a pending pay_bounty proposal, not proof-backed payment.",
     "closed_or_exhausted": "Bounty is closed, paid, or has no effective award capacity.",
     "proposed_work": (
@@ -73,10 +77,17 @@ def _not_claimable_state(row: dict[str, Any]) -> str:
     return "closed_or_exhausted"
 
 
+def _db_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
     payload = proposal_payload(proposal)
+    execution_due = _db_utc(proposal.executes_after) <= datetime.now(UTC)
     return {
-        "availability_state": "pending_create",
+        "availability_state": "pending_create_due" if execution_due else "pending_create",
         "proposal_id": int(proposal.id),
         "issue_number": int(payload["issue_number"]),
         "title": str(payload["title"]),
@@ -85,6 +96,7 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
         "max_awards": int(payload["max_awards"]),
         "effective_awards_remaining": 0,
         "executes_after": public_utc_timestamp(proposal.executes_after),
+        "execution_due": execution_due,
         "source_urls": {
             "proposal": f"/api/v1/treasury/proposals/{proposal.id}",
             "github_issue": str(payload["issue_url"]),

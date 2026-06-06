@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -77,6 +77,9 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert body["state_definitions"]["pending_create"] == (
         "Public treasury proposal exists but the bounty row is not live yet."
     )
+    assert body["state_definitions"]["pending_create_due"] == (
+        "Public treasury proposal is past executes_after but the bounty row is not live yet."
+    )
     assert body["state_definitions"]["board_or_index"] == (
         "Index issues help discovery but are not claimable bounty work."
     )
@@ -115,6 +118,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
             "max_awards": 2,
             "effective_awards_remaining": 0,
             "executes_after": pending_create_executes_after,
+            "execution_due": False,
             "source_urls": {
                 "proposal": f"/api/v1/treasury/proposals/{pending_create.id}",
                 "github_issue": "https://github.com/ramimbo/mergework/issues/900",
@@ -125,6 +129,58 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert datetime.fromisoformat(pending_create_executes_after.replace("Z", "+00:00"))
     assert body["not_claimable"][0]["availability_state"] == "closed_or_exhausted"
     assert body["not_claimable"][0]["issue_number"] == 761
+
+
+def test_work_discovery_flags_due_pending_create_without_making_it_claimable(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        future_pending = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 930,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/930",
+                "title": "Future pending create",
+                "reward_mrwk": "25",
+                "max_awards": 1,
+                "acceptance": "Future pending create stays ordinary opening soon.",
+            },
+            proposed_by="maintainer",
+        )
+        due_pending = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 931,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/931",
+                "title": "Due pending create",
+                "reward_mrwk": "25",
+                "max_awards": 1,
+                "acceptance": "Due pending create should be visible but not claimable.",
+            },
+            proposed_by="maintainer",
+        )
+        due_pending.executes_after = datetime.now(UTC) - timedelta(minutes=5)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    body = client.get("/api/v1/work-discovery").json()
+    by_issue = {item["issue_number"]: item for item in body["opening_soon"]}
+
+    assert by_issue[930]["proposal_id"] == future_pending.id
+    assert by_issue[930]["availability_state"] == "pending_create"
+    assert by_issue[930]["execution_due"] is False
+    assert by_issue[930]["effective_awards_remaining"] == 0
+    assert by_issue[931]["proposal_id"] == due_pending.id
+    assert by_issue[931]["availability_state"] == "pending_create_due"
+    assert by_issue[931]["execution_due"] is True
+    assert by_issue[931]["effective_awards_remaining"] == 0
+    assert body["summary"]["claimable_now_count"] == 0
 
 
 def test_work_discovery_limit_caps_public_buckets(sqlite_url: str) -> None:
