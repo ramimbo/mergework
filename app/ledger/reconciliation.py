@@ -65,14 +65,8 @@ class DuplicateAcceptedSourceUrl:
 
 
 def reconcile_accepted_payouts(session: Session) -> list[AcceptedPayoutCheck]:
-    rows = session.execute(
-        select(Submission, Bounty)
-        .join(Bounty, Bounty.id == Submission.bounty_id)
-        .where(Submission.status == "accepted")
-        .order_by(Submission.id)
-    ).all()
     checks: list[AcceptedPayoutCheck] = []
-    for submission, bounty in rows:
+    for submission, bounty in _accepted_submission_rows(session):
         evidence = _payout_evidence(session, submission, bounty)
         checks.append(
             AcceptedPayoutCheck(
@@ -89,14 +83,8 @@ def reconcile_accepted_payouts(session: Session) -> list[AcceptedPayoutCheck]:
 
 
 def duplicate_accepted_source_urls(session: Session) -> list[DuplicateAcceptedSourceUrl]:
-    rows = session.execute(
-        select(Submission, Bounty)
-        .join(Bounty, Bounty.id == Submission.bounty_id)
-        .where(Submission.status == "accepted")
-        .order_by(Submission.id)
-    ).all()
     groups: dict[str, list[AcceptedSourceReference]] = {}
-    for submission, bounty in rows:
+    for submission, bounty in _accepted_submission_rows(session):
         source_url = _canonical_source_url(submission.url)
         groups.setdefault(source_url, []).append(
             AcceptedSourceReference(
@@ -112,6 +100,15 @@ def duplicate_accepted_source_urls(session: Session) -> list[DuplicateAcceptedSo
         for source_url, submissions in groups.items()
         if len(submissions) > 1
     ]
+
+
+def _accepted_submission_rows(session: Session) -> Sequence[tuple[Submission, Bounty]]:
+    return session.execute(
+        select(Submission, Bounty)
+        .join(Bounty, Bounty.id == Submission.bounty_id)
+        .where(Submission.status == "accepted")
+        .order_by(Submission.id)
+    ).all()
 
 
 def payout_reconciliation_summary(checks: Sequence[AcceptedPayoutCheck]) -> dict[str, int]:
