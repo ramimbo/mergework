@@ -364,6 +364,25 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         {"required": ["issue_number"]},
     ]
     assert attempt_schema["dependentRequired"] == {"repo": ["issue_number"]}
+    attempt_output_schema = attempt_tool["outputSchema"]
+    assert attempt_output_schema["required"] == [
+        "bounty_id",
+        "issue_number",
+        "status",
+        "warnings",
+        "attempts",
+    ]
+    assert attempt_output_schema["properties"]["attempts"]["items"]["required"] == [
+        "id",
+        "bounty_id",
+        "submitter_account",
+        "source_url",
+        "status",
+        "expires_at",
+        "created_at",
+        "updated_at",
+    ]
+    assert attempt_output_schema["properties"]["attempts"]["items"]["additionalProperties"] is False
     wallet_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_wallet")
     wallet_schema = wallet_tool["inputSchema"]
     assert wallet_schema["required"] == ["address"]
@@ -521,7 +540,19 @@ def test_mcp_list_bounty_attempts_reports_active_and_expired(sqlite_url: str) ->
     active_payload = active_result["structuredContent"]
     assert active_payload["bounty_id"] == bounty.id
     assert active_payload["issue_number"] == 321
+    assert set(active_payload) == {"bounty_id", "issue_number", "status", "warnings", "attempts"}
+    assert active_payload["status"] == "open"
     assert active_payload["warnings"] == ["bounty has 2 active attempts"]
+    assert set(active_payload["attempts"][0]) == {
+        "id",
+        "bounty_id",
+        "submitter_account",
+        "source_url",
+        "status",
+        "expires_at",
+        "created_at",
+        "updated_at",
+    }
     assert [attempt["submitter_account"] for attempt in active_payload["attempts"]] == [
         "github:bob",
         "github:alice",

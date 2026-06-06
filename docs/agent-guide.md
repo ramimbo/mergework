@@ -306,7 +306,7 @@ Tools:
 
 - `list_bounties`
 - `get_bounty`
-- `list_bounty_attempts`
+- `list_bounty_attempts` (`tools/list` advertises its structured output schema)
 - `get_balance`
 - `register_wallet`
 - `get_wallet`

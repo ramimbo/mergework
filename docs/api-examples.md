@@ -811,7 +811,8 @@ curl -s -X POST "$MCP_HOST/mcp" \
 Call `list_bounty_attempts` with the same internal `bounty_id` (or the `id`
 field returned by `list_bounties`/`get_bounty`), or the GitHub `issue_number`
 plus `repo`, before opening a PR. Omit `include_expired` to see only active
-attempts:
+attempts. The MCP `tools/list` metadata advertises the structured output schema
+for this tool so agents can validate the `structuredContent` attempt wrapper:
 
 ```bash
 curl -s -X POST "$MCP_HOST/mcp" \

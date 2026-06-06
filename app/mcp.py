@@ -13,6 +13,45 @@ MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any]]
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
+MCP_BOUNTY_ATTEMPT_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "status": {"type": "string"},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "attempts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer", "minimum": 1},
+                    "bounty_id": {"type": "integer", "minimum": 1},
+                    "submitter_account": {"type": "string"},
+                    "source_url": {"type": ["string", "null"]},
+                    "status": {"type": "string", "enum": ["active", "expired", "released"]},
+                    "expires_at": {"type": "string", "format": "date-time"},
+                    "created_at": {"type": "string", "format": "date-time"},
+                    "updated_at": {"type": "string", "format": "date-time"},
+                },
+                "required": [
+                    "id",
+                    "bounty_id",
+                    "submitter_account",
+                    "source_url",
+                    "status",
+                    "expires_at",
+                    "created_at",
+                    "updated_at",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["bounty_id", "issue_number", "status", "warnings", "attempts"],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -150,6 +189,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "dependentRequired": {"repo": ["issue_number"]},
             "additionalProperties": False,
         },
+        "outputSchema": MCP_BOUNTY_ATTEMPT_OUTPUT_SCHEMA,
     },
     {
         "name": "get_balance",
