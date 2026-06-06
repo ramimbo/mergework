@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -327,6 +333,63 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "reason",
             "created_at",
         },
+    )
+
+
+def test_treasury_status_openapi_response_schema_matches_runtime_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    schema = _get_response_schema(openapi, "/api/v1/treasury/status")
+    body = client.get("/api/v1/treasury/status").json()
+
+    expected_fields = {
+        "type",
+        "epoch_window_hours",
+        "reserve_cap_mrwk",
+        "executed_reserve_24h_mrwk",
+        "pending_create_reserve_mrwk",
+        "available_create_reserve_mrwk",
+        "next_capacity_release_at",
+        "next_projected_capacity_release_at",
+        "pending_create_bounties",
+        "projected_capacity_events",
+        "recent_reserves",
+    }
+    _assert_properties(schema, expected_fields)
+    assert set(schema["required"]) == expected_fields
+    assert schema["properties"]["type"]["enum"] == ["treasury_status"]
+    assert schema["properties"]["epoch_window_hours"]["minimum"] == 1
+    assert schema["properties"]["reserve_cap_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert set(body) == expected_fields
+
+    pending_schema = schema["properties"]["pending_create_bounties"]["items"]
+    _assert_properties(
+        pending_schema,
+        {
+            "proposal_id",
+            "issue_number",
+            "issue_url",
+            "title",
+            "reward_mrwk",
+            "max_awards",
+            "reserve_mrwk",
+            "proposed_at",
+            "executes_after",
+            "capacity_releases_at",
+        },
+    )
+    event_schema = schema["properties"]["projected_capacity_events"]["items"]
+    assert event_schema["properties"]["event_type"]["enum"] == [
+        "recent_reserve_releases",
+        "pending_create_executes",
+        "pending_create_releases",
+    ]
+    _assert_properties(
+        schema["properties"]["recent_reserves"]["items"],
+        {"ledger_sequence", "amount_mrwk", "reference", "created_at", "expires_at"},
     )
 
 
