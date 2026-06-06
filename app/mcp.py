@@ -35,7 +35,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
                 "sort": {
                     "type": "string",
-                    "enum": ["newest", "reward"],
+                    "enum": ["newest", "reward", "available", "awards"],
                     "default": "newest",
                     "description": "Sort order for returned bounties.",
                 },

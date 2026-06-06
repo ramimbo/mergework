@@ -307,6 +307,12 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert list_bounties_schema["additionalProperties"] is False
     assert list_bounties_schema["properties"]["q"]["maxLength"] == 500
     assert list_bounties_schema["properties"]["limit"]["maximum"] == 100
+    assert list_bounties_schema["properties"]["sort"]["enum"] == [
+        "newest",
+        "reward",
+        "available",
+        "awards",
+    ]
     submit_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
     )
