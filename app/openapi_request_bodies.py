@@ -232,7 +232,19 @@ TREASURY_PENDING_CREATE_BOUNTY_SCHEMA = _object_schema(
         "proposed_at": {"type": "string"},
         "executes_after": {"type": "string"},
         "capacity_releases_at": {"type": "string"},
-    }
+    },
+    required=[
+        "proposal_id",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "max_awards",
+        "reserve_mrwk",
+        "proposed_at",
+        "executes_after",
+        "capacity_releases_at",
+    ],
 )
 
 TREASURY_PROJECTED_CAPACITY_EVENT_SCHEMA = _object_schema(
@@ -249,7 +261,14 @@ TREASURY_PROJECTED_CAPACITY_EVENT_SCHEMA = _object_schema(
         "amount_mrwk": MRWK_DECIMAL_SCHEMA,
         "available_create_reserve_mrwk": MRWK_DECIMAL_SCHEMA,
         "note": {"type": "string"},
-    }
+    },
+    required=[
+        "at",
+        "event_type",
+        "amount_mrwk",
+        "available_create_reserve_mrwk",
+        "note",
+    ],
 )
 
 TREASURY_RECENT_RESERVE_SCHEMA = _object_schema(
@@ -259,7 +278,8 @@ TREASURY_RECENT_RESERVE_SCHEMA = _object_schema(
         "reference": {"type": "string", "nullable": True},
         "created_at": {"type": "string"},
         "expires_at": {"type": "string"},
-    }
+    },
+    required=["ledger_sequence", "amount_mrwk", "reference", "created_at", "expires_at"],
 )
 
 TREASURY_STATUS_RESPONSE_SCHEMA = _object_schema(

@@ -366,30 +366,42 @@ def test_treasury_status_openapi_response_schema_matches_runtime_fields(
     assert set(body) == expected_fields
 
     pending_schema = schema["properties"]["pending_create_bounties"]["items"]
+    pending_fields = {
+        "proposal_id",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "max_awards",
+        "reserve_mrwk",
+        "proposed_at",
+        "executes_after",
+        "capacity_releases_at",
+    }
+    assert set(pending_schema["required"]) == pending_fields
     _assert_properties(
         pending_schema,
-        {
-            "proposal_id",
-            "issue_number",
-            "issue_url",
-            "title",
-            "reward_mrwk",
-            "max_awards",
-            "reserve_mrwk",
-            "proposed_at",
-            "executes_after",
-            "capacity_releases_at",
-        },
+        pending_fields,
     )
     event_schema = schema["properties"]["projected_capacity_events"]["items"]
+    assert set(event_schema["required"]) == {
+        "at",
+        "event_type",
+        "amount_mrwk",
+        "available_create_reserve_mrwk",
+        "note",
+    }
     assert event_schema["properties"]["event_type"]["enum"] == [
         "recent_reserve_releases",
         "pending_create_executes",
         "pending_create_releases",
     ]
+    reserve_schema = schema["properties"]["recent_reserves"]["items"]
+    reserve_fields = {"ledger_sequence", "amount_mrwk", "reference", "created_at", "expires_at"}
+    assert set(reserve_schema["required"]) == reserve_fields
     _assert_properties(
-        schema["properties"]["recent_reserves"]["items"],
-        {"ledger_sequence", "amount_mrwk", "reference", "created_at", "expires_at"},
+        reserve_schema,
+        reserve_fields,
     )
 
 
