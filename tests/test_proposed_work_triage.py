@@ -430,6 +430,8 @@ def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -
     def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
         url = request.full_url
         loaded_urls.append(url)
+        if url.endswith("/api/v1/bounties?issue_number=932&limit=5"):
+            return FakeResponse([])
         if url.endswith("/api/v1/bounties?issue_number=649&limit=5"):
             return FakeResponse([])
         if url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
@@ -458,8 +460,9 @@ def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -
     output = json.loads(capsys.readouterr().out)
     assert output["summary"]["proposed_work_issues"] == 2
     assert output["summary"]["payment_counts"] == {"none": 1, "pending": 1}
-    assert any(url.endswith("/api/v1/bounties?issue_number=649&limit=5") for url in loaded_urls)
+    assert any(url.endswith("/api/v1/bounties?issue_number=932&limit=5") for url in loaded_urls)
     assert any(url.endswith("/api/v1/bounties?issue_number=722&limit=5") for url in loaded_urls)
+    assert any(url.endswith("/api/v1/bounties?issue_number=649&limit=5") for url in loaded_urls)
     pending = next(item for item in output["proposals"] if item["number"] == 672)
     unlabeled = next(item for item in output["proposals"] if item["number"] == 673)
     assert "accepted_pending_payout" in pending["warnings"]
@@ -656,8 +659,9 @@ def test_proposed_work_triage_live_mode_warns_when_payment_state_is_incomplete(
 
     assert output["summary"]["payment_counts"] == {"none": 1}
     assert output["summary"]["data_warnings"] == [
-        "payment_state_incomplete: failed to load public bounty list for issue #649 (URLError)",
+        "payment_state_incomplete: failed to load public bounty list for issue #932 (URLError)",
         "payment_state_incomplete: failed to load public bounty list for issue #722 (URLError)",
+        "payment_state_incomplete: failed to load public bounty list for issue #649 (URLError)",
     ]
     markdown = format_markdown(output)
     assert "data warning: payment_state_incomplete" in markdown
@@ -683,6 +687,8 @@ def test_proposed_work_triage_live_mode_warns_when_bounty_detail_fetch_fails(
         return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
 
     def fake_urlopen(request, timeout):  # noqa: ANN001, ANN202, ARG001
+        if request.full_url.endswith("/api/v1/bounties?issue_number=932&limit=5"):
+            return FakeResponse([])
         if request.full_url.endswith("/api/v1/bounties?issue_number=649&limit=5"):
             return FakeResponse([{"id": 96}])
         if request.full_url.endswith("/api/v1/bounties?issue_number=722&limit=5"):
@@ -705,6 +711,15 @@ def test_proposed_work_triage_live_mode_warns_when_bounty_detail_fetch_fails(
 
 
 def test_run_gh_reports_timeout_and_invalid_json(monkeypatch) -> None:
+    def fake_utf8_json(args, **kwargs):  # noqa: ANN001, ANN202
+        assert kwargs["encoding"] == "utf-8"
+        return subprocess.CompletedProcess(
+            args, 0, stdout='{"title":"Fixed \u201csmart quotes\u201d"}', stderr=""
+        )
+
+    monkeypatch.setattr("scripts.proposed_work_triage.subprocess.run", fake_utf8_json)
+    assert _run_gh(["issue", "view", "1"]) == {"title": "Fixed \u201csmart quotes\u201d"}
+
     def fake_timeout(args, **kwargs):  # noqa: ANN001, ANN202, ARG001
         raise subprocess.TimeoutExpired(args, timeout=15)
 

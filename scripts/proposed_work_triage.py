@@ -82,7 +82,7 @@ STOPWORDS = {
 GH_TIMEOUT_SECONDS = 30
 HTTP_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
-DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (649, 722)
+DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (932, 722, 649)
 LIVE_ISSUE_SEARCHES = (
     "label:proposed-work",
     '"proposed work"',
@@ -384,6 +384,7 @@ def _run_gh(args: list[str]) -> Any:
         result = subprocess.run(
             ["gh", *args],
             capture_output=True,
+            encoding="utf-8",
             text=True,
             timeout=GH_TIMEOUT_SECONDS,
             check=False,
