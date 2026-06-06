@@ -784,6 +784,16 @@ def test_submission_quality_gate_live_mode_warns_when_github_unavailable(
     assert "load_warning" in output
 
 
+def test_run_gh_json_reports_missing_executable(monkeypatch) -> None:
+    def missing_gh(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", missing_gh)
+
+    with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
+        submission_quality_gate._run_gh_json(["gh", "pr", "list"])
+
+
 def test_submission_quality_gate_warns_when_live_collections_hit_safety_caps(
     monkeypatch,
 ) -> None:
