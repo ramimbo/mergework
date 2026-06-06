@@ -491,7 +491,6 @@ async def handle_mcp_request(
         return _initialize_response(response_id, payload.get("params"))
 
     if method == "tools/list":
-
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}
 
     if method == "resources/list":

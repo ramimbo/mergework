@@ -4,12 +4,12 @@ import hashlib
 import ipaddress
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 try:
     from datetime import UTC
 except ImportError:
-    UTC = timezone.utc
+    UTC = timezone(timedelta(0))
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from urllib.parse import urlparse

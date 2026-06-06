@@ -6,7 +6,8 @@ from datetime import datetime, timedelta, timezone
 try:
     from datetime import UTC
 except ImportError:
-    UTC = timezone.utc
+    UTC = timezone(timedelta(0))
+
 
 import pytest
 from fastapi.testclient import TestClient

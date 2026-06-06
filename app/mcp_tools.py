@@ -5,7 +5,6 @@ import re
 from typing import Any
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
 
 from app.accounts import normalized_account, normalized_wallet_address
 from app.bounty_attempts import list_bounty_attempts
@@ -163,6 +162,49 @@ def call_mcp_tool(
             raise ValueError("issue_number matches multiple bounties")
         return bounties[0]
 
+    def selected_bounty(
+        internal_id_field: str,
+        *,
+        internal_id_aliases: tuple[str, ...] = (),
+        required: bool = True,
+    ) -> Bounty | None:
+        internal_id_fields = (internal_id_field, *internal_id_aliases)
+        provided_internal_id_fields = [
+            field for field in internal_id_fields if field in args and args.get(field) is not None
+        ]
+        has_internal_id = bool(provided_internal_id_fields)
+        has_issue_number = "issue_number" in args and args.get("issue_number") is not None
+        repo_selector = optional_repo_selector_arg()
+
+        if repo_selector is not None and not has_issue_number:
+            raise ValueError("repo can only be used with issue_number")
+
+        if not has_internal_id and not has_issue_number:
+            if required:
+                raise ValueError(f"{internal_id_field} or issue_number is required")
+            return None
+
+        if len(provided_internal_id_fields) > 1:
+            raise ValueError(
+                "use "
+                + " or ".join(provided_internal_id_fields)
+                + ", not multiple internal id fields"
+            )
+        if has_internal_id and has_issue_number:
+            raise ValueError(f"use {provided_internal_id_fields[0]} or issue_number, not both")
+
+        if has_internal_id:
+            return session.get(Bounty, positive_int_arg(provided_internal_id_fields[0]))
+
+        if has_issue_number:
+            return bounty_by_issue_number(repo_selector)
+
+        return None
+
+    def reject_unexpected_args(tool_name: str, allowed_fields: set[str]) -> None:
+        unknown_fields = set(args) - allowed_fields
+        if unknown_fields:
+            raise ValueError(f"unknown argument for {tool_name}: {sorted(unknown_fields)[0]}")
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
@@ -208,7 +250,6 @@ def call_mcp_tool(
         if name == "get_bounty":
             bounty = selected_bounty("id", internal_id_aliases=("bounty_id",), required=True)
             if bounty is None:
-
                 return "bounty not found"
             bounty_data = bounty_to_dict(bounty, session=session)
             if optional_bool_arg("include_awards"):
@@ -217,7 +258,6 @@ def call_mcp_tool(
         if name == "list_bounty_attempts":
             bounty = selected_bounty("bounty_id", internal_id_aliases=("id",), required=True)
             if bounty is None:
-
                 return "bounty not found"
             attempt_listing = list_bounty_attempts(
                 session,
@@ -339,18 +379,6 @@ def call_mcp_resource(database_url: str, uri: str) -> str:
             bounties = session.scalars(query).all()
             bounty_dicts = bounties_to_dict(bounties, session=session)
             summary = bounty_list_summary(bounty_dicts)
-
-            # Uncapped liability calculation for all open bounties
-            total_liabilities_microunits = (
-                session.scalar(
-                    select(
-                        func.sum(
-                            (Bounty.max_awards - Bounty.awards_paid) * Bounty.reward_microunits
-                        )
-                    ).where(Bounty.status == "open")
-                )
-                or 0
-            )
 
             treasury_balance = get_balance(session, TREASURY_ACCOUNT)
 

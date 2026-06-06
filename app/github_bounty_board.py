@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 try:
     from datetime import UTC
 except ImportError:
-    UTC = timezone.utc
+    UTC = timezone(timedelta(0))
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import urlopen

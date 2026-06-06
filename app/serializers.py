@@ -10,6 +10,7 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 from decimal import Decimal
+
 from typing import Any
 
 from sqlalchemy import or_, select

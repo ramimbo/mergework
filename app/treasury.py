@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 try:
     from datetime import UTC
 except ImportError:
-    UTC = timezone.utc
+    UTC = timezone(timedelta(0))
 from typing import Any
 from urllib.parse import urlparse
 
