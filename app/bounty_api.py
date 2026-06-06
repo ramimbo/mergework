@@ -209,6 +209,12 @@ def register_bounty_api_routes(
             reject_control_char_query_param(request, name)
         for name in ("limit", "issue_number"):
             reject_noncanonical_int_query_param(request, name)
+        for name in ("account", "type", "tx_type"):
+            if request.query_params.getlist(name):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{name} is not supported on bounty list endpoints",
+                )
 
     @app.get("/api/v1/bounties")
     def api_bounties(

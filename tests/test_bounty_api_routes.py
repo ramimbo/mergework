@@ -473,6 +473,30 @@ def test_bounty_api_rejects_repeated_scalar_filters(
     assert response.json()["detail"] == detail
 
 
+@pytest.mark.parametrize("base_path", ["/api/v1/bounties", "/api/v1/bounties/summary"])
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("account", "github:alice"),
+        ("type", "bounty_payment"),
+        ("tx_type", "bounty_payment"),
+    ],
+)
+def test_bounty_api_rejects_cross_surface_filters(
+    sqlite_url: str, base_path: str, name: str, value: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(base_path, params={name: value})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == f"{name} is not supported on bounty list endpoints"
+
+
 def test_bounty_api_limit_caps_filtered_rows(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
