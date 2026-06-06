@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -328,6 +334,50 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_bounty_summary_openapi_response_schema_matches_runtime_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    schema = _get_response_schema(openapi, "/api/v1/bounties/summary")
+    expected_fields = {
+        "bounties_shown",
+        "open_awards",
+        "open_pool_mrwk",
+        "effective_open_awards",
+        "effective_open_pool_mrwk",
+        "availability_state_counts",
+        "pending_payout_awards",
+        "reduced_capacity_bounties",
+        "effectively_unavailable_bounties",
+    }
+
+    assert schema["type"] == "object"
+    assert set(schema["required"]) == expected_fields
+    _assert_properties(schema, expected_fields)
+
+    props = schema["properties"]
+    for field in (
+        "bounties_shown",
+        "open_awards",
+        "effective_open_awards",
+        "pending_payout_awards",
+        "reduced_capacity_bounties",
+        "effectively_unavailable_bounties",
+    ):
+        assert props[field] == {"type": "integer", "minimum": 0}
+    assert props["open_pool_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert props["effective_open_pool_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert props["availability_state_counts"]["additionalProperties"] == {
+        "type": "integer",
+        "minimum": 0,
+    }
+
+    runtime_summary = client.get("/api/v1/bounties/summary").json()
+    assert set(runtime_summary) == expected_fields
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
