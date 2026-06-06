@@ -390,6 +390,12 @@ def register_public_routes(
 
     @app.get("/wallets", response_class=HTMLResponse)
     def wallets_page(request: Request, q: str | None = Query(None)) -> HTMLResponse:
+        for name in ("limit", "offset", "status", "account", "repo", "type"):
+            if request.query_params.getlist(name):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{name} is not supported on wallets page",
+                )
         reject_control_char_query_param(request, "q")
         reject_repeated_query_param(request, "q")
         with session_scope(db_url) as session:

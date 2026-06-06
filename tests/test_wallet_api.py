@@ -738,6 +738,14 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     type_response = client.get(f"/wallets/{address}", params={"type": "test_funding\t"})
     masked_search_response = client.get("/wallets?q=%C2%85Main&q=Main")
     repeated_search_response = client.get("/wallets?q=Main&q=smoke")
+    unsupported_wallet_list_filters = {
+        "limit": "1",
+        "offset": "1",
+        "status": "open",
+        "account": "github:alice",
+        "repo": "ramimbo/mergework",
+        "type": "test_funding",
+    }
     masked_type_response = client.get(f"/wallets/{address}?type=%C2%85test_funding&type=all")
     repeated_type_response = client.get(f"/wallets/{address}?type=test_funding&type=all")
     max_length_search_response = client.get("/wallets", params={"q": "a" * 500})
@@ -751,6 +759,12 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     assert masked_search_response.json()["detail"] == "q must not contain control characters"
     assert repeated_search_response.status_code == 400
     assert repeated_search_response.json()["detail"] == "q must be provided at most once"
+    for name, value in unsupported_wallet_list_filters.items():
+        unsupported_filter_response = client.get("/wallets", params={name: value})
+        assert unsupported_filter_response.status_code == 400
+        assert unsupported_filter_response.json()["detail"] == (
+            f"{name} is not supported on wallets page"
+        )
     assert masked_type_response.status_code == 400
     assert (
         masked_type_response.json()["detail"]
