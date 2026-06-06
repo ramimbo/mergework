@@ -594,6 +594,28 @@ def test_auth_routes_exist_when_oauth_is_unconfigured(sqlite_url: str) -> None:
     assert client.get("/api/v1/auth/me").json()["authenticated"] is False
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "limit=1",
+        "offset=1",
+        "status=open",
+        "q=bounty",
+        "account=github:alice",
+        "repo=ramimbo/mergework",
+        "type=bounty_payment",
+        "tx_type=bounty_payment",
+    ),
+)
+def test_auth_me_rejects_unsupported_query_params(sqlite_url: str, query: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/api/v1/auth/me?{query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"].endswith("is not supported on this endpoint")
+
+
 def test_github_login_redirects_when_oauth_is_configured(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
     monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
