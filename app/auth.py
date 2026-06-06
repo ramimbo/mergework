@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 
 from app.config import Settings
 from app.control_chars import contains_control_character
+from app.query_validation import reject_repeated_query_param
 
 
 def oauth_configured(settings: Settings) -> bool:
@@ -109,9 +110,12 @@ def register_auth_routes(app: FastAPI, *, settings: Settings) -> AuthService:
     auth = AuthService(settings)
 
     @app.get("/auth/github/login")
-    def auth_github_login(next_path: str | None = Query(None, alias="next")) -> RedirectResponse:
+    def auth_github_login(
+        request: Request, next_path: str | None = Query(None, alias="next")
+    ) -> RedirectResponse:
         if not oauth_configured(settings):
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
+        reject_repeated_query_param(request, "next")
         safe_next = safe_next_path(next_path)
         state_value = f"{secrets.token_urlsafe(24)},{safe_next}"
         state = signed_value(state_value, settings.cookie_secret)
