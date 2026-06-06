@@ -41,7 +41,7 @@ class BountyAttemptResponse(BaseModel):
     submitter_account: str = Field(..., description="Normalized MRWK account name of the submitter")
     source_url: str | None = Field(
         ...,
-        description="Public URL of the work being claimed as fulfilling the bounty; null when no URL was provided",
+        description="Public URL of the work claimed; null when no URL was provided",
     )
     status: AttemptStatus = Field(..., description="Effective attempt status at response time")
     expires_at: str = Field(..., description="ISO-8601 UTC timestamp at which the attempt expires")
@@ -81,7 +81,7 @@ class BountyAttemptCreateResponse(BaseModel):
 
 
 class BountyAttemptNotAvailableResponse(BaseModel):
-    """Envelope returned by `POST /api/v1/bounties/{bounty_id}/attempts` when the bounty is not claimable (409)."""
+    """Envelope returned by POST when the bounty is not claimable (409)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -94,7 +94,7 @@ class BountyAttemptNotAvailableResponse(BaseModel):
 
 
 class BountyAttemptDuplicateResponse(BaseModel):
-    """Envelope returned by `POST /api/v1/bounties/{bounty_id}/attempts` when an active attempt already exists (409)."""
+    """Envelope returned by POST when an active attempt exists (409)."""
 
     model_config = ConfigDict(extra="forbid")
 
