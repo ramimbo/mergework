@@ -257,7 +257,9 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
     )
 
     conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
-    _assert_properties(conflict_schema, {"status", "attempt", "bounty_id", "warnings"})
+    not_available_schema, duplicate_schema = conflict_schema["oneOf"]
+    _assert_properties(not_available_schema, {"status", "bounty_id", "warnings"})
+    _assert_properties(duplicate_schema, {"status", "attempt", "warnings"})
 
     release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
     _assert_properties(release_schema, {"status", "attempt"})
@@ -328,8 +330,10 @@ def test_public_post_openapi_attempt_and_treasury_responses_publish_required_fie
     assert registered_attempt_schema["properties"]["attempt"]["required"] == attempt_required
 
     conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
-    assert conflict_schema["required"] == ["status", "bounty_id", "attempt", "warnings"]
-    assert conflict_schema["properties"]["attempt"]["required"] == attempt_required
+    not_available_schema, duplicate_schema = conflict_schema["oneOf"]
+    assert not_available_schema["required"] == ["status", "bounty_id", "warnings"]
+    assert duplicate_schema["required"] == ["status", "attempt", "warnings"]
+    assert duplicate_schema["properties"]["attempt"]["required"] == attempt_required
 
     release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
     assert release_schema["required"] == ["status", "attempt"]

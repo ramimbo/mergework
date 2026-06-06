@@ -164,15 +164,30 @@ ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
     required=["status", "attempt", "warnings"],
 )
 
-ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
+ATTEMPT_NOT_AVAILABLE_RESPONSE_SCHEMA = _object_schema(
     {
         "status": {"type": "string"},
         "bounty_id": {"type": "integer", "minimum": 1},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    },
+    required=["status", "bounty_id", "warnings"],
+)
+
+ATTEMPT_DUPLICATE_ACTIVE_RESPONSE_SCHEMA = _object_schema(
+    {
+        "status": {"type": "string"},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
         "warnings": {"type": "array", "items": {"type": "string"}},
     },
-    required=["status", "bounty_id", "attempt", "warnings"],
+    required=["status", "attempt", "warnings"],
 )
+
+ATTEMPT_CONFLICT_RESPONSE_SCHEMA = {
+    "oneOf": [
+        ATTEMPT_NOT_AVAILABLE_RESPONSE_SCHEMA,
+        ATTEMPT_DUPLICATE_ACTIVE_RESPONSE_SCHEMA,
+    ],
+}
 
 ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
     {
