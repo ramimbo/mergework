@@ -316,9 +316,9 @@ Tools:
 - `submit_work_proof` (`format: "json"` returns structuredContent; `tools/list`
   advertises the selector and format schema)
 
-`tools/list` advertises required selector schemas for proof and ledger lookups:
-`get_proof` requires a 64-character proof `hash`, and `get_ledger_entry`
-requires a positive integer `sequence`.
+`tools/list` advertises required selector schemas and structured output schemas
+for proof and ledger lookups: `get_proof` requires a 64-character proof `hash`,
+and `get_ledger_entry` requires a positive integer `sequence`.
 
 Successful MCP tools that return JSON objects or lists include both the
 backward-compatible JSON string in `result.content[0].text` and parsed

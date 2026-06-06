@@ -437,11 +437,52 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert ledger_schema["required"] == ["sequence"]
     assert ledger_schema["additionalProperties"] is False
     assert ledger_schema["properties"]["sequence"]["minimum"] == 1
+    ledger_output_schema = ledger_tool["outputSchema"]
+    assert ledger_output_schema["description"] == (
+        "Serialized public ledger entry returned in structuredContent."
+    )
+    assert ledger_output_schema["required"] == [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ]
+    assert ledger_output_schema["additionalProperties"] is False
+    assert ledger_output_schema["properties"]["sequence"]["minimum"] == 1
+    assert ledger_output_schema["properties"]["amount_mrwk"]["pattern"] == (r"^\d+(?:\.\d{1,6})?$")
+    assert ledger_output_schema["properties"]["entry_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert ledger_output_schema["properties"]["proof_hash"]["type"] == ["string", "null"]
+    assert ledger_output_schema["properties"]["proof_hash"]["pattern"] == "^[0-9a-f]{64}$"
     proof_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_proof")
     proof_schema = proof_tool["inputSchema"]
     assert proof_schema["required"] == ["hash"]
     assert proof_schema["additionalProperties"] is False
     assert proof_schema["properties"]["hash"]["pattern"] == "^[0-9a-fA-F]{64}$"
+    proof_output_schema = proof_tool["outputSchema"]
+    assert (
+        proof_output_schema["description"] == "Public proof wrapper returned in structuredContent."
+    )
+    assert proof_output_schema["required"] == [
+        "hash",
+        "kind",
+        "ledger_sequence",
+        "bounty_id",
+        "submission_id",
+        "created_at",
+        "proof",
+    ]
+    assert proof_output_schema["additionalProperties"] is False
+    assert proof_output_schema["properties"]["hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert proof_output_schema["properties"]["ledger_sequence"]["minimum"] == 1
+    assert proof_output_schema["properties"]["bounty_id"]["type"] == ["integer", "null"]
+    assert proof_output_schema["properties"]["submission_id"]["type"] == ["integer", "null"]
+    assert proof_output_schema["properties"]["proof"]["additionalProperties"] is True
 
     balance = client.post(
         "/mcp",
