@@ -2,22 +2,27 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
-from typing import Any
-from urllib.error import HTTPError
-from urllib.request import urlopen
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+from typing import Any  # noqa: E402
+from urllib.error import HTTPError  # noqa: E402
+from urllib.request import urlopen  # noqa: E402
 
-from app.db import session_scope
-from app.github_issue_finalization import (
+from sqlalchemy import select  # noqa: E402
+
+from app.db import session_scope  # noqa: E402
+from app.github_issue_finalization import (  # noqa: E402
     _get_json,
     _github_issue_api_base,
     _patch_json,
 )
-from app.models import Bounty
-from app.serializers import bounties_to_dict, public_utc_timestamp
-from app.treasury import treasury_status
+from app.models import Bounty  # noqa: E402
+from app.serializers import bounties_to_dict, public_utc_timestamp  # noqa: E402
+from app.treasury import treasury_status  # noqa: E402
 
 BOUNTY_BOARD_REPO = "ramimbo/mergework"
 BOUNTY_BOARD_BLOCK_START = "<!-- mergework:bounty-board:start -->"

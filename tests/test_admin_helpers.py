@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
 
-from app.admin import (
+
+from sqlalchemy import func, select  # noqa: E402
+
+from app.admin import (  # noqa: E402
     ADMIN_WEBHOOK_LIMIT_OPTIONS,
     admin_page_context,
     create_admin_bounty_from_form,
@@ -14,8 +20,8 @@ from app.admin import (
     webhook_events_to_dict,
     webhook_status_summary,
 )
-from app.db import create_schema, session_scope
-from app.models import Bounty, TreasuryProposal, WebhookEvent
+from app.db import create_schema, session_scope  # noqa: E402
+from app.models import Bounty, TreasuryProposal, WebhookEvent  # noqa: E402
 
 
 def _event(

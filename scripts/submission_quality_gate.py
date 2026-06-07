@@ -5,18 +5,28 @@ import json
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime, timedelta
-from difflib import SequenceMatcher
-from pathlib import Path
-from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from datetime import datetime, timedelta, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+
+from difflib import SequenceMatcher  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
+from urllib.error import HTTPError, URLError  # noqa: E402
+from urllib.request import urlopen  # noqa: E402
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
-from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
+from scripts.api_host_args import public_api_host  # noqa: E402
+from scripts.bounty_refs import (  # noqa: E402
+    BOUNTY_REF_RE,
+    GITHUB_LINKED_ISSUE_RE,
+    LEADING_BOUNTY_REF_RE,
+)
 
 
 def _non_negative_int(value: str) -> int:

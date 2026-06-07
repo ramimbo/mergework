@@ -15,7 +15,13 @@ from app.bounty_availability import (
 from app.bounty_sorting import normalize_bounty_sort, sort_bounties
 from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.ledger.service import format_mrwk, get_balance, register_wallet, submit_wallet_transfer
+from app.ledger.service import (
+    TREASURY_ACCOUNT,
+    format_mrwk,
+    get_balance,
+    register_wallet,
+    submit_wallet_transfer,
+)
 from app.ledger_views import ledger_entry_to_dict
 from app.mcp_results import MCPTextResult
 from app.mcp_work_proof import (
@@ -33,6 +39,8 @@ from app.serializers import (
     wallet_to_dict,
     wallet_transfer_to_dict,
 )
+from app.treasury import treasury_status
+from app.work_discovery import work_discovery_to_dict
 
 MCP_INTEGER_RE = re.compile(r"^(?:0|-?[1-9][0-9]*)$")
 MCP_BOUNTY_SEARCH_QUERY_MAX_LENGTH = 500
@@ -159,6 +167,7 @@ def call_mcp_tool(
         internal_id_field: str,
         *,
         internal_id_aliases: tuple[str, ...] = (),
+        required: bool = True,
     ) -> Bounty | None:
         internal_id_fields = (internal_id_field, *internal_id_aliases)
         provided_internal_id_fields = [
@@ -167,6 +176,15 @@ def call_mcp_tool(
         has_internal_id = bool(provided_internal_id_fields)
         has_issue_number = "issue_number" in args and args.get("issue_number") is not None
         repo_selector = optional_repo_selector_arg()
+
+        if repo_selector is not None and not has_issue_number:
+            raise ValueError("repo can only be used with issue_number")
+
+        if not has_internal_id and not has_issue_number:
+            if required:
+                raise ValueError(f"{internal_id_field} or issue_number is required")
+            return None
+
         if len(provided_internal_id_fields) > 1:
             raise ValueError(
                 "use "
@@ -175,19 +193,19 @@ def call_mcp_tool(
             )
         if has_internal_id and has_issue_number:
             raise ValueError(f"use {provided_internal_id_fields[0]} or issue_number, not both")
-        if repo_selector is not None and not has_issue_number:
-            raise ValueError("repo can only be used with issue_number")
+
         if has_internal_id:
             return session.get(Bounty, positive_int_arg(provided_internal_id_fields[0]))
+
         if has_issue_number:
             return bounty_by_issue_number(repo_selector)
-        raise ValueError(f"{internal_id_field} or issue_number is required")
 
-    def reject_unexpected_args(tool_name: str, allowed: set[str]) -> None:
-        unexpected = sorted(set(args) - allowed)
-        if unexpected:
-            names = ", ".join(unexpected)
-            raise ValueError(f"{tool_name} received unexpected argument(s): {names}")
+        return None
+
+    def reject_unexpected_args(tool_name: str, allowed_fields: set[str]) -> None:
+        unknown_fields = set(args) - allowed_fields
+        if unknown_fields:
+            raise ValueError(f"unknown argument for {tool_name}: {sorted(unknown_fields)[0]}")
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
@@ -235,7 +253,7 @@ def call_mcp_tool(
                     query.order_by(Bounty.id.desc()).limit(limit)
                 ).all()
                 return json.dumps(bounties_to_dict(newest_bounties, session=session))
-            bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
+            bounties = session.scalars(query.order_by(Bounty.id.desc()).limit(100)).all()
             sorted_bounties = sort_bounties(
                 filter_bounties_by_availability(
                     bounties_to_dict(bounties, session=session),
@@ -245,7 +263,7 @@ def call_mcp_tool(
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
-            bounty = selected_bounty("id", internal_id_aliases=("bounty_id",))
+            bounty = selected_bounty("id", internal_id_aliases=("bounty_id",), required=True)
             if bounty is None:
                 return "bounty not found"
             bounty_data = bounty_to_dict(bounty, session=session)
@@ -253,7 +271,7 @@ def call_mcp_tool(
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
-            bounty = selected_bounty("bounty_id", internal_id_aliases=("id",))
+            bounty = selected_bounty("bounty_id", internal_id_aliases=("id",), required=True)
             if bounty is None:
                 return "bounty not found"
             attempt_listing = list_bounty_attempts(
@@ -345,35 +363,60 @@ def call_mcp_tool(
         if name == "submit_work_proof":
             require_known_fields("bounty_id", "issue_number", "repo", "format")
             output_format = output_format_arg()
-            has_bounty_id = "bounty_id" in args and args.get("bounty_id") is not None
-            has_issue_number = "issue_number" in args and args.get("issue_number") is not None
-            repo_selector = optional_repo_selector_arg()
-            if has_bounty_id and has_issue_number:
-                raise ValueError("use bounty_id or issue_number, not both")
-            if repo_selector is not None and not has_issue_number:
-                raise ValueError("repo can only be used with issue_number")
-            if has_bounty_id:
-                bounty = session.get(Bounty, positive_int_arg("bounty_id"))
-                if bounty is None:
-                    return "bounty not found"
+            has_selector = ("bounty_id" in args and args.get("bounty_id") is not None) or (
+                "issue_number" in args and args.get("issue_number") is not None
+            )
+            bounty = selected_bounty("bounty_id", required=False)
+            if bounty is not None:
                 return (
                     work_proof_guidance_json(bounty, session=session)
                     if output_format == "json"
                     else work_proof_guidance(bounty, session=session)
                 )
-            if has_issue_number:
-                bounty = bounty_by_issue_number(repo_selector)
-                if bounty is None:
-                    return "bounty not found"
-                return (
-                    work_proof_guidance_json(bounty, session=session)
-                    if output_format == "json"
-                    else work_proof_guidance(bounty, session=session)
-                )
+            if has_selector:
+                return "bounty not found"
             if output_format == "json":
                 return generic_work_proof_guidance_json()
             return (
                 "Open a focused PR or issue, reference the MRWK bounty, include test evidence, "
                 "and wait for a maintainer to apply mrwk:accepted."
             )
+
     raise ValueError("unknown tool")
+
+
+def call_mcp_resource(database_url: str, uri: str) -> str:
+    if uri == "bounties://active":
+        with session_scope(database_url) as session:
+            # Align with official work-discovery logic (Fixes #2 in PR review)
+            discovery = work_discovery_to_dict(session, limit=100)
+
+            # Align with official treasury-status capacity logic (Fixes #1 in PR review)
+            t_status = treasury_status(session)
+
+            # Uncapped liability calculation for all open bounties
+            total_liabilities_microunits = (
+                session.scalar(
+                    select(
+                        func.sum(
+                            (Bounty.max_awards - Bounty.awards_paid) * Bounty.reward_microunits
+                        )
+                    ).where(Bounty.status == "open")
+                )
+                or 0
+            )
+
+            treasury_balance = get_balance(session, TREASURY_ACCOUNT)
+
+            return json.dumps(
+                {
+                    "claimable_now": discovery["claimable_now"],
+                    "opening_soon": discovery["opening_soon"],
+                    "treasury": {
+                        "balance_mrwk": format_mrwk(treasury_balance),
+                        "active_liabilities_mrwk": format_mrwk(total_liabilities_microunits),
+                        "capacity_mrwk": t_status["available_create_reserve_mrwk"],
+                    },
+                }
+            )
+    raise ValueError("unknown resource")

@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
 
-from app.ledger.service import (
+from typing import Any  # noqa: E402
+
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+
+from app.ledger.service import (  # noqa: E402
     GENESIS_SUPPLY_MICRO,
     canonical_json,
     verify_hash_chain,
     verify_supply_conservation,
 )
-from app.models import LedgerEntry
+from app.models import LedgerEntry  # noqa: E402
 
 LEDGER_SNAPSHOT_SCHEMA = "mergework.ledger_snapshot.v1"
 LEDGER_SNAPSHOT_SCHEMA_VERSION = 1

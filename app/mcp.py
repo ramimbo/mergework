@@ -11,6 +11,8 @@ from app.ledger.service import LedgerError
 from app.mcp_results import MCPTextResult
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
+MCPResourceHandler = Callable[[str, str], str | dict[str, Any]]
+
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
@@ -444,6 +446,15 @@ MCP_TOOLS: list[dict[str, Any]] = [
     },
 ]
 
+MCP_RESOURCES: list[dict[str, Any]] = [
+    {
+        "uri": "bounties://active",
+        "name": "Active Bounties",
+        "description": "Board view of active MRWK bounties and treasury state",
+        "mimeType": "application/json",
+    }
+]
+
 
 # Static whitelist of registered MCP tool names, derived once at import time
 # from :data:`MCP_TOOLS`. The dispatcher uses this set to bound the
@@ -678,7 +689,10 @@ def _tool_result_response(
 
 
 async def handle_mcp_request(
-    request: Request, database_url: str, call_tool: MCPToolHandler
+    request: Request,
+    database_url: str,
+    call_tool: MCPToolHandler,
+    call_resource: MCPResourceHandler,
 ) -> dict[str, Any] | JSONResponse:
     try:
         payload = await request.json()
@@ -696,17 +710,37 @@ async def handle_mcp_request(
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}
 
+    if method == "resources/list":
+        return {"jsonrpc": "2.0", "id": response_id, "result": {"resources": MCP_RESOURCES}}
+
+    if method == "resources/read":
+        params = payload.get("params")
+        if not isinstance(params, dict):
+            return _jsonrpc_error(response_id, -32602, "invalid params")
+        uri = params.get("uri")
+        if not uri:
+            return _jsonrpc_error(response_id, -32602, "uri is required")
+        try:
+            content = call_resource(database_url, uri)
+            return {
+                "jsonrpc": "2.0",
+                "id": response_id,
+                "result": {
+                    "contents": [{"uri": uri, "mimeType": "application/json", "text": content}]
+                },
+            }
+        except (ValueError, KeyError, HTTPException):
+            return _jsonrpc_error(response_id, -32602, "invalid resource uri")
+
     if method != "tools/call":
         return _jsonrpc_error(response_id, -32601, "unknown method")
 
     params = payload.get("params")
-    if params is None:
-        params = {}
     if not isinstance(params, dict):
         return _jsonrpc_error(response_id, -32602, "invalid params")
 
     name = params.get("name")
-    args = params.get("arguments", {})
+    args = params.get("arguments")
     if args is None:
         args = {}
     if not isinstance(args, dict):

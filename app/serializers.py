@@ -2,24 +2,40 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
-from sqlalchemy.sql.elements import ColumnElement
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
 
-from app.bounty_attempts import (
+from decimal import Decimal  # noqa: E402
+from typing import Any, TypeVar  # noqa: E402
+
+T = TypeVar("T")
+
+
+from sqlalchemy import or_, select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+from sqlalchemy.sql.elements import ColumnElement  # noqa: E402
+
+from app.bounty_attempts import (  # noqa: E402
     active_bounty_attempt_counts,
     bounty_attempt_summary,
     bounty_attempt_summary_from_count,
 )
-from app.config import get_settings
-from app.ledger.reconciliation import AcceptedPayoutCheck
-from app.ledger.service import format_mrwk, get_balance
-from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, WalletTransfer
-from app.submission_requirements import (
+from app.config import get_settings  # noqa: E402
+from app.ledger.reconciliation import AcceptedPayoutCheck  # noqa: E402
+from app.ledger.service import format_mrwk, get_balance  # noqa: E402
+from app.models import (  # noqa: E402
+    Bounty,
+    LedgerEntry,
+    Proof,
+    TreasuryProposal,
+    Wallet,
+    WalletTransfer,
+)
+from app.submission_requirements import (  # noqa: E402
     SubmissionAvailability,
     work_proof_submission_requirements,
 )
@@ -871,7 +887,7 @@ def empty_accepted_summary() -> dict[str, Any]:
     }
 
 
-def _safe_return[T](call_: Callable[[], T], default: T) -> T:
+def _safe_return(call_: Callable[[], T], default: T) -> T:  # noqa: UP047
     """Call `call_` and return its result, falling back to `default` on any error.
 
     Used by the `safe_*_for_account` helpers to keep page-context builders

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timedelta, timezone
 
-import sqlalchemy as sa
-from alembic import op
+    UTC = timezone(timedelta(0))
+
+from collections.abc import Sequence  # noqa: E402
+
+import sqlalchemy as sa  # noqa: E402
+from alembic import op  # noqa: E402
 
 revision = "0001_initial"
 down_revision: str | None = None

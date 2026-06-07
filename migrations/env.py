@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-import os
-from logging.config import fileConfig
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timedelta, timezone
 
-from alembic import context
-from sqlalchemy import engine_from_config, pool
+    UTC = timezone(timedelta(0))
 
-from app.models import Base
+import os  # noqa: E402
+from logging.config import fileConfig  # noqa: E402
+
+from alembic import context  # noqa: E402
+from sqlalchemy import engine_from_config, pool  # noqa: E402
+
+from app.models import Base  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
