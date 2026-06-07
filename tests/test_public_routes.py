@@ -60,6 +60,9 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
             "/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=649&sort=reward"
         ),
         "clear_source_filter_url": "/bounties?status=open&q=proof&sort=reward",
+        "clear_availability_filter_url": (
+            "/bounties?status=open&q=proof&repo=ramimbo%2Fmergework&issue_number=649&sort=reward"
+        ),
         "status_filter_urls": {
             "all": ("/bounties?q=proof&repo=ramimbo%2Fmergework&issue_number=649&sort=reward"),
             "open": (
@@ -101,6 +104,24 @@ def test_public_bounties_context_clear_source_filter_preserves_other_filters() -
 
     assert context["clear_source_filter_url"] == (
         "/bounties?status=open&q=proof&sort=reward&limit=25&availability=effectively_open"
+    )
+
+
+def test_public_bounties_context_clear_availability_filter_preserves_other_filters() -> None:
+    context = public_bounties_context(
+        [],
+        status="open",
+        q="proof",
+        sort="reward",
+        limit=25,
+        repo="ramimbo/mergework",
+        issue_number=649,
+        availability="effectively_open",
+    )
+
+    assert context["clear_availability_filter_url"] == (
+        "/bounties?status=open&q=proof&repo=ramimbo%2Fmergework"
+        "&issue_number=649&sort=reward&limit=25"
     )
 
 
