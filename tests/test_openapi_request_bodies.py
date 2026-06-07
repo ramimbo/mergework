@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,81 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_bounty_openapi_response_schemas_expose_bounty_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    list_schema = _get_response_schema(openapi, "/api/v1/bounties")
+    assert list_schema["type"] == "array"
+    bounty_schema = list_schema["items"]
+    detail_schema = _get_response_schema(openapi, "/api/v1/bounties/{bounty_id}")
+
+    expected_fields = {
+        "id",
+        "repo",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "available_mrwk",
+        "reserved_mrwk",
+        "max_awards",
+        "awards_paid",
+        "awards_remaining",
+        "effective_available_mrwk",
+        "effective_awards_remaining",
+        "pending_payout_awards",
+        "pending_payout_proposals",
+        "pending_close_proposal",
+        "availability_state",
+        "availability_note",
+        "submission_requirements",
+        "status",
+        "acceptance",
+        "created_at",
+        "active_attempt_count",
+        "active_attempt_warnings",
+        "attempt_endpoint",
+    }
+    for schema in (bounty_schema, detail_schema):
+        _assert_properties(schema, expected_fields)
+        assert expected_fields.issubset(schema["required"])
+
+    props = bounty_schema["properties"]
+    assert props["issue_url"]["format"] == "uri"
+    assert props["reward_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert props["effective_available_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert props["max_awards"]["minimum"] == 1
+    assert props["awards_paid"]["minimum"] == 0
+    assert props["effective_awards_remaining"]["minimum"] == 0
+    assert props["pending_close_proposal"]["nullable"] is True
+    assert set(props["status"]["enum"]) == {"open", "paid", "closed"}
+    assert "pending_payouts_partial" in props["availability_state"]["enum"]
+    assert props["submission_requirements"]["properties"]["next_actions"]["type"] == "array"
+
+    accepted_awards = detail_schema["properties"]["accepted_awards"]
+    assert "accepted_awards" in detail_schema["required"]
+    award_props = accepted_awards["items"]["properties"]
+    _assert_properties(
+        accepted_awards["items"],
+        {
+            "proof_hash",
+            "proof_url",
+            "ledger_sequence",
+            "ledger_url",
+            "account",
+            "amount_mrwk",
+            "submission_url",
+            "accepted_by",
+            "created_at",
+        },
+    )
+    assert award_props["proof_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert award_props["amount_mrwk"]["nullable"] is True
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:

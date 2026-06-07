@@ -26,6 +26,7 @@ from app.ledger.service import (
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
+from app.openapi_request_bodies import BOUNTY_DETAIL_RESPONSE, BOUNTY_LIST_RESPONSE
 from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, positive_bounty_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -218,7 +219,7 @@ def register_bounty_api_routes(
             context="bounty detail",
         )
 
-    @app.get("/api/v1/bounties")
+    @app.get("/api/v1/bounties", openapi_extra=BOUNTY_LIST_RESPONSE)
     def api_bounties(
         request: Request,
         status: str | None = Query(None),
@@ -331,7 +332,7 @@ def register_bounty_api_routes(
             result["accepted_awards"] = bounty_awards_to_dict(session, bounty.id)
             return result
 
-    @app.get("/api/v1/bounties/{bounty_id}")
+    @app.get("/api/v1/bounties/{bounty_id}", openapi_extra=BOUNTY_DETAIL_RESPONSE)
     def api_bounty(request: Request, bounty_id: str) -> dict[str, Any]:
         _reject_bounty_detail_list_filters(request)
         return get_bounty_detail(bounty_id)

@@ -220,6 +220,202 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+SUBMISSION_REQUIREMENTS_SCHEMA = _object_schema(
+    {
+        "submission_mode": {"type": "string"},
+        "submission_url_kind": {"type": "string"},
+        "expected_artifact": {"type": "string"},
+        "attempt_endpoint_applicability": {"type": "string"},
+        "reference_formats": {"type": "array", "items": {"type": "string"}},
+        "claim_command": {"type": "string"},
+        "attempt_endpoint": {"type": "string"},
+        "evidence_required": {"type": "array", "items": {"type": "string"}},
+        "acceptance_trigger": {"type": "string"},
+        "public_metadata_must_avoid": {"type": "array", "items": {"type": "string"}},
+        "next_actions": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
+    },
+    required=[
+        "submission_mode",
+        "submission_url_kind",
+        "expected_artifact",
+        "attempt_endpoint_applicability",
+        "reference_formats",
+        "claim_command",
+        "attempt_endpoint",
+        "evidence_required",
+        "acceptance_trigger",
+        "public_metadata_must_avoid",
+        "next_actions",
+    ],
+)
+
+PENDING_PAYOUT_PROPOSAL_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "proposed_by": {"type": "string"},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+        "to_account": {"type": "string", "nullable": True},
+        "submission_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+    },
+    required=[
+        "proposal_id",
+        "proposed_by",
+        "proposed_at",
+        "executes_after",
+        "to_account",
+        "submission_url",
+        "accepted_by",
+    ],
+)
+
+PENDING_CLOSE_PROPOSAL_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "proposed_by": {"type": "string"},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+        "closed_by": {"type": "string", "nullable": True},
+        "reference": {"type": "string", "nullable": True},
+    },
+    required=[
+        "proposal_id",
+        "proposed_by",
+        "proposed_at",
+        "executes_after",
+        "closed_by",
+        "reference",
+    ],
+)
+
+BOUNTY_RESPONSE_REQUIRED_FIELDS = [
+    "id",
+    "repo",
+    "issue_number",
+    "issue_url",
+    "title",
+    "reward_mrwk",
+    "available_mrwk",
+    "reserved_mrwk",
+    "max_awards",
+    "awards_paid",
+    "awards_remaining",
+    "effective_available_mrwk",
+    "effective_awards_remaining",
+    "pending_payout_awards",
+    "pending_payout_proposals",
+    "pending_close_proposal",
+    "availability_state",
+    "availability_note",
+    "submission_requirements",
+    "status",
+    "acceptance",
+    "created_at",
+    "active_attempt_count",
+    "active_attempt_warnings",
+    "attempt_endpoint",
+]
+
+BOUNTY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "id": {"type": "integer", "minimum": 1},
+        "repo": {"type": "string"},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "issue_url": {"type": "string", "format": "uri"},
+        "title": {"type": "string"},
+        "reward_mrwk": MRWK_DECIMAL_SCHEMA,
+        "available_mrwk": MRWK_DECIMAL_SCHEMA,
+        "reserved_mrwk": MRWK_DECIMAL_SCHEMA,
+        "max_awards": {"type": "integer", "minimum": 1},
+        "awards_paid": {"type": "integer", "minimum": 0},
+        "awards_remaining": {"type": "integer", "minimum": 0},
+        "effective_available_mrwk": MRWK_DECIMAL_SCHEMA,
+        "effective_awards_remaining": {"type": "integer", "minimum": 0},
+        "pending_payout_awards": {"type": "integer", "minimum": 0},
+        "pending_payout_proposals": {
+            "type": "array",
+            "items": PENDING_PAYOUT_PROPOSAL_SCHEMA,
+        },
+        "pending_close_proposal": {**PENDING_CLOSE_PROPOSAL_SCHEMA, "nullable": True},
+        "availability_state": {
+            "type": "string",
+            "enum": [
+                "open",
+                "full",
+                "pending_payouts_partial",
+                "pending_payouts_full",
+                "pending_close",
+                "paid",
+                "closed",
+            ],
+        },
+        "availability_note": {"type": "string"},
+        "submission_requirements": SUBMISSION_REQUIREMENTS_SCHEMA,
+        "status": {"type": "string", "enum": ["open", "paid", "closed"]},
+        "acceptance": {"type": "string"},
+        "created_at": {"type": "string"},
+        "active_attempt_count": {"type": "integer", "minimum": 0},
+        "active_attempt_warnings": {"type": "array", "items": {"type": "string"}},
+        "attempt_endpoint": {"type": "string"},
+    },
+    required=BOUNTY_RESPONSE_REQUIRED_FIELDS,
+    description="Public bounty row returned by the bounty list and detail APIs.",
+)
+
+BOUNTY_ACCEPTED_AWARD_SCHEMA = _object_schema(
+    {
+        "proof_hash": LOWERCASE_HEX_64_SCHEMA,
+        "proof_url": {"type": "string"},
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "ledger_url": {"type": "string"},
+        "account": {"type": "string", "nullable": True},
+        "amount_mrwk": {**MRWK_DECIMAL_SCHEMA, "nullable": True},
+        "submission_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+        "created_at": {"type": "string"},
+    },
+    required=[
+        "proof_hash",
+        "proof_url",
+        "ledger_sequence",
+        "ledger_url",
+        "account",
+        "amount_mrwk",
+        "submission_url",
+        "accepted_by",
+        "created_at",
+    ],
+)
+
+BOUNTY_DETAIL_RESPONSE_SCHEMA = {
+    **BOUNTY_RESPONSE_SCHEMA,
+    "properties": {
+        **BOUNTY_RESPONSE_SCHEMA["properties"],
+        "accepted_awards": {"type": "array", "items": BOUNTY_ACCEPTED_AWARD_SCHEMA},
+    },
+    "required": [*BOUNTY_RESPONSE_REQUIRED_FIELDS, "accepted_awards"],
+    "description": "Public bounty detail row including proof-backed accepted awards.",
+}
+
+BOUNTY_LIST_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            {"type": "array", "items": BOUNTY_RESPONSE_SCHEMA},
+            description="Public bounty rows.",
+        ),
+    },
+}
+
+BOUNTY_DETAIL_RESPONSE = {
+    "responses": {
+        "200": _json_response(BOUNTY_DETAIL_RESPONSE_SCHEMA, description="Public bounty detail."),
+    },
+}
+
 MCP_JSONRPC_ID_SCHEMA = {
     "description": "JSON-RPC request id returned unchanged in the response.",
     "nullable": True,
