@@ -65,7 +65,8 @@ def test_mcp_bounty_board_resource(sqlite_url: str) -> None:
     assert "opening_soon" in content
     assert "treasury" in content
 
-    assert content["claimable_now"][0]["id"] == b1.id
+    assert content["claimable_now"][0]["bounty_id"] == b1.id
+
     assert content["opening_soon"][0]["title"] == "Opening Soon"
     assert content["opening_soon"][0]["reward_mrwk"] == "200"
     assert isinstance(content["treasury"]["balance_mrwk"], str)
