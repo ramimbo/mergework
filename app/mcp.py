@@ -123,7 +123,8 @@ MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
         "description": (
-            "List MRWK bounties with optional status, q, sort, limit, and availability filters"
+            "List MRWK bounties with optional status, q, repo, issue_number, "
+            "sort, limit, and availability filters"
         ),
         "inputSchema": {
             "type": "object",
@@ -138,6 +139,16 @@ MCP_TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "maxLength": 500,
                     "description": "Optional bounty text or issue-number search.",
+                },
+                "repo": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Optional owner/name repository filter.",
+                },
+                "issue_number": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional GitHub issue-number filter.",
                 },
                 "sort": {
                     "type": "string",
@@ -285,6 +296,49 @@ MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "register_wallet",
         "description": "Register an MRWK wallet public key",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "public_key_hex": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{64}$",
+                    "description": "Ed25519 public key as 32 bytes of hex.",
+                },
+                "label": {
+                    "type": "string",
+                    "description": "Optional human-readable wallet label.",
+                },
+            },
+            "required": ["public_key_hex"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
+                },
+                "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+                "label": {"type": ["string", "null"]},
+                "github_login": {"type": ["string", "null"]},
+                "balance_mrwk": {"type": "string"},
+                "nonce": {"type": "integer", "minimum": 0},
+                "next_nonce": {"type": "integer", "minimum": 1},
+                "created_at": {"type": "string"},
+            },
+            "required": [
+                "address",
+                "public_key_hex",
+                "label",
+                "github_login",
+                "balance_mrwk",
+                "nonce",
+                "next_nonce",
+                "created_at",
+            ],
+            "additionalProperties": True,
+        },
     },
     {
         "name": "get_wallet",
@@ -391,8 +445,173 @@ MCP_TOOLS: list[dict[str, Any]] = [
 ]
 
 
+# Static whitelist of registered MCP tool names, derived once at import time
+# from :data:`MCP_TOOLS`. The dispatcher uses this set to bound the
+# ``data["tool"]`` slot of the additive field-level error envelope: only
+# names that actually belong to a registered tool are surfaced, so an
+# unknown-tool ``ValueError`` (whose ``tool_name`` is, by definition, not in
+# the set) cannot echo arbitrary caller input into the response body.
+_KNOWN_TOOL_NAMES: frozenset[str] = frozenset(tool["name"] for tool in MCP_TOOLS)
+
+
 def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
+
+
+# Field-level error metadata for the additive `error.data` payload. The
+# dispatcher surfaces this only when a `ValueError` raised by
+# :func:`call_mcp_tool` matches a whitelisted safe phrase. Untrusted caller
+# input is never echoed: `field` must be one of `_KNOWN_TOOL_FIELDS` and
+# `message` must be one of `_KNOWN_FIELD_MESSAGES` or `None` (field-less).
+_KNOWN_TOOL_FIELDS: frozenset[str] = frozenset(
+    {
+        "id",
+        "bounty_id",
+        "issue_number",
+        "repo",
+        "include_awards",
+        "include_expired",
+        "limit",
+        "q",
+        "sort",
+        "availability",
+        "status",
+        "account",
+        "address",
+        "public_key_hex",
+        "label",
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "memo",
+        "signature_hex",
+        "sequence",
+        "hash",
+        "format",
+    }
+)
+
+# Safe, no-user-input phrases recognized as the trailing half of a
+# field-prefixed `ValueError` message. Values are the strings that callers
+# will see in `error.data.message`; they are never derived from caller input.
+_KNOWN_FIELD_MESSAGES: dict[str, str] = {
+    "must be an integer": "must be an integer",
+    "must be a string": "must be a string",
+    "must be a boolean": "must be a boolean",
+    "must be positive": "must be positive",
+    "must not be empty": "must not be empty",
+    "must not contain control characters": "must not contain control characters",
+    "is too large": "is too large",
+    "is too long": "is too long",
+    "must be at most 100": "must be at most 100",
+    "must be at most 500 characters": "must be at most 500 characters",
+    "must be one of: open, paid, closed": "must be one of: open, paid, closed",
+    "must be text or json": "must be text or json",
+}
+
+# Field-less safe phrases emitted when the underlying message is not
+# field-prefixed (e.g. `unknown tool`).
+_KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
+    "unknown tool": "unknown tool",
+    "matches multiple bounties": "matches multiple bounties",
+    "repo can only be used with issue_number": ("repo can only be used with issue_number"),
+}
+
+
+def _classify_value_error(exc: ValueError) -> dict[str, Any] | None:
+    """Map a ``ValueError`` raised by :func:`call_mcp_tool` to a safe
+    field-level error data payload.
+
+    Returns a ``{"code", "tool", "field", "message"}`` dict built only from
+    the static ``_KNOWN_TOOL_FIELDS`` / ``_KNOWN_FIELD_MESSAGES`` /
+    ``_KNOWN_FIELDLESS_MESSAGES`` whitelists when the original message
+    matches, or ``None`` if it does not — in which case the dispatcher
+    returns the legacy envelope without ``error.data`` so untrusted caller
+    input never reaches the response.
+
+    The recognised patterns are:
+
+    - ``"<field> <safe phrase>"`` where ``<field>`` is a known tool field
+      and ``<safe phrase>`` is a known field-level message.
+    - A field-less known message (e.g. ``"unknown tool"``).
+    """
+    if not exc.args:
+        return None
+    message = str(exc.args[0])
+    if not message:
+        return None
+
+    # Field-prefixed: "<field> <safe phrase>". Split on the first whitespace
+    # only; the field token is the first identifier-shaped run and the rest
+    # of the message must match a whitelisted safe phrase verbatim. This
+    # keeps the surface area to a small finite set of literal strings.
+    head, sep, tail = message.partition(" ")
+    if sep and head in _KNOWN_TOOL_FIELDS and tail in _KNOWN_FIELD_MESSAGES:
+        return {
+            "code": "invalid_argument",
+            "field": head,
+            "message": _KNOWN_FIELD_MESSAGES[tail],
+        }
+
+    # Some upstream ``ValueError`` messages are emitted as
+    # ``"<field> <field-less safe phrase>"`` even when the phrase itself is
+    # semantically field-less (e.g. ``"issue_number matches multiple
+    # bounties"``). Treat that case as a field-less known phrase so the
+    # whitelist remains reachable for those callsites; the leading field
+    # token is dropped from the response because the message is the
+    # user-facing signal and the field is the static name the dispatcher
+    # would have surfaced anyway.
+    if sep and head in _KNOWN_TOOL_FIELDS and tail in _KNOWN_FIELDLESS_MESSAGES:
+        return {
+            "code": "invalid_argument",
+            "field": None,
+            "message": _KNOWN_FIELDLESS_MESSAGES[tail],
+        }
+
+    # Field-less safe phrases.
+    if message in _KNOWN_FIELDLESS_MESSAGES:
+        return {
+            "code": "invalid_argument",
+            "field": None,
+            "message": _KNOWN_FIELDLESS_MESSAGES[message],
+        }
+
+    return None
+
+
+def _invalid_tool_arguments_response(
+    response_id: Any, tool_name: str, exc: ValueError
+) -> dict[str, Any]:
+    """Return the legacy ``-32602 invalid tool arguments`` envelope with an
+    optional, additive ``error.data`` payload for safe argument-validation
+    failures.
+
+    The JSON-RPC ``error.message`` always stays exactly
+    ``"invalid tool arguments"`` for backward compatibility. The new
+    ``error.data`` is attached only when the underlying ``ValueError``
+    message matches a whitelisted safe phrase, so untrusted caller input
+    never reaches the response.
+    """
+    error_payload: dict[str, Any] = {"code": -32602, "message": "invalid tool arguments"}
+    classified = _classify_value_error(exc)
+    if classified is not None:
+        # Bound the ``data["tool"]`` slot to the static
+        # :data:`_KNOWN_TOOL_NAMES` whitelist. Field-level argument
+        # validation always runs *after* the dispatcher has already
+        # resolved ``tool_name`` to a registered tool, so the bound
+        # value is identical to ``tool_name`` on the success path. For
+        # the ``unknown tool`` path the rejected caller name is, by
+        # definition, not in the whitelist; reflecting it would surface
+        # untrusted caller input, so the slot is left as ``None``.
+        safe_tool = tool_name if tool_name in _KNOWN_TOOL_NAMES else None
+        error_payload["data"] = {
+            "code": classified["code"],
+            "tool": safe_tool,
+            "field": classified["field"],
+            "message": classified["message"],
+        }
+    return {"jsonrpc": "2.0", "id": response_id, "error": error_payload}
 
 
 def _initialize_response(response_id: Any, params: Any) -> dict[str, Any]:
@@ -497,7 +716,9 @@ async def handle_mcp_request(
 
     try:
         tool_result = call_tool(database_url, name, args)
-    except (KeyError, TypeError, ValueError, LedgerError, HTTPException):
+    except ValueError as exc:
+        return _invalid_tool_arguments_response(response_id, name, exc)
+    except (KeyError, TypeError, LedgerError, HTTPException):
         return _jsonrpc_error(response_id, -32602, "invalid tool arguments")
 
     return _tool_result_response(response_id, tool_result)
