@@ -94,6 +94,24 @@ committed ledger entries, the hash chain, and fixed-supply conservation, but it
 does not replay every historical treasury proposal, challenge, or governance
 rule. Pending treasury proposals are not committed ledger state.
 
+Phase 2B adds read-only Merkle artifacts for those Phase 2A account balances:
+
+```bash
+python scripts/export_ledger_merkle_proof.py > ledger-merkle-root.json
+python scripts/export_ledger_merkle_proof.py --account github:alice > alice-proof.json
+```
+
+The Merkle root uses the snapshot account rows and ledger anchor only. Snapshot
+metadata such as `generated_at`, source host, or source mode does not affect the
+root for the same committed ledger state. Leaves, internal nodes, empty-tree
+roots, root objects, and proof objects are all versioned/domain-separated and
+hashed from canonical JSON rather than raw string concatenation.
+
+Account proofs include the versioned account leaf, leaf index, sibling path, and
+root object. Local verification recomputes the leaf and path and rejects changed
+account names, integer balances, sibling hashes, sibling directions, tree size,
+root hash, or ledger anchor.
+
 This snapshot is read-only infrastructure. It is not a bridge, exchange,
 off-ramp, custody path, relayer, redemption mechanism, price signal, or live
 external-value claim.
