@@ -18,7 +18,7 @@
 {% elif account %}
 <p class="notice">Showing accepted work for <code>{{ account }}</code>{% if account_page_url %} · <a href="{{ account_page_url }}">View account profile</a>{% endif %}</p>
 {% elif query %}
-<p class="notice">Showing accepted work matching “{{ query }}”.</p>
+<p class="notice">Showing accepted work matching "{{ query }}"</p>
 {% endif %}
 <nav class="actions detail-actions" aria-label="Activity inspection links">
   <a href="{{ api_activity_url }}">View JSON activity</a>

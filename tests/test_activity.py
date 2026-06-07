@@ -201,6 +201,18 @@ def test_activity_api_filters_accepted_work_by_query(sqlite_url: str) -> None:
         assert invalid_hash_query["recent"] == []
 
 
+def test_activity_page_renders_search_notice(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/activity?q=Proof")
+
+    assert response.status_code == 200
+    assert 'Showing accepted work matching "proof"' in response.text
+    assert "{{ query }}" not in response.text
+
+
 def test_activity_api_filters_by_exact_account(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -526,14 +538,14 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
 
     assert filtered.status_code == 200
     assert 'value="bob"' in filtered.text
-    assert "Showing accepted work matching “bob”." in filtered.text
+    assert 'Showing accepted work matching "bob"' in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
     assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
     assert issue_ref.status_code == 200
     assert 'value="#12"' in issue_ref.text
-    assert "Showing accepted work matching “#12”." in issue_ref.text
+    assert 'Showing accepted work matching "#12"' in issue_ref.text
     assert 'href="/api/v1/activity?q=%2312">View JSON activity</a>' in issue_ref.text
     assert "github:bob" in issue_ref.text
 
@@ -541,7 +553,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
 
     assert no_match.status_code == 200
     assert 'value="alice"' in no_match.text
-    assert "Showing accepted work matching “alice”." in no_match.text
+    assert 'Showing accepted work matching "alice"' in no_match.text
     assert "No contributors match this search." in no_match.text
     assert "No accepted work matches this search." in no_match.text
     assert "No pending accepted work matches this search." in no_match.text
