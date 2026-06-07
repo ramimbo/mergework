@@ -543,9 +543,18 @@ def _invalid_tool_arguments_response(
     error_payload: dict[str, Any] = {"code": -32602, "message": "invalid tool arguments"}
     classified = _classify_value_error(exc)
     if classified is not None:
+        # For the ``unknown tool`` path the caller's name is, by definition,
+        # not a member of the static ``MCP_TOOLS`` list. Echoing it back into
+        # ``data["tool"]`` would surface untrusted caller input in the
+        # response body, so the slot is left as ``None`` and the agent
+        # instead receives the static ``did_you_mean`` suggestion. For
+        # field-prefixed errors, ``tool_name`` is the dispatcher-internal
+        # registered name of the tool the caller invoked (not a free-form
+        # value from the wire), so it is safe to advertise.
+        is_unknown_tool = classified["message"] == _KNOWN_FIELDLESS_MESSAGES["unknown tool"]
         data: dict[str, Any] = {
             "code": classified["code"],
-            "tool": tool_name,
+            "tool": None if is_unknown_tool else tool_name,
             "field": classified["field"],
             "message": classified["message"],
         }
@@ -553,7 +562,7 @@ def _invalid_tool_arguments_response(
         # surface a single close-match suggestion from the static MCP tool list.
         # The suggestion is one of the names an agent could call successfully
         # or ``None``; the rejected name is never echoed.
-        if classified["message"] == _KNOWN_FIELDLESS_MESSAGES["unknown tool"]:
+        if is_unknown_tool:
             data["did_you_mean"] = _suggested_tool_name(tool_name)
         error_payload["data"] = data
     return {"jsonrpc": "2.0", "id": response_id, "error": error_payload}
