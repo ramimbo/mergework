@@ -30,6 +30,7 @@ from app.me import me_page_context
 from app.models import (
     Proof,
 )
+from app.openapi_request_bodies import MCP_BODY
 from app.path_params import (
     SQLITE_INTEGER_MAX,
     positive_bounty_id,
@@ -306,7 +307,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         code = 401 if result["status"] == "unauthorized" else 200
         return JSONResponse(result, status_code=code)
 
-    @app.post("/mcp")
+    @app.post("/mcp", openapi_extra=MCP_BODY)
     async def mcp(request: Request) -> Any:
         return await handle_mcp_request(request, db_url, call_mcp_tool)
 

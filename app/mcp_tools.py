@@ -191,6 +191,15 @@ def call_mcp_tool(
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
+            require_known_fields(
+                "status",
+                "q",
+                "repo",
+                "issue_number",
+                "sort",
+                "limit",
+                "availability",
+            )
             status = optional_clean_str_arg("status") or "open"
             normalized_status = status.lower()
             if normalized_status not in {"open", "paid", "closed"}:
@@ -211,6 +220,11 @@ def call_mcp_tool(
                 if issue_number is not None:
                     text_filter = or_(text_filter, Bounty.issue_number == issue_number)
                 query = query.where(text_filter)
+            repo_selector = optional_repo_selector_arg()
+            if repo_selector is not None:
+                query = query.where(func.lower(Bounty.repo) == repo_selector)
+            if "issue_number" in args and args.get("issue_number") is not None:
+                query = query.where(Bounty.issue_number == positive_int_arg("issue_number"))
             sort = normalize_bounty_sort(optional_clean_str_arg("sort"))
             availability = normalize_bounty_availability_filter(
                 optional_clean_str_arg("availability")

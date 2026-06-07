@@ -75,6 +75,7 @@ def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str,
     return {
         "availability_state": availability_state,
         "bounty_id": int(row["id"]),
+        "repo": str(row["repo"]),
         "issue_number": int(row["issue_number"]),
         "title": str(row["title"]),
         "issue_url": str(row["issue_url"]),
@@ -107,6 +108,7 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
     return {
         "availability_state": "pending_create",
         "proposal_id": int(proposal.id),
+        "repo": str(payload["repo"]),
         "issue_number": int(payload["issue_number"]),
         "title": str(payload["title"]),
         "issue_url": str(payload["issue_url"]),

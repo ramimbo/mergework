@@ -93,6 +93,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
         {
             "availability_state": "live_bounty",
             "bounty_id": live_bounty.id,
+            "repo": "ramimbo/mergework",
             "issue_number": 800,
             "title": "MRWK bounty: public work discovery",
             "issue_url": "https://github.com/ramimbo/mergework/issues/800",
@@ -128,6 +129,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
         {
             "availability_state": "pending_create",
             "proposal_id": pending_create.id,
+            "repo": "ramimbo/mergework",
             "issue_number": 900,
             "title": "Opening soon bounty",
             "issue_url": "https://github.com/ramimbo/mergework/issues/900",
@@ -150,6 +152,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert pending_create_executes_after.endswith("Z")
     assert datetime.fromisoformat(pending_create_executes_after.replace("Z", "+00:00"))
     assert body["not_claimable"][0]["availability_state"] == "closed_or_exhausted"
+    assert body["not_claimable"][0]["repo"] == "ramimbo/mergework"
     assert body["not_claimable"][0]["issue_number"] == 761
     assert body["not_claimable"][0]["next_action"]["id"] == "choose_open_bounty"
 
@@ -236,9 +239,11 @@ def test_work_discovery_limit_keeps_older_claimable_bounty_visible(sqlite_url: s
     assert body["summary"]["limit"] == 1
     assert body["summary"]["claimable_now_count"] == 1
     assert body["claimable_now"][0]["bounty_id"] == older_live.id
+    assert body["claimable_now"][0]["repo"] == "ramimbo/mergework"
     assert body["claimable_now"][0]["issue_number"] == 910
     assert body["claimable_now"][0]["availability_state"] == "live_bounty"
     assert body["not_claimable"][0]["bounty_id"] == newer_pending_full.id
+    assert body["not_claimable"][0]["repo"] == "ramimbo/mergework"
     assert body["not_claimable"][0]["issue_number"] == 911
     assert body["not_claimable"][0]["availability_state"] == "pending_payout"
     assert body["not_claimable"][0]["next_action"]["id"] == "watch_for_award_slot"
