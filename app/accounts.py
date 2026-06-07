@@ -14,7 +14,11 @@ from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
-from app.path_params import SQLITE_INTEGER_MAX, reject_account_special_characters, reject_path_whitespace_padding
+from app.path_params import (
+    SQLITE_INTEGER_MAX,
+    reject_account_special_characters,
+    reject_path_whitespace_padding,
+)
 from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
     accepted_work_for_account,
