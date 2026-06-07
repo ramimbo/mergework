@@ -5,7 +5,13 @@ import json
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any

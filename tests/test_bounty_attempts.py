@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select

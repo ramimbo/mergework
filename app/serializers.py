@@ -11,7 +11,10 @@ except ImportError:
 
 from decimal import Decimal
 
-from typing import Any
+from typing import Any, TypeVar
+
+T = TypeVar("T")
+
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -878,7 +881,8 @@ def empty_accepted_summary() -> dict[str, Any]:
     }
 
 
-def _safe_return[T](call_: Callable[[], T], default: T) -> T:
+def _safe_return(call_: Callable[[], T], default: T) -> T:
+
     """Call `call_` and return its result, falling back to `default` on any error.
 
     Used by the `safe_*_for_account` helpers to keep page-context builders

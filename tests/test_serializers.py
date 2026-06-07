@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone(timedelta(0))
+
 
 from sqlalchemy import event
 

@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone, timedelta
+    UTC = timezone(timedelta(0))
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa

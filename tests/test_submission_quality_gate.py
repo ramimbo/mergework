@@ -1399,7 +1399,13 @@ def test_maintainer_activity_check_rejects_negative_threshold() -> None:
     Regression for #809: a negative window made same-day maintainer activity
     look stale because the time delta always exceeds a negative timedelta.
     """
-    from datetime import UTC, datetime
+    from datetime import datetime, timedelta, timezone
+
+    try:
+        from datetime import UTC
+    except ImportError:
+        UTC = timezone(timedelta(0))
+
 
     from scripts.submission_quality_gate import _maintainer_activity_check
 
