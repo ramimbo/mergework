@@ -95,6 +95,13 @@
     {% if bounty.availability_state != "open" or bounty.effective_awards_remaining != bounty.awards_remaining %}
     <p class="notice">{{ bounty.availability_note }}</p>
     {% endif %}
+    {% if bounty.active_attempt_count %}
+    <p class="notice">
+      {{ bounty.active_attempt_count }} active attempt reservation{% if bounty.active_attempt_count != 1 %}s{% endif %}.
+      {% if bounty.active_attempt_warnings %}{{ bounty.active_attempt_warnings | join("; ") }}. {% endif %}
+      <a href="{{ bounty.attempt_endpoint }}">Review attempts</a>
+    </p>
+    {% endif %}
     <p>{{ bounty.acceptance }}</p>
     <div class="next-steps-actions" aria-label="Bounty action links for {{ bounty.id }}">
       <a href="/bounties/{{ bounty.id }}">View details</a>
