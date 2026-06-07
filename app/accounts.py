@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
+from app.ledger.service import (
+    TREASURY_ACCOUNT,
+    format_mrwk,
+    get_balance,
+    linked_wallet_for_github,
+)
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
@@ -117,6 +122,14 @@ def account_action_urls(account: str) -> dict[str, str]:
     }
 
 
+def linked_wallet_address_for_account(session: Session, account: str) -> str | None:
+    github_login = github_login_from_account(account)
+    if github_login is None:
+        return None
+    linked_wallet = linked_wallet_for_github(session, github_login)
+    return linked_wallet.address if linked_wallet is not None else None
+
+
 def _account_api_context_for_normalized_account(session: Session, account: str) -> dict[str, Any]:
     account_row = session.get(Account, account)
     pending_payouts = safe_pending_payouts_for_account(session, account)
@@ -179,6 +192,7 @@ def account_page_context(
         "accepted_work": safe_accepted_work_for_account(session, account),
         "pending_summary": account_context["pending_summary"],
         "pending_payouts": account_context["pending_payouts"],
+        "linked_wallet_address": linked_wallet_address_for_account(session, account),
         "selected_transaction_type": selected_transaction_type,
         "transaction_type_options": ACCOUNT_TRANSACTION_TYPE_OPTIONS,
         "transactions": account_ledger_transactions(

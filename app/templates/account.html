@@ -13,6 +13,10 @@
     <dt>GitHub profile</dt>
     <dd><a href="https://github.com/{{ account.github_login }}">@{{ account.github_login }}</a></dd>
     {% endif %}
+    {% if linked_wallet_address %}
+    <dt>Linked wallet</dt>
+    <dd><a href="/wallets/{{ linked_wallet_address }}"><code>{{ linked_wallet_address }}</code></a></dd>
+    {% endif %}
     <dt>Send status</dt>
     <dd>{{ account.transfer_status }}</dd>
   </dl>

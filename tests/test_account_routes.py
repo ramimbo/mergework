@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -20,10 +22,24 @@ from app.ledger.service import (
     create_bounty,
     ensure_genesis,
     pay_bounty,
+    register_wallet,
 )
 from app.main import create_app
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
+from app.wallets import address_from_public_key_hex
+
+
+def _wallet_public_hex() -> str:
+    private_key = Ed25519PrivateKey.generate()
+    return (
+        private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
 
 
 def test_account_contexts_include_balance_status_and_proof_backed_rows(
@@ -70,12 +86,16 @@ def test_account_contexts_include_balance_status_and_proof_backed_rows(
     assert page_context["accepted_work"][0]["proof_hash"] == proof.hash
     assert page_context["transactions"][0]["proof_hash"] == proof.hash
     assert page_context["transactions"][0]["to"] == "github:alice"
+    assert page_context["linked_wallet_address"] is None
 
 
 def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str) -> None:
     create_schema(sqlite_url)
+    public_hex = _wallet_public_hex()
+    wallet_address = address_from_public_key_hex(public_hex)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
+        register_wallet(session, public_key_hex=public_hex, github_login="bob")
         bounty = create_bounty(
             session,
             repo="ramimbo/mergework",
@@ -122,6 +142,8 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert 'href="/api/v1/accounts/github:bob"' in page_response.text
     assert 'href="/api/v1/accounts/github:bob/accepted-work"' in page_response.text
     assert 'href="/api/v1/activity?account=github%3Abob"' in page_response.text
+    assert f'href="/wallets/{wallet_address}"' in page_response.text
+    assert "Linked wallet" in page_response.text
     assert '<p class="reference-cell">' in page_response.text
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
