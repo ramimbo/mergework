@@ -14,7 +14,16 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError, validate_public_url
 from app.models import Bounty, BountyAttempt
-from app.openapi_request_bodies import OPTIONAL_ATTEMPT_BODY, OPTIONAL_ATTEMPT_RELEASE_BODY
+from app.openapi_schemas import (
+    BountyAttemptCreateResponse,
+    BountyAttemptDuplicateResponse,
+    BountyAttemptListEnvelope,
+    BountyAttemptNotAvailableResponse,
+)
+from app.openapi_request_bodies import (
+    OPTIONAL_ATTEMPT_BODY,
+    OPTIONAL_ATTEMPT_RELEASE_BODY,
+)
 from app.query_validation import (
     reject_noncanonical_bool_query_param,
     reject_noncanonical_int_query_param,
@@ -200,7 +209,10 @@ def list_bounty_attempts(
 
 
 def expire_stale_bounty_attempts(
-    session: Session, bounty_id: int, now: datetime, submitter_account: str | None = None
+    session: Session,
+    bounty_id: int,
+    now: datetime,
+    submitter_account: str | None = None,
 ) -> None:
     query = update(BountyAttempt).where(
         BountyAttempt.bounty_id == bounty_id,
@@ -249,13 +261,17 @@ def register_bounty_attempt_routes(
             raise HTTPException(status_code=403, detail="submitter_account does not match login")
         return submitter_account
 
-    @app.get("/api/v1/bounties/{bounty_id}/attempts")
+    @app.get(
+        "/api/v1/bounties/{bounty_id}/attempts",
+        response_model=BountyAttemptListEnvelope,
+        responses={404: {"description": "Bounty not found"}},
+    )
     def api_bounty_attempts(
         request: Request,
         bounty_id: str,
         include_expired: str | None = Query(None),
         limit: Annotated[int | None, Query(ge=1, le=100)] = None,
-    ) -> dict[str, Any]:
+    ) -> BountyAttemptListEnvelope:
         for name in ("include_expired", "limit"):
             reject_repeated_query_param(request, name)
         reject_noncanonical_bool_query_param(request, "include_expired")
@@ -279,7 +295,22 @@ def register_bounty_attempt_routes(
                 "attempts": listing["attempts"],
             }
 
-    @app.post("/api/v1/bounties/{bounty_id}/attempts", openapi_extra=OPTIONAL_ATTEMPT_BODY)
+    @app.post(
+        "/api/v1/bounties/{bounty_id}/attempts",
+        openapi_extra=OPTIONAL_ATTEMPT_BODY,
+        response_model=BountyAttemptCreateResponse,
+        responses={
+            201: {
+                "model": BountyAttemptCreateResponse,
+                "description": "Attempt registered",
+            },
+            404: {"description": "Bounty not found"},
+            409: {
+                "model": BountyAttemptNotAvailableResponse | BountyAttemptDuplicateResponse,
+                "description": "Bounty not claimable, or an active attempt already exists",
+            },
+        },
+    )
     async def api_create_bounty_attempt(
         bounty_id: str,
         request: Request,
