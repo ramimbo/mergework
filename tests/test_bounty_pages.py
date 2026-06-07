@@ -1126,16 +1126,32 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
     assert 'href="/ledger">All ledger entries</a>' in ledger_entry_page.text
     assert f'href="/ledger/{payment_sequence - 1}">Previous entry</a>' in ledger_entry_page.text
     assert f'href="/api/v1/ledger/{payment_sequence}">Entry JSON</a>' in ledger_entry_page.text
+    assert 'href="/activity?account=github%3Acontributor">Recipient activity</a>' in (
+        ledger_entry_page.text
+    )
+    assert "Sender activity</a>" not in ledger_entry_page.text
     assert f'href="/ledger/{payment_sequence + 1}">Next entry</a>' in ledger_entry_page.text
     assert (
         'href="https://github.com/ramimbo/mergework/pull/99" rel="nofollow noopener"'
         in ledger_entry_page.text
     )
+    reserve_entry_page = client.get(f"/ledger/{payment_sequence - 1}")
+    assert reserve_entry_page.status_code == 200
+    assert "Bounty Reserve" in reserve_entry_page.text
+    assert "Recipient activity</a>" not in reserve_entry_page.text
+    assert "Sender activity</a>" not in reserve_entry_page.text
+    release_entry_page = client.get(f"/ledger/{payment_sequence + 1}")
+    assert release_entry_page.status_code == 200
+    assert "Bounty Release" in release_entry_page.text
+    assert "Recipient activity</a>" not in release_entry_page.text
+    assert "Sender activity</a>" not in release_entry_page.text
     genesis_page = client.get("/ledger/1")
     assert genesis_page.status_code == 200
     assert 'href="/ledger">All ledger entries</a>' in genesis_page.text
     assert 'href="/ledger/0">Previous entry</a>' not in genesis_page.text
     assert 'href="/ledger/2">Next entry</a>' in genesis_page.text
+    assert "Recipient activity</a>" not in genesis_page.text
+    assert "Sender activity</a>" not in genesis_page.text
     latest_sequence = client.get("/api/v1/ledger?limit=1").json()[0]["sequence"]
     latest_page = client.get(f"/ledger/{latest_sequence}")
     assert latest_page.status_code == 200
