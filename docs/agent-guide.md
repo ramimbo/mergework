@@ -382,7 +382,8 @@ the previous envelope. `KeyError`, `TypeError`, `LedgerError`, and
 
 For the field-less `unknown tool` phrase, the `error.data` payload may
 additionally carry a `did_you_mean` field with a single close-match
-suggestion from the static MCP tool list:
+suggestion from the static MCP tool list. The `tool` slot is `null` for
+this phrase (the rejected name is not a known tool and is never echoed):
 
 ```json
 {
@@ -393,7 +394,7 @@ suggestion from the static MCP tool list:
     "message": "invalid tool arguments",
     "data": {
       "code": "invalid_argument",
-      "tool": "lis_bounties",
+      "tool": null,
       "field": null,
       "message": "unknown tool",
       "did_you_mean": "list_bounties"

@@ -3226,7 +3226,7 @@ def test_mcp_unknown_tool_suggests_close_match(sqlite_url: str) -> None:
         request_id=7,
         expected_data={
             "code": "invalid_argument",
-            "tool": "lis_bounties",
+            "tool": None,
             "field": None,
             "message": "unknown tool",
             "did_you_mean": "list_bounties",
@@ -3262,7 +3262,7 @@ def test_mcp_unknown_tool_does_not_suggest_for_unrelated_name(
         request_id=8,
         expected_data={
             "code": "invalid_argument",
-            "tool": "zzz_nope_xyz_garbage",
+            "tool": None,
             "field": None,
             "message": "unknown tool",
             "did_you_mean": None,
