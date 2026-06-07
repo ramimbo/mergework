@@ -171,6 +171,9 @@ def _classify_pr(
     if pr_author == reviewer:
         state = "self_authored"
         reason = "reviewer authored this PR"
+    elif current_reviewer_reviews:
+        state = "already_reviewed_current_head_by_reviewer"
+        reason = "reviewer already reviewed current head"
     elif "mrwk:needs-info" in normalized_labels:
         state = "needs_info"
         reason = "PR has mrwk:needs-info label"
@@ -180,9 +183,6 @@ def _classify_pr(
     elif quality_state != "success":
         state = "missing_standard_quality_check"
         reason = f"standard quality check is {quality_state}"
-    elif current_reviewer_reviews:
-        state = "already_reviewed_current_head_by_reviewer"
-        reason = "reviewer already reviewed current head"
     elif changes_requested:
         state = "waiting_for_author_update"
         reason = "current-head human review already requested changes"
