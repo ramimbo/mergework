@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.db import create_schema, session_scope
 from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
-from app.models import LedgerEntry, Proof
+from app.models import BountyAttempt, LedgerEntry, Proof
 from app.path_params import SQLITE_INTEGER_MAX
 from app.treasury import propose_treasury_action
 
@@ -212,6 +213,138 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert "1 award still open for distinct accepted work after pending treasury proposals." in (
         detail.text
     )
+
+
+def test_bounty_pages_show_active_attempt_summary(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=69,
+            issue_url="https://github.com/ramimbo/mergework/issues/69",
+            title="Attempt visibility bounty",
+            reward_mrwk="25",
+            max_awards=3,
+            acceptance="Public pages should show active attempt visibility.",
+        )
+        for submitter, status, expires_at in (
+            ("github:alice", "active", now + timedelta(hours=1)),
+            ("github:bob", "active", now + timedelta(hours=2)),
+            ("github:carol", "released", now + timedelta(hours=3)),
+            ("github:dana", "active", now - timedelta(minutes=1)),
+        ):
+            session.add(
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account=submitter,
+                    status=status,
+                    expires_at=expires_at,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        session.flush()
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/bounties")
+    detail = client.get(f"/bounties/{bounty_id}")
+
+    assert page.status_code == 200
+    assert detail.status_code == 200
+    for html in (page.text, detail.text):
+        assert "2 active attempt reservations." in html
+        assert "bounty has 2 active attempts." in html
+        assert f'href="/api/v1/bounties/{bounty_id}/attempts">Review attempts</a>' in html
+
+
+def test_bounty_pages_show_singular_active_attempt_summary(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=70,
+            issue_url="https://github.com/ramimbo/mergework/issues/70",
+            title="Single attempt visibility bounty",
+            reward_mrwk="25",
+            max_awards=3,
+            acceptance="Public pages should pluralize active attempt summaries.",
+        )
+        session.add(
+            BountyAttempt(
+                bounty_id=bounty.id,
+                submitter_account="github:alice",
+                status="active",
+                expires_at=now + timedelta(hours=1),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        session.flush()
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/bounties")
+    detail = client.get(f"/bounties/{bounty_id}")
+
+    assert page.status_code == 200
+    assert detail.status_code == 200
+    for html in (page.text, detail.text):
+        assert "1 active attempt reservation." in html
+        assert "1 active attempt reservations." not in html
+        assert f'href="/api/v1/bounties/{bounty_id}/attempts">Review attempts</a>' in html
+
+
+def test_bounty_pages_hide_attempt_summary_without_active_attempts(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    now = datetime.now(UTC)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=71,
+            issue_url="https://github.com/ramimbo/mergework/issues/71",
+            title="No active attempt visibility bounty",
+            reward_mrwk="25",
+            acceptance="Public pages should hide inactive attempt summaries.",
+        )
+        for submitter, status, expires_at in (
+            ("github:alice", "released", now + timedelta(hours=1)),
+            ("github:bob", "active", now - timedelta(minutes=1)),
+        ):
+            session.add(
+                BountyAttempt(
+                    bounty_id=bounty.id,
+                    submitter_account=submitter,
+                    status=status,
+                    expires_at=expires_at,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        session.flush()
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/bounties")
+    detail = client.get(f"/bounties/{bounty_id}")
+
+    assert page.status_code == 200
+    assert detail.status_code == 200
+    assert " active attempt reservation." not in page.text
+    assert " active attempt reservation." not in detail.text
+    assert f'href="/api/v1/bounties/{bounty_id}/attempts">Review attempts</a>' not in page.text
+    assert f'href="/api/v1/bounties/{bounty_id}/attempts">Review attempts</a>' not in detail.text
 
 
 def test_bounties_page_shows_effective_capacity_after_pending_close(
