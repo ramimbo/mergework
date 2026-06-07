@@ -313,6 +313,33 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
         },
     )
 
+    execute_operation = openapi["paths"]["/api/v1/treasury/proposals/{proposal_id}/execute"]["post"]
+    assert "requestBody" not in execute_operation
+    execute_schema = _post_response_schema(
+        openapi, "/api/v1/treasury/proposals/{proposal_id}/execute"
+    )
+    _assert_properties(
+        execute_schema,
+        {
+            "id",
+            "type",
+            "action",
+            "status",
+            "payload_hash",
+            "payload",
+            "proposed_by",
+            "executed_by",
+            "proposed_at",
+            "executes_after",
+            "executed_at",
+            "executed_ledger_sequence",
+            "result",
+            "challenges",
+        },
+    )
+    assert execute_schema["properties"]["id"]["minimum"] == 1
+    assert execute_schema["properties"]["payload_hash"]["pattern"] == "^[0-9a-f]{64}$"
+
     challenge_schema = _post_response_schema(
         openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
     )
