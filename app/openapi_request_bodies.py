@@ -110,6 +110,11 @@ WALLET_MEMO_SCHEMA = {
     "maxLength": 240,
 }
 
+BOUNTY_ATTEMPT_STATUS_ENUM = ["active", "expired", "released"]
+ATTEMPT_REGISTRATION_STATUS_ENUM = ["registered"]
+ATTEMPT_CONFLICT_STATUS_ENUM = ["duplicate_active_attempt", "not_available"]
+ATTEMPT_RELEASE_STATUS_ENUM = ["already_expired", "already_released", "released"]
+
 WALLET_RESPONSE_SCHEMA = _object_schema(
     {
         "address": MRWK_WALLET_ADDRESS_SCHEMA,
@@ -158,7 +163,7 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
         "bounty_id": {"type": "integer", "minimum": 1},
         "submitter_account": {"type": "string"},
         "source_url": {"type": "string", "nullable": True},
-        "status": {"type": "string"},
+        "status": {"type": "string", "enum": BOUNTY_ATTEMPT_STATUS_ENUM},
         "expires_at": {"type": "string"},
         "created_at": {"type": "string"},
         "updated_at": {"type": "string"},
@@ -167,7 +172,7 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
 
 ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
     {
-        "status": {"type": "string"},
+        "status": {"type": "string", "enum": ATTEMPT_REGISTRATION_STATUS_ENUM},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
         "warnings": {"type": "array", "items": {"type": "string"}},
     }
@@ -175,7 +180,7 @@ ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
 
 ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
     {
-        "status": {"type": "string"},
+        "status": {"type": "string", "enum": ATTEMPT_CONFLICT_STATUS_ENUM},
         "bounty_id": {"type": "integer", "minimum": 1},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
         "warnings": {"type": "array", "items": {"type": "string"}},
@@ -184,7 +189,7 @@ ATTEMPT_CONFLICT_RESPONSE_SCHEMA = _object_schema(
 
 ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
     {
-        "status": {"type": "string"},
+        "status": {"type": "string", "enum": ATTEMPT_RELEASE_STATUS_ENUM},
         "attempt": BOUNTY_ATTEMPT_RESPONSE_SCHEMA,
     }
 )

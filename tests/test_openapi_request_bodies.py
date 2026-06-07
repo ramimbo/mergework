@@ -325,6 +325,39 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
     _assert_properties(release_schema, {"status", "attempt"})
 
 
+def test_bounty_attempt_response_schemas_publish_status_enums(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    registered_attempt_schema = _post_response_schema(
+        openapi, "/api/v1/bounties/{bounty_id}/attempts", "201"
+    )
+    assert registered_attempt_schema["properties"]["status"]["enum"] == ["registered"]
+    assert registered_attempt_schema["properties"]["attempt"]["properties"]["status"]["enum"] == [
+        "active",
+        "expired",
+        "released",
+    ]
+
+    conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
+    assert conflict_schema["properties"]["status"]["enum"] == [
+        "duplicate_active_attempt",
+        "not_available",
+    ]
+
+    release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
+    assert release_schema["properties"]["status"]["enum"] == [
+        "already_expired",
+        "already_released",
+        "released",
+    ]
+    assert release_schema["properties"]["attempt"]["properties"]["status"]["enum"] == [
+        "active",
+        "expired",
+        "released",
+    ]
+
+
 def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()
