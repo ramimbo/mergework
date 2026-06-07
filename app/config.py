@@ -44,6 +44,10 @@ def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
     return tuple(item.strip().lower() for item in raw_value.split(","))
 
 
+def _normalized_github_logins(logins: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(login.strip().lower() for login in logins)
+
+
 def _optional_positive_int_env(name: str) -> int | None:
     raw_value = os.environ.get(name, "").strip()
     if not raw_value:
@@ -81,25 +85,32 @@ def _required_env_value_errors(name: str, value: str) -> list[str]:
 
 
 def _invalid_github_logins(logins: tuple[str, ...]) -> list[str]:
-    return sorted({login for login in logins if login and not GITHUB_LOGIN_RE.fullmatch(login)})
+    return sorted(
+        {
+            login
+            for login in _normalized_github_logins(logins)
+            if login and not GITHUB_LOGIN_RE.fullmatch(login)
+        }
+    )
 
 
 def _duplicate_github_logins(logins: tuple[str, ...]) -> bool:
-    present_logins = [login for login in logins if login]
+    present_logins = [login for login in _normalized_github_logins(logins) if login]
     return len(set(present_logins)) != len(present_logins)
 
 
 def _github_login_list_errors(
     name: str, logins: tuple[str, ...], *, required_detail: str
 ) -> list[str]:
-    if not logins:
+    normalized_logins = _normalized_github_logins(logins)
+    if not normalized_logins:
         return [required_detail]
     errors: list[str] = []
-    if "" in logins:
+    if "" in normalized_logins:
         errors.append(f"{name} must not include empty entries")
-    if _duplicate_github_logins(logins):
+    if _duplicate_github_logins(normalized_logins):
         errors.append(f"{name} must not include duplicate logins")
-    if _invalid_github_logins(logins):
+    if _invalid_github_logins(normalized_logins):
         errors.append(f"{name} must contain valid GitHub logins")
     return errors
 
@@ -184,6 +195,10 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
     )
     errors.extend(_secret_errors("MERGEWORK_ADMIN_TOKEN", settings.admin_token))
     errors.extend(_secret_errors("MERGEWORK_COOKIE_SECRET", settings.cookie_secret))
+    if settings.github_issue_token:
+        errors.extend(
+            _required_env_value_errors("MERGEWORK_GITHUB_ISSUE_TOKEN", settings.github_issue_token)
+        )
     deploy_secrets = [
         settings.github_webhook_secret,
         settings.github_oauth_client_secret,
@@ -213,8 +228,12 @@ def validate_deploy_settings(settings: Settings) -> list[str]:
         )
     )
     if settings.admin_logins and settings.github_accepted_labelers:
-        admin_login_set = {login for login in settings.admin_logins if login}
-        accepted_labeler_set = {login for login in settings.github_accepted_labelers if login}
+        admin_login_set = {
+            login for login in _normalized_github_logins(settings.admin_logins) if login
+        }
+        accepted_labeler_set = {
+            login for login in _normalized_github_logins(settings.github_accepted_labelers) if login
+        }
         non_admin_labelers = sorted(accepted_labeler_set - admin_login_set)
         if non_admin_labelers:
             errors.append(
