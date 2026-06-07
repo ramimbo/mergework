@@ -359,6 +359,50 @@ MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "submit_wallet_transfer",
         "description": "Submit a signed MRWK wallet transfer",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_address": {
+                    "type": "string",
+                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
+                    "description": "Sender MRWK wallet address.",
+                },
+                "to_address": {
+                    "type": "string",
+                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
+                    "description": "Receiver MRWK wallet address.",
+                },
+                "amount_mrwk": {
+                    "type": "string",
+                    "pattern": "^(?=.*[1-9])\\d+(?:\\.\\d{1,6})?$",
+                    "description": "Positive MRWK amount with up to six decimal places.",
+                },
+                "nonce": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Next wallet nonce signed in the transfer payload.",
+                },
+                "memo": {
+                    "type": "string",
+                    "maxLength": 240,
+                    "default": "",
+                    "description": "Optional transfer memo.",
+                },
+                "signature_hex": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{128}$",
+                    "description": "Ed25519 signature as 128 hex characters.",
+                },
+            },
+            "required": [
+                "from_address",
+                "to_address",
+                "amount_mrwk",
+                "nonce",
+                "signature_hex",
+            ],
+            "additionalProperties": False,
+        },
     },
     {
         "name": "get_ledger_entry",
