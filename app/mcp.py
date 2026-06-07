@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from difflib import get_close_matches
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -391,8 +392,22 @@ MCP_TOOLS: list[dict[str, Any]] = [
 ]
 
 
-def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
+def _jsonrpc_error(
+    response_id: Any, code: int, message: str, data: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": response_id, "error": error}
+
+
+def _unknown_tool_error(response_id: Any, name: str) -> dict[str, Any]:
+    known_tools = [tool["name"] for tool in MCP_TOOLS]
+    data: dict[str, Any] = {"unknown_tool": name}
+    matches = get_close_matches(name, known_tools, n=1, cutoff=0.6)
+    if matches:
+        data["did_you_mean"] = matches[0]
+    return _jsonrpc_error(response_id, -32601, "unknown tool", data)
 
 
 def _initialize_response(response_id: Any, params: Any) -> dict[str, Any]:
@@ -497,7 +512,11 @@ async def handle_mcp_request(
 
     try:
         tool_result = call_tool(database_url, name, args)
-    except (KeyError, TypeError, ValueError, LedgerError, HTTPException):
+    except ValueError as exc:
+        if str(exc) == "unknown tool":
+            return _unknown_tool_error(response_id, name)
+        return _jsonrpc_error(response_id, -32602, "invalid tool arguments")
+    except (KeyError, TypeError, LedgerError, HTTPException):
         return _jsonrpc_error(response_id, -32602, "invalid tool arguments")
 
     return _tool_result_response(response_id, tool_result)
