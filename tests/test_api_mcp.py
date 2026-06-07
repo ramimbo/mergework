@@ -19,6 +19,42 @@ from app.models import BountyAttempt, Proof
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
 
+# Sentinel used by ``_assert_invalid_tool_arguments_envelope`` to mean
+# "do not assert on the presence of ``error.data``". The literal
+# ``"__unset__"`` string is used as a stable, human-readable token.
+_UNSET: object = "__unset__"
+
+
+def _assert_invalid_tool_arguments_envelope(
+    response_json: dict[str, object],
+    *,
+    request_id: object,
+    expected_data: object = _UNSET,
+) -> None:
+    """Assert that a JSON-RPC error envelope matches the legacy
+    ``-32602 invalid tool arguments`` contract.
+
+    The dispatcher may optionally attach an additive ``error.data`` payload
+    built from the whitelisted safe phrase list in :mod:`app.mcp`. Pass
+    ``expected_data`` as a dict to require an exact match, pass
+    ``expected_data=None`` to require that no ``data`` key is present, and
+    leave it at the default sentinel to make no assertion about the
+    presence of ``data`` at all — useful for tests that do not care about
+    the new shape.
+    """
+    assert response_json["jsonrpc"] == "2.0"
+    assert response_json["id"] == request_id
+    error = response_json["error"]
+    assert isinstance(error, dict)
+    assert error["code"] == -32602
+    assert error["message"] == "invalid tool arguments"
+    if expected_data is _UNSET:
+        return
+    if expected_data is None:
+        assert "data" not in error
+        return
+    assert error["data"] == expected_data
+
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
     create_schema(sqlite_url)
@@ -306,12 +342,14 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
     assert tools["result"]["tools"][0]["name"] == "list_bounties"
     assert (
-        "status, q, sort, limit, and availability filters"
+        "status, q, repo, issue_number, sort, limit, and availability filters"
         in tools["result"]["tools"][0]["description"]
     )
     list_bounties_schema = tools["result"]["tools"][0]["inputSchema"]
     assert list_bounties_schema["additionalProperties"] is False
     assert list_bounties_schema["properties"]["q"]["maxLength"] == 500
+    assert list_bounties_schema["properties"]["repo"]["maxLength"] == 200
+    assert list_bounties_schema["properties"]["issue_number"]["minimum"] == 1
     assert list_bounties_schema["properties"]["limit"]["maximum"] == 100
     list_bounties_output_schema = tools["result"]["tools"][0]["outputSchema"]
     assert list_bounties_output_schema["type"] == "array"
@@ -854,11 +892,7 @@ def test_mcp_list_bounty_attempts_rejects_invalid_arguments(sqlite_url: str) -> 
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 23,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=23)
 
 
 def test_mcp_list_bounty_attempts_rejects_mixed_id_aliases(sqlite_url: str) -> None:
@@ -892,11 +926,7 @@ def test_mcp_list_bounty_attempts_rejects_mixed_id_aliases(sqlite_url: str) -> N
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 26,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=26)
 
 
 def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> None:
@@ -1023,6 +1053,63 @@ def test_mcp_list_bounties_filters_status_query_and_limit(sqlite_url: str) -> No
     assert max_length_search_payload == []
 
 
+def test_mcp_list_bounties_filters_repo_and_issue_number(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=391,
+            issue_url="https://github.com/ramimbo/mergework/issues/391",
+            title="Primary repo bounty",
+            reward_mrwk="150",
+            acceptance="MCP repo filtering should skip this bounty.",
+        )
+        target = create_bounty(
+            session,
+            repo="Example/MergeWork",
+            issue_number=391,
+            issue_url="https://github.com/example/mergework/issues/391",
+            title="Target repo bounty",
+            reward_mrwk="200",
+            acceptance="MCP repo and issue filters should find this bounty.",
+        )
+        create_bounty(
+            session,
+            repo="example/mergework",
+            issue_number=392,
+            issue_url="https://github.com/example/mergework/issues/392",
+            title="Same repo different issue",
+            reward_mrwk="50",
+            acceptance="Repo-only filters may include this bounty.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    filtered = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {
+                    "repo": " EXAMPLE/MERGEWORK ",
+                    "issue_number": 391,
+                },
+            },
+        },
+    ).json()
+
+    payload = json.loads(filtered["result"]["content"][0]["text"])
+    assert filtered["result"]["structuredContent"] == payload
+    assert [bounty["id"] for bounty in payload] == [target.id]
+    assert payload[0]["repo"] == "example/mergework"
+    assert payload[0]["issue_number"] == 391
+
+
 def test_mcp_list_bounties_honors_sort_argument(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -1136,6 +1223,12 @@ def test_mcp_list_bounties_filters_effective_availability(sqlite_url: str) -> No
         ({"sort": "invalid"}, 36),
         ({"availability": "maybe"}, 37),
         ({"q": "a" * 501}, 38),
+        ({"repo": 1}, 39),
+        ({"repo": "\u0085ramimbo/mergework"}, 40),
+        ({"repo": "a" * 201}, 41),
+        ({"issue_number": 0}, 42),
+        ({"issue_number": True}, 43),
+        ({"unexpected": "ignored"}, 44),
     ],
 )
 def test_mcp_list_bounties_rejects_invalid_filters(
@@ -1158,11 +1251,7 @@ def test_mcp_list_bounties_rejects_invalid_filters(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
@@ -1246,11 +1335,7 @@ def test_mcp_rejects_unknown_tool_name(sqlite_url: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=12)
 
 
 def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
@@ -1431,11 +1516,7 @@ def test_mcp_get_bounty_rejects_ambiguous_issue_number_selector(sqlite_url: str)
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 4,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=4)
 
 
 def test_mcp_get_bounty_rejects_mixed_selectors(sqlite_url: str) -> None:
@@ -1473,11 +1554,7 @@ def test_mcp_get_bounty_rejects_mixed_selectors(sqlite_url: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 5,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=5)
 
 
 def test_mcp_get_bounty_rejects_mixed_internal_id_aliases(sqlite_url: str) -> None:
@@ -1511,11 +1588,7 @@ def test_mcp_get_bounty_rejects_mixed_internal_id_aliases(sqlite_url: str) -> No
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 6,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=6)
 
 
 def test_mcp_get_bounty_skips_malformed_award_proof_payloads(sqlite_url: str) -> None:
@@ -1593,11 +1666,7 @@ def test_mcp_get_bounty_rejects_fractional_id(sqlite_url: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=12)
 
 
 @pytest.mark.parametrize("include_awards", ["true", 1, []])
@@ -1634,11 +1703,7 @@ def test_mcp_get_bounty_rejects_non_boolean_include_awards(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=12)
 
 
 @pytest.mark.parametrize("bounty_id", [0, -1])
@@ -1660,11 +1725,7 @@ def test_mcp_get_bounty_rejects_non_positive_id(sqlite_url: str, bounty_id: int)
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=12)
 
 
 def test_mcp_get_wallet_returns_not_found_for_unregistered_wallet(sqlite_url: str) -> None:
@@ -1726,11 +1787,7 @@ def test_mcp_rejects_oversized_integer_arguments_without_500(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 @pytest.mark.parametrize(
@@ -1768,11 +1825,7 @@ def test_mcp_rejects_noncanonical_integer_string_arguments(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 def test_mcp_accepts_canonical_integer_string_arguments(sqlite_url: str) -> None:
@@ -1837,11 +1890,7 @@ def test_mcp_rejects_invalid_string_arguments(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 def test_mcp_get_ledger_entry_includes_payment_proof_hash(sqlite_url: str) -> None:
@@ -1907,11 +1956,7 @@ def test_mcp_get_ledger_entry_rejects_non_positive_sequence(sqlite_url: str) -> 
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 2,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=2)
 
 
 def test_mcp_get_proof_returns_public_proof_details(sqlite_url: str) -> None:
@@ -2075,11 +2120,7 @@ def test_mcp_get_proof_rejects_malformed_hash(sqlite_url: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 3,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=3)
 
 
 def test_mcp_submit_work_proof_returns_bounty_specific_guidance(sqlite_url: str) -> None:
@@ -2530,11 +2571,7 @@ def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 @pytest.mark.parametrize(
@@ -2566,11 +2603,7 @@ def test_mcp_submit_work_proof_rejects_undeclared_arguments(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
 def test_mcp_submit_work_proof_rejects_ambiguous_issue_number(sqlite_url: str) -> None:
@@ -2609,11 +2642,7 @@ def test_mcp_submit_work_proof_rejects_ambiguous_issue_number(sqlite_url: str) -
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "jsonrpc": "2.0",
-        "id": 26,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=26)
 
 
 def test_host_specific_homepages(sqlite_url: str) -> None:
@@ -3022,6 +3051,14 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert registered["result"]["structuredContent"] == registered_wallet
     assert registered_wallet["address"].startswith("mrwk1")
 
+    register_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "register_wallet"
+    )
+    assert register_tool["inputSchema"]["required"] == ["public_key_hex"]
+    assert register_tool["inputSchema"]["additionalProperties"] is False
+    assert set(register_tool["outputSchema"]["required"]) == set(registered_wallet)
+    assert set(register_tool["outputSchema"]["properties"]) == set(registered_wallet)
+
     fetched = client.post(
         "/mcp",
         json={
@@ -3063,11 +3100,7 @@ def test_mcp_wallet_write_tools_reject_unexpected_arguments(sqlite_url: str) -> 
     )
 
     assert register_response.status_code == 200
-    assert register_response.json() == {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
-    }
+    _assert_invalid_tool_arguments_envelope(register_response.json(), request_id=1)
 
     transfer_response = client.post(
         "/mcp",
@@ -3091,7 +3124,422 @@ def test_mcp_wallet_write_tools_reject_unexpected_arguments(sqlite_url: str) -> 
     )
 
     assert transfer_response.status_code == 200
-    assert transfer_response.json()["error"] == {
-        "code": -32602,
-        "message": "invalid tool arguments",
+    assert transfer_response.json()["error"]["code"] == -32602
+    assert transfer_response.json()["error"]["message"] == "invalid tool arguments"
+
+
+# ---------------------------------------------------------------------------
+# Field-level error.data contract
+#
+# The dispatcher attaches an additive ``error.data`` payload when the
+# underlying ``ValueError`` matches a whitelisted safe phrase. The tests
+# below pin the exact shape and verify that untrusted caller input is never
+# echoed into the response.
+# ---------------------------------------------------------------------------
+
+
+def test_mcp_field_error_data_attaches_known_limit_violation(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "list_bounties", "arguments": {"limit": 250}},
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=1,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "list_bounties",
+            "field": "limit",
+            "message": "must be at most 100",
+        },
+    )
+
+
+def test_mcp_field_error_data_attaches_known_string_violation(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "get_balance",
+                "arguments": {"account": 12345},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=2,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "get_balance",
+            "field": "account",
+            "message": "must be a string",
+        },
+    )
+
+
+def test_mcp_field_error_data_attaches_known_boolean_violation(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=901,
+            issue_url="https://github.com/ramimbo/mergework/issues/901",
+            title="Boolean field error coverage",
+            reward_mrwk="100",
+            acceptance="Agents should see a safe field-level boolean error.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounty_attempts",
+                "arguments": {"bounty_id": bounty.id, "include_expired": "yes"},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=3,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "list_bounty_attempts",
+            "field": "include_expired",
+            "message": "must be a boolean",
+        },
+    )
+
+
+def test_mcp_field_error_data_attaches_known_status_violation(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {"status": "frozen"},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=4,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "list_bounties",
+            "field": "status",
+            "message": "must be one of: open, paid, closed",
+        },
+    )
+
+
+def test_mcp_field_error_data_attaches_known_fieldless_unknown_tool(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {
+                "name": "definitely_unknown",
+                "arguments": {},
+            },
+        },
+    )
+
+    # The rejected tool name is not in the static ``MCP_TOOLS`` whitelist,
+    # so the dispatcher leaves ``data.tool`` as ``None`` instead of
+    # echoing arbitrary caller input.
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=5,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": None,
+            "field": None,
+            "message": "unknown tool",
+        },
+    )
+
+
+def test_mcp_field_error_data_binds_known_tool_name(sqlite_url: str) -> None:
+    """For field-prefixed argument validation the dispatcher must echo the
+    registered tool name (not the raw caller string) into ``data.tool``.
+
+    This is the positive half of the ``data.tool`` bounding guarantee:
+    known tools get their registered name, unknown tools get ``None``.
+    """
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {"limit": 0},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=9,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "list_bounties",
+            "field": "limit",
+            "message": "must be positive",
+        },
+    )
+
+
+def test_mcp_field_error_data_reaches_fieldless_matches_multiple_bounties(
+    sqlite_url: str,
+) -> None:
+    """``issue_number matches multiple bounties`` is the field-less
+    phrase ``matches multiple bounties`` prefixed with a known tool
+    field. The classifier must reach the field-less whitelist even when
+    the message carries the field token, and surface
+    ``field: None, message: "matches multiple bounties"``.
+
+    The integration path is unreachable because the ``Bounty`` model
+    has a ``UniqueConstraint("repo", "issue_number")`` that prevents
+    duplicate ``issue_number`` rows. We exercise the classifier
+    directly to lock in the new branch.
+    """
+    from app.mcp import _classify_value_error
+
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        for issue_number in (902, 903):
+            create_bounty(
+                session,
+                repo="ramimbo/mergework",
+                issue_number=issue_number,
+                issue_url=f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                title=f"Single-issue coverage {issue_number}",
+                reward_mrwk="100",
+                acceptance="Accepted label",
+            )
+
+    classified = _classify_value_error(ValueError("issue_number matches multiple bounties"))
+    assert classified == {
+        "code": "invalid_argument",
+        "field": None,
+        "message": "matches multiple bounties",
     }
+
+
+def test_mcp_field_error_data_attaches_repo_requires_issue_number(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {"id": 1, "repo": "ramimbo/mergework"},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=6,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "get_bounty",
+            "field": None,
+            "message": "repo can only be used with issue_number",
+        },
+    )
+
+
+def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str) -> None:
+    """A ``ValueError`` whose message is not on the whitelist must fall
+    back to the legacy envelope *without* an ``error.data`` key, so the
+    additive contract is opt-in and bounded.
+    """
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=902,
+            issue_url="https://github.com/ramimbo/mergework/issues/902",
+            title="Multiple internal id fields coverage",
+            reward_mrwk="100",
+            acceptance="Agents should see no data field for unrecognised phrases.",
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    # Supplying both ``id`` and ``bounty_id`` (the two internal id aliases for
+    # ``get_bounty``) raises ``ValueError("use id or bounty_id, not multiple
+    # internal id fields")``. The first word ("use") is not in the tool-field
+    # whitelist, so the classifier must return ``None`` and the response must
+    # keep the legacy envelope with no ``error.data``.
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {
+                "name": "get_bounty",
+                "arguments": {"id": bounty.id, "bounty_id": bounty.id},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=7, expected_data=None)
+
+
+def test_mcp_field_error_data_does_not_echo_caller_input(sqlite_url: str) -> None:
+    """A caller-supplied value must never appear in ``error.data`` or
+    ``error.message``. Only the static whitelisted phrases are returned.
+
+    Uses ``account=12345`` (an int) on ``get_balance`` so the dispatcher
+    surfaces the static ``"must be a string"`` phrase from the whitelist
+    and rejects the call. The string ``"12345"`` must not appear in the
+    response; only the literal phrase ``must be a string`` may appear.
+    """
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    sentinel_int = 1234567890
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "get_balance",
+                "arguments": {"account": sentinel_int},
+            },
+        },
+    )
+
+    body = response.text
+    assert str(sentinel_int) not in body
+    assert "1234567890" not in body
+
+    error = response.json()["error"]
+    assert error["code"] == -32602
+    assert error["message"] == "invalid tool arguments"
+    assert error["data"] == {
+        "code": "invalid_argument",
+        "tool": "get_balance",
+        "field": "account",
+        "message": "must be a string",
+    }
+
+
+def test_mcp_field_error_data_does_not_echo_oversized_limit_value(sqlite_url: str) -> None:
+    """An oversized ``limit`` value must not appear in the response. Only
+    the static whitelisted phrase survives. ``limit=2**63`` is rejected by
+    ``int_arg`` with the static phrase ``"is too large"``; the integer
+    value itself must not be present in the response body.
+    """
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    huge_limit = 2**63
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "list_bounties",
+                "arguments": {"limit": huge_limit},
+            },
+        },
+    )
+
+    body = response.text
+    # The integer literal ``9223372036854775808`` must not appear in the
+    # response. We check both common Python renderings.
+    assert str(huge_limit) not in body
+    assert f"{huge_limit}" not in body
+
+    error = response.json()["error"]
+    assert error["code"] == -32602
+    assert error["message"] == "invalid tool arguments"
+    data = error["data"]
+    assert data["code"] == "invalid_argument"
+    assert data["tool"] == "list_bounties"
+    assert data["field"] == "limit"
+    # The ``int_arg`` size check is what fires for a value > SQLITE_INTEGER_MAX;
+    # if the value parses to an int but exceeds the SQLite range the message
+    # is the static ``"is too large"`` phrase.
+    assert data["message"] == "is too large"

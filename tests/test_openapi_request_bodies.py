@@ -27,6 +27,43 @@ def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
 
+def test_mcp_openapi_contract_exposes_jsonrpc_request_and_response(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    operation = openapi["paths"]["/mcp"]["post"]
+    request_schema = operation["requestBody"]["content"]["application/json"]["schema"]
+    response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+    parse_error_schema = operation["responses"]["400"]["content"]["application/json"]["schema"]
+
+    assert set(request_schema["required"]) == {"jsonrpc", "method"}
+    request_props = request_schema["properties"]
+    assert request_props["jsonrpc"]["enum"] == ["2.0"]
+    assert set(request_props["method"]["enum"]) == {"initialize", "tools/list", "tools/call"}
+    assert request_props["id"]["nullable"] is True
+    assert request_props["params"]["additionalProperties"] is True
+
+    _assert_properties(response_schema, {"jsonrpc", "id", "result", "error"})
+    assert response_schema["properties"]["jsonrpc"]["enum"] == ["2.0"]
+    assert response_schema["properties"]["id"]["nullable"] is True
+    assert response_schema["oneOf"] == [{"required": ["result"]}, {"required": ["error"]}]
+
+    result_variants = response_schema["properties"]["result"]["oneOf"]
+    assert any(
+        {"protocolVersion", "capabilities", "serverInfo"}.issubset(variant["properties"])
+        for variant in result_variants
+    )
+    assert any("tools" in variant["properties"] for variant in result_variants)
+    assert any("content" in variant["properties"] for variant in result_variants)
+    _assert_properties(response_schema["properties"]["error"], {"code", "message"})
+
+    _assert_properties(parse_error_schema, {"jsonrpc", "id", "error"})
+    assert set(parse_error_schema["required"]) == {"jsonrpc", "id", "error"}
+    assert "result" not in parse_error_schema["properties"]
+    assert parse_error_schema["not"] == {"required": ["result"]}
+    assert parse_error_schema["properties"]["error"]["required"] == ["code", "message"]
+
+
 def test_public_post_openapi_request_bodies_expose_expected_fields(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()

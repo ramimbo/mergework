@@ -270,6 +270,8 @@ curl -s -X POST "$MCP_HOST/mcp" \
 Use `{"availability":"effectively_open"}` with `list_bounties` when you only want
 raw-open bounties that still have positive effective award capacity after
 pending payout or close proposals are considered.
+Use `repo` and `issue_number` with `list_bounties` when you already know the
+GitHub issue and want an exact typed filter instead of free-text search.
 
 Inspect a bounty with `get_bounty` before preparing evidence. Use the `id`
 from `list_bounties`, pass the same value as `bounty_id` when reusing fields
@@ -308,7 +310,8 @@ Tools:
 - `get_bounty`
 - `list_bounty_attempts`
 - `get_balance`
-- `register_wallet`
+- `register_wallet` (`tools/list` advertises the public-key input schema and the
+  registered wallet output schema)
 - `get_wallet`
 - `submit_wallet_transfer`
 - `get_ledger_entry`
@@ -333,6 +336,54 @@ When changing an advertised MCP `inputSchema`, add a representative conformance
 test that reads the constraint from `tools/list`, verifies one valid
 `tools/call`, and verifies one invalid `tools/call` is rejected with JSON-RPC
 `-32602`.
+
+### Argument-validation errors
+
+`tools/call` returns the standard JSON-RPC `code: -32602` with a literal
+`message: "invalid tool arguments"` for every argument-validation failure, so
+existing clients that only read the message keep working. When the underlying
+`ValueError` matches a whitelisted safe phrase, the dispatcher also attaches
+an additive `error.data` payload so clients can act on the failure without
+parsing natural language:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "error": {
+    "code": -32602,
+    "message": "invalid tool arguments",
+    "data": {
+      "code": "invalid_argument",
+      "tool": "list_bounties",
+      "field": "limit",
+      "message": "must be at most 100"
+    }
+  }
+}
+```
+
+The shape is:
+
+- `code` — always `"invalid_argument"` for argument-validation failures.
+- `tool` — the registered MCP tool name when it is a known tool, or
+  `null` for the `unknown tool` path. The dispatcher never reflects an
+  arbitrary caller-supplied string into this slot, so the value is safe
+  to surface to LLM prompts or logs.
+- `field` — the offending field name, or `null` for field-less phrases such
+  as `unknown tool`, `matches multiple bounties`, or
+  `repo can only be used with issue_number`. Some upstream messages are
+  emitted as `"<field> <field-less phrase>"` (for example
+  `issue_number matches multiple bounties`); the classifier treats those
+  as field-less and drops the leading field token from the response.
+- `message` — a static, whitelisted safe phrase. Caller input is never
+  echoed, so the payload is safe to surface to LLM prompts or logs.
+
+When the underlying `ValueError` does not match the whitelist, the
+`error.data` key is omitted and the response is byte-for-byte identical to
+the previous envelope. `KeyError`, `TypeError`, `LedgerError`, and
+`HTTPException` paths still go through the legacy envelope with no
+`error.data`.
 
 ## Contribution Rules
 

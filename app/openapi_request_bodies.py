@@ -220,6 +220,121 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+MCP_JSONRPC_ID_SCHEMA = {
+    "description": "JSON-RPC request id returned unchanged in the response.",
+    "nullable": True,
+    "anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "number"}],
+}
+
+MCP_REQUEST_SCHEMA = _object_schema(
+    {
+        "jsonrpc": {
+            "type": "string",
+            "enum": ["2.0"],
+            "description": "JSON-RPC protocol version.",
+        },
+        "id": MCP_JSONRPC_ID_SCHEMA,
+        "method": {
+            "type": "string",
+            "enum": ["initialize", "tools/list", "tools/call"],
+            "description": "Supported MCP JSON-RPC method.",
+        },
+        "params": {
+            "type": "object",
+            "additionalProperties": True,
+            "description": "Method-specific MCP parameters.",
+        },
+    },
+    required=["jsonrpc", "method"],
+    description="MCP JSON-RPC request accepted by the MergeWork MCP endpoint.",
+)
+
+MCP_ERROR_SCHEMA = _object_schema(
+    {
+        "code": {"type": "integer"},
+        "message": {"type": "string"},
+    },
+    required=["code", "message"],
+    description="JSON-RPC error object.",
+)
+
+MCP_TEXT_CONTENT_SCHEMA = _object_schema(
+    {
+        "type": {"type": "string"},
+        "text": {"type": "string"},
+    },
+    required=["type", "text"],
+    description="MCP text content item.",
+)
+
+MCP_TOOL_RESULT_SCHEMA = _object_schema(
+    {
+        "content": {"type": "array", "items": MCP_TEXT_CONTENT_SCHEMA},
+        "structuredContent": {
+            "description": "Optional structured JSON payload for tool results.",
+            "nullable": True,
+        },
+    },
+    required=["content"],
+    description="MCP tools/call result payload.",
+)
+
+MCP_INITIALIZE_RESULT_SCHEMA = _object_schema(
+    {
+        "protocolVersion": {"type": "string"},
+        "capabilities": {"type": "object", "additionalProperties": True},
+        "serverInfo": {"type": "object", "additionalProperties": True},
+    },
+    required=["protocolVersion", "capabilities", "serverInfo"],
+    description="MCP initialize result payload.",
+)
+
+MCP_TOOLS_LIST_RESULT_SCHEMA = _object_schema(
+    {
+        "tools": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
+    },
+    required=["tools"],
+    description="MCP tools/list result payload.",
+)
+
+MCP_RESPONSE_SCHEMA = _object_schema(
+    {
+        "jsonrpc": {"type": "string", "enum": ["2.0"]},
+        "id": MCP_JSONRPC_ID_SCHEMA,
+        "result": {
+            "oneOf": [
+                MCP_INITIALIZE_RESULT_SCHEMA,
+                MCP_TOOLS_LIST_RESULT_SCHEMA,
+                MCP_TOOL_RESULT_SCHEMA,
+            ],
+            "description": "Method-specific result for successful JSON-RPC responses.",
+        },
+        "error": MCP_ERROR_SCHEMA,
+    },
+    required=["jsonrpc", "id"],
+    description=(
+        "MCP JSON-RPC response. Successful responses include result; failures include error."
+    ),
+)
+MCP_RESPONSE_SCHEMA["oneOf"] = [
+    {"required": ["result"]},
+    {"required": ["error"]},
+]
+
+MCP_ERROR_RESPONSE_SCHEMA = _object_schema(
+    {
+        "jsonrpc": {"type": "string", "enum": ["2.0"]},
+        "id": MCP_JSONRPC_ID_SCHEMA,
+        "error": MCP_ERROR_SCHEMA,
+    },
+    required=["jsonrpc", "id", "error"],
+    description="MCP JSON-RPC error response.",
+)
+MCP_ERROR_RESPONSE_SCHEMA["not"] = {"required": ["result"]}
+
 OPTIONAL_ATTEMPT_BODY = {
     "requestBody": _request_body(
         _object_schema(
@@ -384,5 +499,16 @@ TREASURY_CHALLENGE_BODY = {
     ),
     "responses": {
         "200": _json_response(TREASURY_CHALLENGE_RESPONSE_SCHEMA),
+    },
+}
+
+MCP_BODY = {
+    "requestBody": _request_body(MCP_REQUEST_SCHEMA),
+    "responses": {
+        "200": _json_response(MCP_RESPONSE_SCHEMA, description="MCP JSON-RPC response."),
+        "400": _json_response(
+            MCP_ERROR_RESPONSE_SCHEMA,
+            description="MCP JSON-RPC parse or invalid request error.",
+        ),
     },
 }
