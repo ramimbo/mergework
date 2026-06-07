@@ -72,12 +72,13 @@ def test_positive_bounty_id_and_ledger_sequence_validate_bounds():
     assert_bad_request(positive_proposal_id, oversized_digit_string)
 
 
-def test_proof_hash_from_path_normalizes_hex_hash():
-    raw_hash = "A" * 64
-    assert proof_hash_from_path(raw_hash) == "a" * 64
+def test_proof_hash_from_path_accepts_canonical_lowercase_hash():
+    raw_hash = "a" * 64
+    assert proof_hash_from_path(raw_hash) == raw_hash
 
 
-def test_proof_hash_from_path_rejects_whitespace_or_non_hex():
+def test_proof_hash_from_path_rejects_whitespace_uppercase_or_non_hex():
     assert_bad_request(proof_hash_from_path, " " + "a" * 64)
+    assert_bad_request(proof_hash_from_path, "A" * 64)
     assert_bad_request(proof_hash_from_path, "g" * 64)
     assert_bad_request(proof_hash_from_path, "a" * 63)
