@@ -17,6 +17,7 @@ from app.query_validation import (
     reject_control_char_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,
+    reject_unsupported_query_params,
 )
 from app.treasury import (
     TREASURY_ACTIONS,
@@ -101,22 +102,23 @@ def _proposal_payload_matches(
     )
 
 
+TREASURY_PROPOSAL_LIST_FILTERS = ("limit", "offset", "action", "status", "to_account", "bounty_id")
+
+
 def _reject_treasury_status_filters(request: Request) -> None:
-    for name in ("limit", "offset", "action", "status", "to_account", "bounty_id"):
-        if request.query_params.getlist(name):
-            raise HTTPException(
-                status_code=400,
-                detail=f"{name} is not supported on treasury status",
-            )
+    reject_unsupported_query_params(
+        request,
+        TREASURY_PROPOSAL_LIST_FILTERS,
+        context="treasury status",
+    )
 
 
 def _reject_treasury_proposal_detail_filters(request: Request) -> None:
-    for name in ("limit", "offset", "action", "status", "to_account", "bounty_id"):
-        if request.query_params.getlist(name):
-            raise HTTPException(
-                status_code=400,
-                detail=f"{name} is not supported on treasury proposal detail",
-            )
+    reject_unsupported_query_params(
+        request,
+        TREASURY_PROPOSAL_LIST_FILTERS,
+        context="treasury proposal detail",
+    )
 
 
 def register_treasury_routes(
