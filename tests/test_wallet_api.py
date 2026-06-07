@@ -106,17 +106,11 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
         f"/api/v1/wallets/{receiver_address}?type=github_claim&type=bounty_payment"
     )
     assert type_filter.status_code == 400
-    assert type_filter.json()["detail"] == (
-        "transaction filters are not supported on wallet JSON detail"
-    )
+    assert type_filter.json()["detail"] == "type is not supported on wallet JSON detail"
     assert tx_type_filter.status_code == 400
-    assert tx_type_filter.json()["detail"] == (
-        "transaction filters are not supported on wallet JSON detail"
-    )
+    assert tx_type_filter.json()["detail"] == "tx_type is not supported on wallet JSON detail"
     assert repeated_type_filter.status_code == 400
-    assert repeated_type_filter.json()["detail"] == (
-        "transaction filters are not supported on wallet JSON detail"
-    )
+    assert repeated_type_filter.json()["detail"] == "type is not supported on wallet JSON detail"
 
 
 def test_wallet_transfer_api_rejects_replayed_signed_body(sqlite_url: str) -> None:
