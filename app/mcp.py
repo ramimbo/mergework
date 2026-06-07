@@ -119,6 +119,28 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MCP_BALANCE_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Structured balance payload returned by get_balance.",
+    "properties": {
+        "account": {
+            "type": "string",
+            "description": "Normalized account selector used for the balance lookup.",
+        },
+        "balance_mrwk": {
+            "type": "string",
+            "description": "MRWK balance formatted as a decimal string.",
+        },
+        "balance_microunits": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Raw integer balance in MRWK microunits.",
+        },
+    },
+    "required": ["account", "balance_mrwk", "balance_microunits"],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -292,6 +314,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["account"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_BALANCE_OUTPUT_SCHEMA,
     },
     {
         "name": "register_wallet",
