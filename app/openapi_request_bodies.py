@@ -220,6 +220,152 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+ACTIVITY_TOTALS_RESPONSE_SCHEMA = _object_schema(
+    {
+        "accepted_awards": {"type": "integer", "minimum": 0},
+        "accepted_mrwk": MRWK_DECIMAL_SCHEMA,
+        "contributors": {"type": "integer", "minimum": 0},
+    },
+    required=["accepted_awards", "accepted_mrwk", "contributors"],
+)
+
+ACTIVITY_PENDING_TOTALS_RESPONSE_SCHEMA = _object_schema(
+    {
+        "pending_awards": {"type": "integer", "minimum": 0},
+        "pending_mrwk": MRWK_DECIMAL_SCHEMA,
+    },
+    required=["pending_awards", "pending_mrwk"],
+)
+
+ACTIVITY_CONTRIBUTOR_RESPONSE_SCHEMA = _object_schema(
+    {
+        "account": {"type": "string"},
+        "accepted_awards": {"type": "integer", "minimum": 0},
+        "accepted_mrwk": MRWK_DECIMAL_SCHEMA,
+        "latest_submission_url": {"type": "string", "nullable": True},
+        "latest_bounty_repo": {"type": "string", "nullable": True},
+        "latest_bounty_issue_number": {"type": "integer", "nullable": True},
+        "latest_bounty_issue_url": {"type": "string", "nullable": True},
+        "latest_proof_hash": {**LOWERCASE_HEX_64_SCHEMA, "nullable": True},
+        "latest_proof_url": {"type": "string", "nullable": True},
+    },
+    required=["account", "accepted_awards", "accepted_mrwk"],
+)
+
+ACTIVITY_PENDING_PAYOUT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "proposal_url": {"type": "string"},
+        "status": {"type": "string"},
+        "account": {"type": "string"},
+        "amount_mrwk": {**MRWK_DECIMAL_SCHEMA, "nullable": True},
+        "submission_url": {"type": "string", "nullable": True},
+        "bounty_repo": {"type": "string", "nullable": True},
+        "bounty_issue_number": {"type": "integer", "nullable": True},
+        "bounty_issue_url": {"type": "string", "nullable": True},
+        "bounty_id": {"type": "integer", "nullable": True},
+        "bounty_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+    },
+    required=[
+        "proposal_id",
+        "proposal_url",
+        "status",
+        "account",
+        "amount_mrwk",
+        "submission_url",
+        "bounty_repo",
+        "bounty_issue_number",
+        "bounty_issue_url",
+        "bounty_id",
+        "bounty_url",
+        "accepted_by",
+        "proposed_at",
+        "executes_after",
+    ],
+)
+
+ACTIVITY_RECENT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "account": {"type": "string"},
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "submission_url": {"type": "string"},
+        "bounty_repo": {"type": "string", "nullable": True},
+        "bounty_issue_number": {"type": "integer", "nullable": True},
+        "bounty_issue_url": {"type": "string", "nullable": True},
+        "proof_hash": LOWERCASE_HEX_64_SCHEMA,
+        "proof_url": {"type": "string"},
+        "bounty_id": {"type": "integer", "nullable": True},
+        "bounty_url": {"type": "string", "nullable": True},
+        "created_at": {"type": "string"},
+    },
+    required=[
+        "ledger_sequence",
+        "account",
+        "amount_mrwk",
+        "submission_url",
+        "bounty_repo",
+        "bounty_issue_number",
+        "bounty_issue_url",
+        "proof_hash",
+        "proof_url",
+        "bounty_id",
+        "bounty_url",
+        "created_at",
+    ],
+)
+
+ACTIVITY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "totals": ACTIVITY_TOTALS_RESPONSE_SCHEMA,
+        "pending_totals": ACTIVITY_PENDING_TOTALS_RESPONSE_SCHEMA,
+        "query": {"type": "string"},
+        "account": {"type": "string", "nullable": True},
+        "contributors": {
+            "type": "array",
+            "items": ACTIVITY_CONTRIBUTOR_RESPONSE_SCHEMA,
+            "maxItems": 100,
+        },
+        "pending_payouts": {
+            "type": "array",
+            "items": ACTIVITY_PENDING_PAYOUT_RESPONSE_SCHEMA,
+            "maxItems": 100,
+        },
+        "recent": {
+            "type": "array",
+            "items": ACTIVITY_RECENT_RESPONSE_SCHEMA,
+            "maxItems": 100,
+        },
+        "api_activity_url": {"type": "string"},
+        "clear_activity_url": {"type": "string"},
+        "account_page_url": {"type": "string", "nullable": True},
+    },
+    required=[
+        "totals",
+        "pending_totals",
+        "query",
+        "contributors",
+        "pending_payouts",
+        "recent",
+        "api_activity_url",
+        "clear_activity_url",
+        "account_page_url",
+    ],
+    description=(
+        "Public accepted-work activity feed with proof-backed payments and pending "
+        "accepted payout proposals."
+    ),
+)
+
+ACTIVITY_RESPONSE = {
+    "responses": {
+        "200": _json_response(ACTIVITY_RESPONSE_SCHEMA),
+    },
+}
+
 MCP_JSONRPC_ID_SCHEMA = {
     "description": "JSON-RPC request id returned unchanged in the response.",
     "nullable": True,

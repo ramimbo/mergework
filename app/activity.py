@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.accounts import normalized_account
 from app.control_chars import contains_control_character
 from app.db import session_scope
+from app.openapi_request_bodies import ACTIVITY_RESPONSE
 from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
 from app.serializers import activity_to_dict
 
@@ -52,7 +53,7 @@ def _validate_activity_filter_params(request: Request) -> None:
 
 
 def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/activity")
+    @app.get("/api/v1/activity", openapi_extra=ACTIVITY_RESPONSE)
     def api_activity(
         request: Request,
         q: str | None = Query(None),
