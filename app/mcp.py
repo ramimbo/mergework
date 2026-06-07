@@ -514,6 +514,7 @@ _KNOWN_FIELD_MESSAGES: dict[str, str] = {
 # field-prefixed (e.g. `unknown tool`).
 _KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
     "unknown tool": "unknown tool",
+    "unexpected argument": "unexpected argument",
     "matches multiple bounties": "matches multiple bounties",
     "repo can only be used with issue_number": ("repo can only be used with issue_number"),
 }
