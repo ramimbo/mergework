@@ -14,7 +14,11 @@ from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
-from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
+from app.path_params import (
+    SQLITE_INTEGER_MAX,
+    reject_account_special_characters,
+    reject_path_whitespace_padding,
+)
 from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
     accepted_work_for_account,
@@ -191,6 +195,7 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
     @app.get("/api/v1/accounts/{account}")
     def api_account(request: Request, account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_account_special_characters(account)
         reject_unsupported_query_params(
             request,
             ("type", "tx_type"),
@@ -202,6 +207,7 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
     @app.get("/api/v1/accounts/{account}/accepted-work")
     def api_account_accepted_work(account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_account_special_characters(account)
         with session_scope(db_url) as session:
             return account_accepted_work_context(session, account)
 
@@ -210,6 +216,7 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
         request: Request, account: str, tx_type: str | None = Query(None)
     ) -> HTMLResponse:
         reject_path_whitespace_padding(account, "account")
+        reject_account_special_characters(account)
         if request.query_params.getlist("type"):
             raise HTTPException(
                 status_code=400,
