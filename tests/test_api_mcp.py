@@ -461,6 +461,89 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     }
 
 
+def test_mcp_unknown_tool_returns_actionable_suggestion(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "list_bounty", "arguments": {}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+            "code": -32601,
+            "message": "unknown tool",
+            "data": {"unknown_tool": "list_bounty", "did_you_mean": "list_bounties"},
+        },
+    }
+
+
+def test_mcp_unknown_tool_without_close_match_omits_suggestion(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "totally_unrelated", "arguments": {}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": {
+            "code": -32601,
+            "message": "unknown tool",
+            "data": {"unknown_tool": "totally_unrelated"},
+        },
+    }
+
+
+def test_mcp_invalid_tool_arguments_still_use_invalid_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {"name": "get_balance", "arguments": {"account": ""}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {"code": -32602, "message": "invalid tool arguments"},
+    }
+
+
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -1139,7 +1222,11 @@ def test_mcp_rejects_unknown_tool_name(sqlite_url: str) -> None:
     assert response.json() == {
         "jsonrpc": "2.0",
         "id": 12,
-        "error": {"code": -32602, "message": "invalid tool arguments"},
+        "error": {
+            "code": -32601,
+            "message": "unknown tool",
+            "data": {"unknown_tool": "definitely_unknown"},
+        },
     }
 
 
