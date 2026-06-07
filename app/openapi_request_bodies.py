@@ -189,6 +189,36 @@ ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+BOUNTY_SUMMARY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "bounties_shown": {"type": "integer", "minimum": 0},
+        "open_awards": {"type": "integer", "minimum": 0},
+        "open_pool_mrwk": MRWK_DECIMAL_SCHEMA,
+        "effective_open_awards": {"type": "integer", "minimum": 0},
+        "effective_open_pool_mrwk": MRWK_DECIMAL_SCHEMA,
+        "availability_state_counts": {
+            "type": "object",
+            "additionalProperties": {"type": "integer", "minimum": 0},
+            "description": "Counts keyed by public bounty availability state.",
+        },
+        "pending_payout_awards": {"type": "integer", "minimum": 0},
+        "reduced_capacity_bounties": {"type": "integer", "minimum": 0},
+        "effectively_unavailable_bounties": {"type": "integer", "minimum": 0},
+    },
+    required=[
+        "bounties_shown",
+        "open_awards",
+        "open_pool_mrwk",
+        "effective_open_awards",
+        "effective_open_pool_mrwk",
+        "availability_state_counts",
+        "pending_payout_awards",
+        "reduced_capacity_bounties",
+        "effectively_unavailable_bounties",
+    ],
+    description="Aggregated public bounty capacity and availability counters.",
+)
+
 TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
     {
         "id": {"type": "integer", "minimum": 1},
@@ -391,6 +421,12 @@ OPTIONAL_ATTEMPT_RELEASE_BODY = {
     ),
     "responses": {
         "200": _json_response(ATTEMPT_RELEASE_RESPONSE_SCHEMA),
+    },
+}
+
+BOUNTY_SUMMARY_RESPONSE = {
+    "responses": {
+        "200": _json_response(BOUNTY_SUMMARY_RESPONSE_SCHEMA),
     },
 }
 
