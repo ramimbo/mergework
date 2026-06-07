@@ -95,6 +95,32 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert bounty_activity["totals"]["accepted_awards"] == 1
 
 
+def test_bounty_detail_hides_activity_link_without_issue_url(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=52,
+            issue_url="https://github.com/ramimbo/mergework/issues/52",
+            title="Imported bounty without source link",
+            reward_mrwk="50",
+            acceptance="Imported bounty details should still render without a source link.",
+        )
+        bounty.issue_url = ""
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    detail = client.get(f"/bounties/{bounty_id}")
+
+    assert detail.status_code == 200
+    assert "Imported bounty without source link" in detail.text
+    assert "Accepted-work activity" not in detail.text
+    assert "Open source issue" not in detail.text
+
+
 def test_bounties_summary_api_matches_public_list_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
