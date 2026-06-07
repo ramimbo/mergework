@@ -37,20 +37,11 @@ from app.models import (
 )
 from app.path_params import SQLITE_INTEGER_MAX
 from app.serializers import bounty_to_dict, public_utc_timestamp
+from app.treasury_contract import CHALLENGE_TYPES, MACHINE_CHALLENGES, TREASURY_ACTIONS
 
 TREASURY_PROPOSAL_DELAY = timedelta(hours=24)
 TREASURY_EPOCH_WINDOW = timedelta(hours=24)
 TREASURY_EPOCH_RESERVE_CAP_MICRO = 10_000 * MICRO_UNITS
-TREASURY_ACTIONS = {"create_bounty", "pay_bounty", "close_bounty"}
-SUBJECTIVE_CHALLENGE = "subjective_note"
-MACHINE_CHALLENGES = {
-    "duplicate_bounty",
-    "bounty_not_open",
-    "submission_already_paid",
-    "insufficient_reserve",
-    "epoch_cap_exceeded",
-}
-CHALLENGE_TYPES = MACHINE_CHALLENGES | {SUBJECTIVE_CHALLENGE}
 
 
 def _db_utc(value: datetime) -> datetime:

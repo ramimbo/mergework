@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.treasury_contract import CHALLENGE_TYPES, TREASURY_ACTIONS
 
 EXPECTED_TTL_STRING_PATTERN = (
     r"^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|"
@@ -349,6 +350,7 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "challenges",
         },
     )
+    assert proposal_schema["properties"]["action"]["enum"] == sorted(TREASURY_ACTIONS)
 
     challenge_schema = _post_response_schema(
         openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
@@ -365,6 +367,22 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+    assert challenge_schema["properties"]["challenge_type"]["enum"] == sorted(CHALLENGE_TYPES)
+
+
+def test_public_post_openapi_treasury_request_schemas_publish_runtime_enums(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    proposal_props = _post_schema(openapi, "/api/v1/treasury/proposals")["properties"]
+    assert proposal_props["action"]["enum"] == sorted(TREASURY_ACTIONS)
+
+    challenge_props = _post_schema(openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges")[
+        "properties"
+    ]
+    assert challenge_props["challenge_type"]["enum"] == sorted(CHALLENGE_TYPES)
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
