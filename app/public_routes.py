@@ -451,8 +451,13 @@ def register_public_routes(
         return templates.TemplateResponse(request, "wallet_detail.html", context)
 
     @app.get("/transfer", response_class=HTMLResponse)
-    def transfer_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "transfer.html")
+    def transfer_page(
+        request: Request,
+        from_address: str | None = Query(None),
+    ) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "transfer.html", {"from_address": from_address or ""}
+        )
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:

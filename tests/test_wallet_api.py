@@ -691,6 +691,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     funded_missing_type = client.get(f"/wallets/{funded_address}?type=bounty_payment").text
     funded_unknown_type = client.get(f"/wallets/{funded_address}?type=not_a_real_type")
     transfer = client.get("/transfer").text
+    transfer_prefilled = client.get(f"/transfer?from_address={address}").text
     me = client.get("/me").text
 
     assert "Generate wallet" in wallets
@@ -719,6 +720,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "/accounts/github:" not in funded_row
     assert "No registered wallets match this search." in no_wallet_match
     assert "To claim GitHub bounty balance" in detail
+    assert f'href="/transfer?from_address={address}">Send MRWK</a>' in detail
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
     assert "Filter wallet transactions" in funded_detail
@@ -740,6 +742,9 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     )
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
+    assert f'name="from_address" placeholder="mrwk1..." value="{address}" required' in (
+        transfer_prefilled
+    )
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
 

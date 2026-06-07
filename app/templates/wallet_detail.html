@@ -27,7 +27,7 @@
     <dd><a href="/accounts/{{ wallet.address }}">ledger account</a></dd>
   </dl>
   <div class="actions">
-    <a href="/transfer">Send MRWK</a>
+    <a href="/transfer?from_address={{ wallet.address | urlencode }}">Send MRWK</a>
     <a href="/me">Link GitHub</a>
   </div>
   <p class="notice">To claim GitHub bounty balance, sign in and link this wallet from your contributor account.</p>
