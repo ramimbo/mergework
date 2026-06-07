@@ -5,6 +5,7 @@ import pytest
 
 from scripts.staging_webhook_dry_run import (
     _dry_run_contributor,
+    _dry_run_labeler,
     _dry_run_repo,
     _enforce_staging_target,
     _parse_object_response,
@@ -69,6 +70,14 @@ def test_staging_webhook_dry_run_uses_valid_default_identity_envs(
     assert _dry_run_contributor() == "mergework-dry-run"
 
 
+def test_staging_webhook_dry_run_uses_first_non_empty_labeler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_ACCEPTED_LABELERS", " maintainer , other ")
+
+    assert _dry_run_labeler() == "maintainer"
+
+
 @pytest.mark.parametrize(
     "repo",
     [
@@ -113,3 +122,20 @@ def test_staging_webhook_dry_run_rejects_blank_contributor_before_http(
 
     assert main() == 1
     assert "MERGEWORK_DRY_RUN_CONTRIBUTOR" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("labelers", ["", "   ", ",maintainer"])
+def test_staging_webhook_dry_run_rejects_blank_labeler_before_http(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    labelers: str,
+) -> None:
+    _set_required_dry_run_env(monkeypatch)
+    monkeypatch.setenv("MERGEWORK_GITHUB_ACCEPTED_LABELERS", labelers)
+    monkeypatch.setattr(
+        "scripts.staging_webhook_dry_run.httpx.post",
+        lambda *_args, **_kwargs: pytest.fail("dry run posted before labeler validation"),
+    )
+
+    assert main() == 1
+    assert "MERGEWORK_GITHUB_ACCEPTED_LABELERS" in capsys.readouterr().err

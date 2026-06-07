@@ -82,6 +82,15 @@ def _dry_run_contributor() -> str:
     return contributor
 
 
+def _dry_run_labeler() -> str:
+    labeler = _required_env("MERGEWORK_GITHUB_ACCEPTED_LABELERS").split(",", 1)[0].strip()
+    if not labeler:
+        raise RuntimeError(
+            "MERGEWORK_GITHUB_ACCEPTED_LABELERS must include a non-empty first labeler"
+        )
+    return labeler
+
+
 def _enforce_staging_target(base_url: str) -> None:
     _validate_http_url(base_url)
     parsed = urlparse(base_url)
@@ -108,7 +117,7 @@ def main() -> int:
         webhook_secret = _required_env("MERGEWORK_GITHUB_WEBHOOK_SECRET")
         repo = _dry_run_repo()
         contributor = _dry_run_contributor()
-        labeler = _required_env("MERGEWORK_GITHUB_ACCEPTED_LABELERS").split(",", 1)[0].strip()
+        labeler = _dry_run_labeler()
         issue_number = int(time.time() * 1000)
         issue_url = f"https://github.com/{repo}/issues/{issue_number}"
         bounty = _post_json(
