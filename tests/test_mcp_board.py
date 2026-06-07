@@ -24,24 +24,17 @@ def test_mcp_bounty_board_resource(sqlite_url: str) -> None:
             reward_mrwk="100",
             acceptance="Logic",
         )
-        # Create a bounty with a pending payout (opening soon / pending)
-        b2 = create_bounty(
-            session,
-            repo="org/repo",
-            issue_number=102,
-            issue_url="https://github.com/org/repo/issues/102",
-            title="Opening Soon",
-            reward_mrwk="200",
-            acceptance="Logic",
-        )
+        # Create a pending create_bounty proposal (opening soon)
         propose_treasury_action(
             session,
-            action="pay_bounty",
+            action="create_bounty",
             payload={
-                "bounty_id": b2.id,
-                "to_account": "github:alice",
-                "submission_url": "https://github.com/org/repo/pull/1",
-                "accepted_by": "maintainer",
+                "repo": "org/repo",
+                "issue_number": 102,
+                "issue_url": "https://github.com/org/repo/issues/102",
+                "title": "Opening Soon",
+                "reward_mrwk": "200",
+                "acceptance": "Logic",
             },
             proposed_by="maintainer",
         )
@@ -73,8 +66,10 @@ def test_mcp_bounty_board_resource(sqlite_url: str) -> None:
     assert "treasury" in content
 
     assert content["claimable_now"][0]["id"] == b1.id
-    assert content["opening_soon"][0]["id"] == b2.id
+    assert content["opening_soon"][0]["title"] == "Opening Soon"
+    assert content["opening_soon"][0]["reward_mrwk"] == "200"
     assert isinstance(content["treasury"]["balance_mrwk"], str)
+
     assert content["treasury"]["active_liabilities_mrwk"] == "100"
 
 

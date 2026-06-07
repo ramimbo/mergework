@@ -29,12 +29,11 @@ from app.mcp_work_proof import (
     work_proof_guidance,
     work_proof_guidance_json,
 )
-from app.models import Bounty, Proof, Wallet
+from app.models import Bounty, Proof, TreasuryProposal, Wallet
 from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, proof_hash_from_path
 from app.serializers import (
     bounties_to_dict,
     bounty_awards_to_dict,
-    bounty_list_summary,
     bounty_to_dict,
     public_utc_timestamp,
     wallet_to_dict,
@@ -373,27 +372,66 @@ def call_mcp_tool(
 def call_mcp_resource(database_url: str, uri: str) -> str:
     if uri == "bounties://active":
         with session_scope(database_url) as session:
+            # Main bounty list (limited for performance, but used for claimable_now display)
             query = (
                 select(Bounty).where(Bounty.status == "open").order_by(Bounty.id.desc()).limit(100)
             )
             bounties = session.scalars(query).all()
             bounty_dicts = bounties_to_dict(bounties, session=session)
-            summary = bounty_list_summary(bounty_dicts)
+
+            # Uncapped liability calculation for all open bounties (Fixes #2 in PR review)
+            total_liabilities_microunits = (
+                session.scalar(
+                    select(
+                        func.sum(
+                            (Bounty.max_awards - Bounty.awards_paid) * Bounty.reward_microunits
+                        )
+                    ).where(Bounty.status == "open")
+                )
+                or 0
+            )
+
+            # Bounties "Opening Soon" are pending creation proposals (Fixes #1 in PR review)
+            pending_creations = session.scalars(
+                select(TreasuryProposal)
+                .where(
+                    TreasuryProposal.action == "create_bounty",
+                    TreasuryProposal.status == "pending",
+                )
+                .order_by(TreasuryProposal.id.desc())
+            ).all()
+
+            opening_soon = []
+            for p in pending_creations:
+                try:
+                    payload = json.loads(p.payload_json)
+                    opening_soon.append(
+                        {
+                            "proposal_id": p.id,
+                            "title": payload.get("title", "Unknown"),
+                            "reward_mrwk": payload.get("reward_mrwk", "0"),
+                            "repo": payload.get("repo", ""),
+                            "issue_number": payload.get("issue_number"),
+                            "executes_after": p.executes_after.isoformat()
+                            if p.executes_after
+                            else None,
+                        }
+                    )
+                except Exception:
+                    continue
 
             treasury_balance = get_balance(session, TREASURY_ACCOUNT)
 
             return json.dumps(
                 {
                     "claimable_now": [b for b in bounty_dicts if b["availability_state"] == "open"],
-                    "opening_soon": [
-                        b
-                        for b in bounty_dicts
-                        if b["availability_state"].startswith("pending_payout")
-                    ],
+                    "opening_soon": opening_soon,
                     "treasury": {
                         "balance_mrwk": format_mrwk(treasury_balance),
-                        "active_liabilities_mrwk": summary["effective_open_pool_mrwk"],
-                        "capacity_mrwk": format_mrwk(max(0, treasury_balance)),
+                        "active_liabilities_mrwk": format_mrwk(total_liabilities_microunits),
+                        "capacity_mrwk": format_mrwk(
+                            max(0, treasury_balance - total_liabilities_microunits)
+                        ),
                     },
                 }
             )
