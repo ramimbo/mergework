@@ -1,67 +1,26 @@
 {% extends "base.html" %}
-{% block title %}MRWK Wallets{% endblock %}
+{% block title %}Wallets{% endblock %}
 {% block content %}
-<section class="detail">
-  <p class="eyebrow">Wallets</p>
-  <h1>MRWK wallets</h1>
-  <p class="lead">Create a native <code>mrwk1</code> address, register the public key, and use signed transactions to move MRWK.</p>
-</section>
+<h1>Wallets</h1>
+<p class="lead">List of wallets.</p>
 
-<section class="panel wallet-tool" data-wallet-tool>
-  <h2>Generate wallet</h2>
-  <div class="actions">
-    <button type="button" data-action="generate-wallet">Generate wallet</button>
+<form class="search-form" method="get" action="/wallets" role="search">
+  <label for="wallets-q">Search wallets</label>
+  <div class="search-row">
+    <input id="wallets-q" name="q" value="{{ query }}" placeholder="address, GitHub login">
+    <button type="submit">Search</button>
+    {% if query %}<a href="{{ clear_wallets_url }}">Clear</a>{% endif %}
   </div>
-  <form data-action="register-wallet">
-    <label>Label <input id="wallet-label" name="label" placeholder="Main wallet"></label>
-    <label>Address <input id="wallet-address" name="address" readonly></label>
-    <label>Public key <textarea id="wallet-public-key" name="public_key_hex" rows="3" readonly></textarea></label>
-    <label>Private key <textarea id="wallet-private-key" name="private_key_hex" rows="5" readonly autocomplete="off" autocapitalize="none" spellcheck="false"></textarea></label>
-    <button type="submit">Register public key</button>
-  </form>
-  <p class="notice">Private key stays in this browser. Store it yourself; the server cannot recover it.</p>
-  <p class="notice">If you lose the private key, generate a new wallet and register that public key instead.</p>
-  <pre class="result" data-wallet-result></pre>
-</section>
+</form>
+{% if query %}
+<p class="notice">Showing wallets matching "{{ query|e }}".</p>
+{% endif %}
+<nav class="actions detail-actions" aria-label="Wallets inspection links">
+  <a href="{{ api_wallets_url }}">View JSON wallets</a>
+</nav>
 
 <section>
-  <div class="section-head">
-    <h2>Registered wallets</h2>
-    <p>Public addresses known to this ledger.</p>
-  </div>
-  <form class="search-form" method="get" action="/wallets" role="search">
-    <label for="wallet-search">Search wallets</label>
-    <div class="search-row">
-      <input id="wallet-search" name="q" type="search" value="{{ query_text }}" placeholder="address, label, or GitHub login">
-      <button type="submit">Search</button>
-      {% if query_text %}<a href="/wallets">Clear</a>{% endif %}
-    </div>
-  </form>
-  {% if query_text %}
-  <p class="notice">Showing wallets matching “{{ query_text }}”.</p>
-  {% endif %}
-  <table>
-    <thead><tr><th>Address</th><th>Label</th><th>Balance</th><th>GitHub</th><th>Signed actions</th></tr></thead>
-    <tbody>
-      {% for wallet in wallets %}
-      <tr>
-        <td><a href="/wallets/{{ wallet.address }}"><code>{{ wallet.address }}</code></a></td>
-        <td>{{ wallet.label or "-" }}</td>
-        <td>{{ wallet.balance_mrwk }} MRWK</td>
-        <td>
-          {% if wallet.github_login %}<a href="/accounts/github:{{ wallet.github_login }}">{{ wallet.github_login }}</a>{% else %}-{% endif %}
-        </td>
-        <td>{{ wallet.nonce }}</td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="5">
-          {% if query_text %}No registered wallets match this search.{% else %}No registered wallets yet.{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-<script src="/static/wallet.js" defer></script>
-{% endblock %}
+  <h2>Wallets</h2>
+  {% if wallets %}
+  <div class="ledger-list">
+    {% for wallet in wallets %}

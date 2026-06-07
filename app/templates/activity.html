@@ -14,11 +14,11 @@
   </div>
 </form>
 {% if account and query %}
-<p class="notice">Showing accepted work for <code>{{ account }}</code> matching "{{ query }}"{% if account_page_url %} · <a href="{{ account_page_url }}">View account profile</a>{% endif %}</p>
+<p class="notice">Showing accepted work for <code>{{ account }}</code> matching "{{ query|e }}"{% if account_page_url %} · <a href="{{ account_page_url }}">View account profile</a>{% endif %}</p>
 {% elif account %}
 <p class="notice">Showing accepted work for <code>{{ account }}</code>{% if account_page_url %} · <a href="{{ account_page_url }}">View account profile</a>{% endif %}</p>
 {% elif query %}
-<p class="notice">Showing accepted work matching “{{ query }}”.</p>
+<p class="notice">Showing accepted work matching "{{ query|e }}".</p>
 {% endif %}
 <nav class="actions detail-actions" aria-label="Activity inspection links">
   <a href="{{ api_activity_url }}">View JSON activity</a>
@@ -36,150 +36,4 @@
   <h2>Contributors</h2>
   {% if contributors %}
   <div class="ledger-list">
-    {% for contributor in contributors %}
-    <article class="ledger-row">
-      <div class="ledger-entry-card">
-        <div class="ledger-card-head">
-          <div class="ledger-card-title">
-            <a class="ledger-entry-link" href="/accounts/{{ contributor.account }}">{{ contributor.account }}</a>
-            <span class="ledger-scan-note">{{ contributor.accepted_awards }} accepted</span>
-          </div>
-          <strong class="ledger-amount">{{ contributor.accepted_mrwk }} MRWK</strong>
-        </div>
-        <dl class="ledger-card-grid">
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Latest work</dt>
-            {% set latest_submission_url = safe_public_url(contributor.latest_submission_url) %}
-            <dd>{% if latest_submission_url %}<a href="{{ latest_submission_url }}">{{ contributor.latest_submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ contributor.latest_submission_url }}</code>{% endif %}</dd>
-          </div>
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Latest bounty</dt>
-            {% set latest_bounty_issue_url = safe_public_url(contributor.latest_bounty_issue_url) %}
-            <dd>{% if latest_bounty_issue_url %}<a href="{{ latest_bounty_issue_url }}">{{ contributor.latest_bounty_repo }} #{{ contributor.latest_bounty_issue_number }}</a>{% else %}-{% endif %}</dd>
-          </div>
-          <div class="ledger-field ledger-field--proof">
-            <dt>Latest proof</dt>
-            <dd><a href="{{ contributor.latest_proof_url }}">{{ contributor.latest_proof_hash[:12] }}</a></dd>
-          </div>
-        </dl>
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  {% if query %}
-  <p>No contributors match this search.</p>
-  {% else %}
-  <p>No accepted bounty payments yet.</p>
-  {% endif %}
-  {% endif %}
-</section>
-
-<section>
-  <h2>Pending accepted work</h2>
-  <p>Queued for treasury execution, not proof-backed paid work.</p>
-  {% if pending_payouts %}
-  <div class="ledger-list">
-    {% for row in pending_payouts %}
-    <article class="ledger-row">
-      <div class="ledger-entry-card">
-        <div class="ledger-card-head">
-          <div class="ledger-card-title">
-            <a class="ledger-entry-link" href="{{ row.proposal_url }}">Proposal #{{ row.proposal_id }}</a>
-            <span class="ledger-type">Pending</span>
-          </div>
-          <strong class="ledger-amount">{{ row.amount_mrwk or "-" }}{% if row.amount_mrwk %} MRWK{% endif %}</strong>
-        </div>
-        <dl class="ledger-card-grid">
-          <div class="ledger-field ledger-field--to">
-            <dt>Contributor</dt>
-            <dd><a href="/accounts/{{ row.account }}">{{ row.account }}</a></dd>
-          </div>
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Bounty</dt>
-            {% set pending_bounty_issue_url = safe_public_url(row.bounty_issue_url) %}
-            <dd>
-              {% if row.bounty_url %}<a href="{{ row.bounty_url }}">Bounty #{{ row.bounty_id }}</a>{% endif %}
-              {% if row.bounty_url and pending_bounty_issue_url %} &middot; {% endif %}
-              {% if pending_bounty_issue_url %}<a href="{{ pending_bounty_issue_url }}">{{ row.bounty_repo }} #{{ row.bounty_issue_number }}</a>{% elif not row.bounty_url %}-{% endif %}
-            </dd>
-          </div>
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Accepted work</dt>
-            {% set pending_submission_url = safe_public_url(row.submission_url) %}
-            <dd>{% if pending_submission_url %}<a href="{{ pending_submission_url }}">{{ row.submission_url | replace("https://github.com/", "") }}</a>{% elif row.submission_url %}<code>{{ row.submission_url }}</code>{% else %}-{% endif %}</dd>
-          </div>
-          <div class="ledger-field">
-            <dt>Accepted by</dt>
-            <dd>{{ row.accepted_by or "-" }}</dd>
-          </div>
-          <div class="ledger-field">
-            <dt>Executes after</dt>
-            <dd>{{ row.executes_after }}</dd>
-          </div>
-        </dl>
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  {% if query %}
-  <p>No pending accepted work matches this search.</p>
-  {% else %}
-  <p>No pending accepted work rows.</p>
-  {% endif %}
-  {% endif %}
-</section>
-
-<section>
-  <h2>Recent accepted work</h2>
-  {% if recent %}
-  <div class="ledger-list">
-    {% for row in recent %}
-    <article class="ledger-row ledger-row--bounty-payment">
-      <div class="ledger-entry-card">
-        <div class="ledger-card-head">
-          <div class="ledger-card-title">
-            <a class="ledger-entry-link" href="/ledger/{{ row.ledger_sequence }}">#{{ row.ledger_sequence }}</a>
-            <span class="ledger-type ledger-type--bounty-payment">Bounty Payment</span>
-          </div>
-          <strong class="ledger-amount">{{ row.amount_mrwk }} MRWK</strong>
-        </div>
-        <dl class="ledger-card-grid">
-          <div class="ledger-field ledger-field--to">
-            <dt>Contributor</dt>
-            <dd><a href="/accounts/{{ row.account }}">{{ row.account }}</a></dd>
-          </div>
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Bounty</dt>
-            {% set bounty_issue_url = safe_public_url(row.bounty_issue_url) %}
-            <dd>
-              {% if row.bounty_url %}<a href="{{ row.bounty_url }}">Bounty #{{ row.bounty_id }}</a>{% endif %}
-              {% if row.bounty_url and bounty_issue_url %} &middot; {% endif %}
-              {% if bounty_issue_url %}<a href="{{ bounty_issue_url }}">{{ row.bounty_repo }} #{{ row.bounty_issue_number }}</a>{% elif not row.bounty_url %}-{% endif %}
-            </dd>
-          </div>
-          <div class="ledger-field ledger-field--reference reference-cell">
-            <dt>Accepted work</dt>
-            {% set submission_url = safe_public_url(row.submission_url) %}
-            <dd>{% if submission_url %}<a href="{{ submission_url }}">{{ row.submission_url | replace("https://github.com/", "") }}</a>{% else %}<code>{{ row.submission_url }}</code>{% endif %}</dd>
-          </div>
-          <div class="ledger-field ledger-field--proof">
-            <dt>Proof</dt>
-            <dd><a href="{{ row.proof_url }}">{{ row.proof_hash[:12] }}</a></dd>
-          </div>
-        </dl>
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  {% if query %}
-  <p>No accepted work matches this search.</p>
-  <p><a href="{{ clear_activity_url }}">Clear search</a></p>
-  {% else %}
-  <p>No proof-backed accepted work rows yet.</p>
-  {% endif %}
-  {% endif %}
-</section>
-{% endblock %}
+    {% for cont
