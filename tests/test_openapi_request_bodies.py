@@ -125,6 +125,12 @@ def test_public_post_openapi_request_bodies_publish_stable_constraints(
     assert transfer_props["to_address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
     assert transfer_props["memo"]["maxLength"] == 240
 
+    challenge_props = _post_schema(openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges")[
+        "properties"
+    ]
+    assert challenge_props["challenge_type"]["maxLength"] == 80
+    assert challenge_props["reason"]["maxLength"] == 1000
+
 
 def test_public_post_openapi_request_bodies_match_runtime_amount_and_ttl_bounds(
     sqlite_url: str,
@@ -328,6 +334,9 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+    challenge_props = challenge_schema["properties"]
+    assert challenge_props["challenge_type"]["maxLength"] == 80
+    assert challenge_props["reason"]["maxLength"] == 1000
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:

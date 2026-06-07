@@ -189,14 +189,26 @@ ATTEMPT_RELEASE_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+TREASURY_CHALLENGE_TYPE_SCHEMA = {
+    "type": "string",
+    "description": "Challenge category, trimmed by the API and limited to 80 characters.",
+    "maxLength": 80,
+}
+
+TREASURY_CHALLENGE_REASON_SCHEMA = {
+    "type": "string",
+    "description": "Public challenge reason, trimmed by the API and limited to 1000 characters.",
+    "maxLength": 1000,
+}
+
 TREASURY_CHALLENGE_RESPONSE_SCHEMA = _object_schema(
     {
         "id": {"type": "integer", "minimum": 1},
         "proposal_id": {"type": "integer", "minimum": 1},
         "challenger_account": {"type": "string"},
-        "challenge_type": {"type": "string"},
+        "challenge_type": TREASURY_CHALLENGE_TYPE_SCHEMA,
         "status": {"type": "string"},
-        "reason": {"type": "string"},
+        "reason": TREASURY_CHALLENGE_REASON_SCHEMA,
         "created_at": {"type": "string"},
     }
 )
@@ -376,8 +388,8 @@ TREASURY_CHALLENGE_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "challenge_type": {"type": "string", "description": "Challenge category."},
-                "reason": {"type": "string", "description": "Public challenge reason."},
+                "challenge_type": TREASURY_CHALLENGE_TYPE_SCHEMA,
+                "reason": TREASURY_CHALLENGE_REASON_SCHEMA,
             },
             required=["challenge_type", "reason"],
         ),
