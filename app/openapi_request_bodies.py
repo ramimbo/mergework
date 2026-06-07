@@ -372,6 +372,12 @@ TREASURY_PROPOSAL_BODY = {
     },
 }
 
+TREASURY_PROPOSAL_EXECUTE_RESPONSE = {
+    "responses": {
+        "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
+    },
+}
+
 TREASURY_CHALLENGE_BODY = {
     "requestBody": _request_body(
         _object_schema(
