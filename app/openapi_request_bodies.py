@@ -299,6 +299,8 @@ MCP_EMPTY_RESULT_SCHEMA = _object_schema(
     {},
     description="Empty MCP result payload.",
 )
+MCP_EMPTY_RESULT_SCHEMA["additionalProperties"] = False
+MCP_EMPTY_RESULT_SCHEMA["maxProperties"] = 0
 
 MCP_TOOLS_LIST_RESULT_SCHEMA = _object_schema(
     {

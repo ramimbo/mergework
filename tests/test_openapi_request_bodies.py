@@ -60,7 +60,11 @@ def test_mcp_openapi_contract_exposes_jsonrpc_request_and_response(sqlite_url: s
         {"protocolVersion", "capabilities", "serverInfo"}.issubset(variant["properties"])
         for variant in result_variants
     )
-    assert any(variant["properties"] == {} for variant in result_variants)
+    empty_result_variant = next(
+        variant for variant in result_variants if variant["properties"] == {}
+    )
+    assert empty_result_variant["additionalProperties"] is False
+    assert empty_result_variant["maxProperties"] == 0
     assert any("tools" in variant["properties"] for variant in result_variants)
     assert any("content" in variant["properties"] for variant in result_variants)
     _assert_properties(response_schema["properties"]["error"], {"code", "message"})
