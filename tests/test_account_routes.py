@@ -65,6 +65,7 @@ def test_account_contexts_include_balance_status_and_proof_backed_rows(
         "account_json": "/api/v1/accounts/github:alice",
         "accepted_work_json": "/api/v1/accounts/github:alice/accepted-work",
         "activity": "/api/v1/activity?account=github%3Aalice",
+        "activity_page": "/activity?account=github%3Aalice",
     }
     assert page_context["accepted_summary"]["accepted_mrwk"] == "40"
     assert page_context["accepted_work"][0]["proof_hash"] == proof.hash
@@ -121,7 +122,10 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert "25 MRWK" in page_response.text
     assert 'href="/api/v1/accounts/github:bob"' in page_response.text
     assert 'href="/api/v1/accounts/github:bob/accepted-work"' in page_response.text
+    assert 'href="/activity?account=github%3Abob"' in page_response.text
     assert 'href="/api/v1/activity?account=github%3Abob"' in page_response.text
+    assert "Activity page" in page_response.text
+    assert "Activity JSON" in page_response.text
     assert '<p class="reference-cell">' in page_response.text
     assert f'href="/proofs/{proof.hash}"' in page_response.text
 
@@ -131,6 +135,7 @@ def test_account_action_urls_escape_query_accounts() -> None:
         "account_json": "/api/v1/accounts/github:alice",
         "accepted_work_json": "/api/v1/accounts/github:alice/accepted-work",
         "activity": "/api/v1/activity?account=github%3Aalice",
+        "activity_page": "/activity?account=github%3Aalice",
     }
 
 

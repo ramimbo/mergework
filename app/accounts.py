@@ -114,6 +114,7 @@ def account_action_urls(account: str) -> dict[str, str]:
         "account_json": f"/api/v1/accounts/{path_account}",
         "accepted_work_json": f"/api/v1/accounts/{path_account}/accepted-work",
         "activity": f"/api/v1/activity?{urlencode({'account': account})}",
+        "activity_page": f"/activity?{urlencode({'account': account})}",
     }
 
 
