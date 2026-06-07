@@ -67,6 +67,13 @@ def test_mergework_hub_context_preserves_status_and_base_url() -> None:
             ),
         },
         {
+            "title": "Work discovery queue",
+            "href": "/api/v1/work-discovery",
+            "description": (
+                "Use the unified public queue to separate claimable bounties from pending work."
+            ),
+        },
+        {
             "title": "Current bounty JSON",
             "href": "/api/v1/bounties?status=open&availability=effectively_open",
             "description": "Use the public API to verify live status, capacity, and requirements.",
@@ -98,5 +105,7 @@ def test_mergework_hub_renders_contributor_starting_points(sqlite_url: str) -> N
     assert 'href="/bounties?status=open&amp;availability=effectively_open"' in response.text
     assert "Accepted work activity" in response.text
     assert 'href="/activity"' in response.text
+    assert "Work discovery queue" in response.text
+    assert 'href="/api/v1/work-discovery"' in response.text
     assert "Current bounty JSON" in response.text
     assert 'href="/api/v1/bounties?status=open&amp;availability=effectively_open"' in response.text
