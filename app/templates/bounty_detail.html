@@ -76,6 +76,8 @@
         submitted work
         {% endif %}
         after {{ proposal.executes_after }}.
+        <a href="/activity?q=%23{{ bounty.issue_number }}">Review activity for this issue</a>{% if proposal.to_account %}
+        · <a href="/activity?account={{ proposal.to_account | urlencode }}">Review {{ proposal.to_account }} activity</a>{% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -148,6 +150,7 @@
     <div class="next-steps-actions" aria-label="Bounty action links">
       {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">Open source issue</a>{% endif %}
       <a href="/bounties?repo={{ bounty.repo | urlencode }}&amp;issue_number={{ bounty.issue_number }}">View source bounty matches</a>
+      <a href="/activity?q=%23{{ bounty.issue_number }}">Review accepted and pending activity</a>
       <a href="/api/v1/bounties/{{ bounty.id }}">View JSON details</a>
       <a href="{{ requirements.attempt_endpoint }}">Check active attempts</a>
     </div>

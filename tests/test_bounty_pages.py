@@ -209,6 +209,11 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
         'href="https://github.com/ramimbo/mergework/pull/67" rel="nofollow noopener">'
         "submitted work</a>"
     ) in detail.text
+    assert 'href="/activity?q=%2367">Review activity for this issue</a>' in detail.text
+    assert 'href="/activity?account=github%3Aalice">Review github:alice activity</a>' in (
+        detail.text
+    )
+    assert 'href="/activity?q=%2367">Review accepted and pending activity</a>' in detail.text
     assert "1 award still open for distinct accepted work after pending treasury proposals." in (
         detail.text
     )
