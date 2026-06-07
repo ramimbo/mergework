@@ -16,7 +16,7 @@ from app.ledger_views import account_ledger_transactions
 from app.models import Account
 from app.openapi_request_bodies import ACCOUNT_ACCEPTED_WORK_RESPONSE, ACCOUNT_RESPONSE
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
-from app.query_validation import reject_repeated_query_param
+from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
     accepted_work_for_account,
     account_accepted_summary,
@@ -192,11 +192,11 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
     @app.get("/api/v1/accounts/{account}", openapi_extra=ACCOUNT_RESPONSE)
     def api_account(request: Request, account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
-        if request.query_params.getlist("type") or request.query_params.getlist("tx_type"):
-            raise HTTPException(
-                status_code=400,
-                detail="transaction filters are not supported on account JSON detail",
-            )
+        reject_unsupported_query_params(
+            request,
+            ("type", "tx_type"),
+            context="account JSON detail",
+        )
         with session_scope(db_url) as session:
             return account_api_context(session, account)
 

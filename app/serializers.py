@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -871,28 +871,42 @@ def empty_accepted_summary() -> dict[str, Any]:
     }
 
 
+def _safe_return[T](call_: Callable[[], T], default: T) -> T:
+    """Call `call_` and return its result, falling back to `default` on any error.
+
+    Used by the `safe_*_for_account` helpers to keep page-context builders
+    rendering even when one of the per-account data sources raises (e.g. a
+    transient database hiccup on a non-critical subquery). Centralising the
+    try/except here avoids repeating it in every wrapper.
+    """
+    try:
+        return call_()
+    except Exception:
+        return default
+
+
 def safe_account_accepted_summary(session: Session, account: str) -> dict[str, Any]:
     """Return an accepted-work summary, falling back to the empty shape."""
-    try:
-        return account_accepted_summary(session, account)
-    except Exception:
-        return empty_accepted_summary()
+    return _safe_return(
+        lambda: account_accepted_summary(session, account),
+        empty_accepted_summary(),
+    )
 
 
 def safe_accepted_work_for_account(session: Session, account: str) -> list[dict[str, Any]]:
     """Return accepted-work rows, falling back to an empty list."""
-    try:
-        return accepted_work_for_account(session, account)
-    except Exception:
-        return []
+    return _safe_return(
+        lambda: accepted_work_for_account(session, account),
+        [],
+    )
 
 
 def safe_pending_payouts_for_account(session: Session, account: str) -> list[dict[str, Any]]:
     """Return pending payout rows, falling back to an empty list."""
-    try:
-        return pending_payouts_for_account(session, account)
-    except Exception:
-        return []
+    return _safe_return(
+        lambda: pending_payouts_for_account(session, account),
+        [],
+    )
 
 
 def _wallet_timestamp(value: datetime) -> str:

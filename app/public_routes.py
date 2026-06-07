@@ -15,8 +15,11 @@ from app.accounts import (
     ACCOUNT_TRANSACTION_TYPES,
     normalized_wallet_address,
 )
-from app.bounty_availability import normalize_bounty_availability_filter
-from app.bounty_sorting import BOUNTY_SORT_LABELS, normalize_bounty_sort
+from app.bounty_availability import (
+    BOUNTY_AVAILABILITY_ERROR,
+    normalize_bounty_availability_filter,
+)
+from app.bounty_sorting import BOUNTY_SORT_ERROR, BOUNTY_SORT_LABELS, normalize_bounty_sort
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger_views import account_ledger_transaction_types, account_ledger_transactions
@@ -136,6 +139,26 @@ def _bounties_page_url(
     )
 
 
+def _normalize_bounty_view_filter(name: str, value: str | None) -> str:
+    try:
+        if name == "sort":
+            return normalize_bounty_sort(value)
+        if name == "availability":
+            return normalize_bounty_availability_filter(value)
+    except ValueError as exc:
+        detail = str(exc)
+        allowed_details = {
+            BOUNTY_SORT_ERROR,
+            BOUNTY_AVAILABILITY_ERROR,
+            "sort must not contain control characters",
+            "availability must not contain control characters",
+        }
+        if detail not in allowed_details:
+            detail = BOUNTY_SORT_ERROR if name == "sort" else BOUNTY_AVAILABILITY_ERROR
+        raise HTTPException(status_code=400, detail=detail) from exc
+    raise ValueError(f"unsupported bounty filter: {name}")
+
+
 def public_bounties_context(
     bounties: list[dict[str, Any]],
     status: str | None,
@@ -149,8 +172,8 @@ def public_bounties_context(
     selected_status = status.strip().lower() if status is not None else None
     query_text = q.strip() if q is not None else ""
     selected_repo = repo.strip().lower() if repo is not None else ""
-    selected_sort = normalize_bounty_sort(sort)
-    selected_availability = normalize_bounty_availability_filter(availability)
+    selected_sort = _normalize_bounty_view_filter("sort", sort)
+    selected_availability = _normalize_bounty_view_filter("availability", availability)
     limit_options: tuple[int, ...] = (10, 25, 50, 100, 200)
     if limit is not None and limit not in limit_options:
         limit_options = tuple(sorted((*limit_options, limit)))

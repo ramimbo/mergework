@@ -1451,7 +1451,8 @@ def test_mcp_malformed_tool_call_returns_jsonrpc_error(sqlite_url: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["error"] == {"code": -32602, "message": "invalid tool arguments"}
+    assert response.json()["error"]["code"] == -32602
+    assert response.json()["error"]["message"] == "invalid tool arguments"
 
 
 def test_pay_bounty_rejects_reentrant_duplicate_before_ledger_write(

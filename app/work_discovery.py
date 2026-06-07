@@ -52,10 +52,30 @@ def _bounty_source_urls(row: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _next_action(requirements: dict[str, Any]) -> dict[str, Any]:
+    actions = requirements.get("next_actions")
+    if not isinstance(actions, list) or not actions:
+        return {
+            "id": "review_submission_requirements",
+            "required": True,
+            "text": "Review submission requirements before opening or claiming work.",
+        }
+    action = actions[0]
+    if not isinstance(action, dict):
+        return {
+            "id": "review_submission_requirements",
+            "required": True,
+            "text": "Review submission requirements before opening or claiming work.",
+        }
+    return action
+
+
 def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str, Any]:
+    submission_requirements = row["submission_requirements"]
     return {
         "availability_state": availability_state,
         "bounty_id": int(row["id"]),
+        "repo": str(row["repo"]),
         "issue_number": int(row["issue_number"]),
         "title": str(row["title"]),
         "issue_url": str(row["issue_url"]),
@@ -65,7 +85,8 @@ def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str,
         "bounty_availability_state": str(row["availability_state"]),
         "pending_payout_awards": int(row["pending_payout_awards"]),
         "source_urls": _bounty_source_urls(row),
-        "submission_requirements": row["submission_requirements"],
+        "next_action": _next_action(submission_requirements),
+        "submission_requirements": submission_requirements,
     }
 
 
@@ -77,9 +98,17 @@ def _not_claimable_state(row: dict[str, Any]) -> str:
 
 def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
     payload = proposal_payload(proposal)
+    submission_requirements = work_proof_submission_requirements(
+        bounty_id=None,
+        issue_number=int(payload["issue_number"]),
+        availability="unknown",
+        title=str(payload["title"]),
+        acceptance=str(payload.get("acceptance", "")),
+    )
     return {
         "availability_state": "pending_create",
         "proposal_id": int(proposal.id),
+        "repo": str(payload["repo"]),
         "issue_number": int(payload["issue_number"]),
         "title": str(payload["title"]),
         "issue_url": str(payload["issue_url"]),
@@ -91,13 +120,8 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
             "proposal": f"/api/v1/treasury/proposals/{proposal.id}",
             "github_issue": str(payload["issue_url"]),
         },
-        "submission_requirements": work_proof_submission_requirements(
-            bounty_id=None,
-            issue_number=int(payload["issue_number"]),
-            availability="unknown",
-            title=str(payload["title"]),
-            acceptance=str(payload.get("acceptance", "")),
-        ),
+        "next_action": _next_action(submission_requirements),
+        "submission_requirements": submission_requirements,
     }
 
 

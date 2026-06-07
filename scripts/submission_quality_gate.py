@@ -565,13 +565,17 @@ def _load_issue_maintainer_activity(repo: str, issue_number: int) -> dict[str, A
     }
 
 
-def _load_api_bounties(repo: str, api_host: str) -> dict[int, dict[str, Any]]:
-    url = f"{api_host.rstrip('/')}/api/v1/bounties?status=open"
+def _load_json_url(url: str, *, description: str) -> Any:
     try:
         with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (OSError, URLError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"MergeWork API bounty data unavailable: {exc}") from exc
+            return json.loads(response.read().decode("utf-8"))
+    except (HTTPError, OSError, URLError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{description} unavailable: {exc}") from exc
+
+
+def _load_api_bounties(repo: str, api_host: str) -> dict[int, dict[str, Any]]:
+    url = f"{api_host.rstrip('/')}/api/v1/bounties?status=open"
+    payload = _load_json_url(url, description="MergeWork API bounty data")
     if not isinstance(payload, list):
         raise RuntimeError("MergeWork API bounty data must be a list")
     bounties: dict[int, dict[str, Any]] = {}
@@ -606,11 +610,7 @@ def _load_api_attempts(api_host: str, bounty_id: Any) -> list[dict[str, Any]]:
     if not isinstance(bounty_id, int):
         raise RuntimeError("MergeWork API bounty id unavailable for attempts lookup")
     url = f"{api_host.rstrip('/')}/api/v1/bounties/{bounty_id}/attempts"
-    try:
-        with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, OSError, URLError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"MergeWork API attempts data unavailable: {exc}") from exc
+    payload = _load_json_url(url, description="MergeWork API attempts data")
     attempts = payload.get("attempts") if isinstance(payload, dict) else payload
     if not isinstance(attempts, list):
         raise RuntimeError("MergeWork API attempts data must be a list")

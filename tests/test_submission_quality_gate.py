@@ -784,6 +784,43 @@ def test_submission_quality_gate_live_mode_warns_when_github_unavailable(
     assert "load_warning" in output
 
 
+class _JsonResponse:
+    def __init__(self, payload: object) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> _JsonResponse:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode("utf-8")
+
+
+def test_submission_quality_gate_load_json_url_decodes_response(monkeypatch) -> None:
+    def fake_urlopen(url: str, *, timeout: int) -> _JsonResponse:
+        assert url == "https://api.example.test/data"
+        assert timeout == submission_quality_gate.GH_TIMEOUT_SECONDS
+        return _JsonResponse({"ok": True})
+
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    assert submission_quality_gate._load_json_url(
+        "https://api.example.test/data", description="test data"
+    ) == {"ok": True}
+
+
+def test_submission_quality_gate_attempts_loader_keeps_contextual_error(monkeypatch) -> None:
+    def fake_urlopen(url: str, *, timeout: int) -> _JsonResponse:
+        return _JsonResponse({"attempts": "not-a-list"})
+
+    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="MergeWork API attempts data must be a list"):
+        submission_quality_gate._load_api_attempts("https://api.example.test", 42)
+
+
 def test_submission_quality_gate_warns_when_live_collections_hit_safety_caps(
     monkeypatch,
 ) -> None:

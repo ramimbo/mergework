@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from scripts.api_host_args import public_http_url
+
 _REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 
 
@@ -58,11 +60,10 @@ def _parse_object_response(url: str, response: httpx.Response) -> dict[str, obje
 
 
 def _validate_http_url(url: str) -> None:
-    parsed = urlparse(url)
-    if parsed.username or parsed.password:
-        raise RuntimeError("staging dry-run URL must not include username or password")
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError(f"{url} must use http or https")
+    try:
+        public_http_url(url, label="staging dry-run URL", forbid_credentials=True)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from None
 
 
 def _dry_run_repo() -> str:
@@ -82,6 +83,7 @@ def _dry_run_contributor() -> str:
 
 
 def _enforce_staging_target(base_url: str) -> None:
+    _validate_http_url(base_url)
     parsed = urlparse(base_url)
     host = parsed.hostname or ""
     try:

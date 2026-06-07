@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.db import create_schema, session_scope
@@ -543,6 +544,28 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     assert plus_limit_page.json()["detail"] == "limit must be a canonical positive integer"
     assert leading_zero_limit_page.status_code == 400
     assert leading_zero_limit_page.json()["detail"] == "limit must be a canonical positive integer"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_detail"),
+    [
+        ("/bounties?sort=oldest", "sort must be one of: newest, reward, available, awards"),
+        ("/bounties?availability=stale", "availability must be one of: all, effectively_open"),
+    ],
+)
+def test_bounties_page_rejects_invalid_sort_and_availability_filters(
+    sqlite_url: str, path: str, expected_detail: str
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(path)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
 
 
 def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:

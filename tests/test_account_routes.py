@@ -107,11 +107,11 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert api_response.json()["accepted_work"]["latest_proof_hash"] == proof.hash
     assert api_type_filter_response.status_code == 400
     assert api_type_filter_response.json()["detail"] == (
-        "transaction filters are not supported on account JSON detail"
+        "type is not supported on account JSON detail"
     )
     assert api_tx_type_filter_response.status_code == 400
     assert api_tx_type_filter_response.json()["detail"] == (
-        "transaction filters are not supported on account JSON detail"
+        "tx_type is not supported on account JSON detail"
     )
     assert accepted_response.status_code == 200
     assert accepted_response.json()["summary"]["accepted_mrwk"] == "25"
