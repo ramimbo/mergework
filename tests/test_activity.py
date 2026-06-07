@@ -516,7 +516,8 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'Showing accepted work for <code>github:bob</code> matching "pull/12"' in (
         scoped_account_query.text
     )
-    assert 'href="/activity?account=github%3Abob">Clear</a>' in scoped_account_query.text
+    clear_url = 'href="/activity?account=github%3Abob&amp;q=pull%2F12">Clear</a>'
+    assert clear_url in scoped_account_query.text
     assert (
         'href="/api/v1/activity?q=pull%2F12&amp;account=github%3Abob">View JSON activity</a>'
     ) in scoped_account_query.text
@@ -528,7 +529,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'value="bob"' in filtered.text
     assert "Showing accepted work matching “bob”." in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
-    assert 'href="/activity">Clear</a>' in filtered.text
+    assert 'href="/activity?q=bob">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
     assert issue_ref.status_code == 200
@@ -547,12 +548,13 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "No pending accepted work matches this search." in no_match.text
     assert "No accepted bounty payments yet." not in no_match.text
     assert "No proof-backed accepted work rows yet." not in no_match.text
-    assert 'href="/activity">Clear search</a>' in no_match.text
+    assert 'href="/activity?q=alice">Clear search</a>' in no_match.text
 
     scoped_no_match = client.get("/activity?account=GitHub:Bob&q=alice")
 
     assert scoped_no_match.status_code == 200
-    assert 'href="/activity?account=github%3Abob">Clear search</a>' in scoped_no_match.text
+    clear_url = 'href="/activity?account=github%3Abob&amp;q=alice">Clear search</a>'
+    assert clear_url in scoped_no_match.text
 
 
 def test_activity_page_renders_pending_accepted_work(sqlite_url: str) -> None:
@@ -602,3 +604,149 @@ def test_activity_page_renders_pending_accepted_work(sqlite_url: str) -> None:
     assert f'value="#{proposal.id}"' in filtered.text
     assert f"Proposal #{proposal.id}" in filtered.text
     assert "No accepted work matches this search." in filtered.text
+
+
+def test_activity_api_supports_contributor_sort_options(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        # alice: 2 awards, 50 MRWK total
+        alice_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=210,
+            issue_url="https://github.com/ramimbo/mergework/issues/210",
+            title="Alice 50 MRWK across 2 awards",
+            reward_mrwk="25",
+            max_awards=4,
+            acceptance="Alice should sort correctly under every sort mode.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=alice_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/210",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        pay_bounty(
+            session,
+            bounty_id=alice_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/issues/210#second",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        # bob: 1 award, 100 MRWK total
+        bob_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=211,
+            issue_url="https://github.com/ramimbo/mergework/issues/211",
+            title="Bob 100 MRWK",
+            reward_mrwk="100",
+            max_awards=1,
+            acceptance="Bob has a single large award.",
+        )
+        bob_proof = pay_bounty(
+            session,
+            bounty_id=bob_bounty.id,
+            to_account="github:bob",
+            submission_url="https://github.com/ramimbo/mergework/pull/211",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    default_payload = client.get("/api/v1/activity").json()
+    assert default_payload["sort"] == "mrwk"
+    assert [c["account"] for c in default_payload["contributors"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+
+    by_mrwk = client.get("/api/v1/activity?sort=mrwk").json()
+    assert by_mrwk["sort"] == "mrwk"
+    assert [c["account"] for c in by_mrwk["contributors"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+
+    by_awards = client.get("/api/v1/activity?sort=awards").json()
+    assert by_awards["sort"] == "awards"
+    # alice has 2 awards and 50 MRWK; bob has 1 award and 100 MRWK
+    assert [c["account"] for c in by_awards["contributors"]] == [
+        "github:alice",
+        "github:bob",
+    ]
+
+    by_account = client.get("/api/v1/activity?sort=account").json()
+    assert by_account["sort"] == "account"
+    assert [c["account"] for c in by_account["contributors"]] == [
+        "github:alice",
+        "github:bob",
+    ]
+
+    by_recent = client.get("/api/v1/activity?sort=recent").json()
+    assert by_recent["sort"] == "recent"
+    # bob's payment was recorded last (he is the only newer contributor)
+    assert [c["account"] for c in by_recent["contributors"]] == [
+        "github:bob",
+        "github:alice",
+    ]
+    assert by_recent["contributors"][0]["latest_proof_hash"] == bob_proof.hash
+
+    invalid = client.get("/api/v1/activity?sort=invalid")
+    assert invalid.status_code == 400
+    assert invalid.json()["detail"] == ("sort must be one of: mrwk, awards, account, recent")
+
+    control_char = client.get("/api/v1/activity", params={"sort": "\x85bad"})
+    assert control_char.status_code == 400
+    assert control_char.json()["detail"] == "sort must not contain control characters"
+
+
+def test_activity_page_renders_sort_selector_and_label(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=212,
+            issue_url="https://github.com/ramimbo/mergework/issues/212",
+            title="Sort selector smoke",
+            reward_mrwk="30",
+            max_awards=1,
+            acceptance="Sort selector should appear on the page.",
+        )
+        pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:zoe",
+            submission_url="https://github.com/ramimbo/mergework/pull/212",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    default_page = client.get("/activity")
+    assert default_page.status_code == 200
+    assert 'id="activity-sort"' in default_page.text
+    assert 'name="sort"' in default_page.text
+    assert 'value="mrwk" selected' in default_page.text
+    assert "Sorted by" in default_page.text
+    assert "Most accepted MRWK" in default_page.text
+
+    sorted_page = client.get("/activity?sort=account")
+    assert sorted_page.status_code == 200
+    assert 'value="account" selected' in sorted_page.text
+    assert "Account A\u2013Z" in sorted_page.text
+
+    combined = client.get("/activity?q=zoe&sort=awards")
+    assert combined.status_code == 200
+    assert 'value="zoe"' in combined.text
+    assert 'value="awards" selected' in combined.text
+    # Clear link should preserve q and account scope, just reset sort
+    assert 'href="/activity?q=zoe">Clear</a>' in combined.text

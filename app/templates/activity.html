@@ -9,8 +9,16 @@
   <div class="search-row">
     {% if account %}<input type="hidden" name="account" value="{{ account }}">{% endif %}
     <input id="activity-q" name="q" value="{{ query }}" placeholder="account, PR, proof, issue, bounty">
+    <label for="activity-sort">Sort contributors</label>
+    <select id="activity-sort" name="sort">
+      {% for sort_value, sort_label in sort_options.items() %}
+      <option value="{{ sort_value }}"{% if selected_sort == sort_value %} selected{% endif %}>{{ sort_label }}</option>
+      {% endfor %}
+    </select>
     <button type="submit">Search</button>
-    {% if query %}<a href="{{ clear_activity_url }}">Clear</a>{% endif %}
+    {% if query or selected_sort != "mrwk" %}
+    <a href="{{ clear_activity_url }}">Clear</a>
+    {% endif %}
   </div>
 </form>
 {% if account and query %}
@@ -33,7 +41,10 @@
 </section>
 
 <section>
-  <h2>Contributors</h2>
+  <div class="section-head">
+    <h2>Contributors</h2>
+    <p>Sorted by <strong>{{ sort_options[selected_sort] }}</strong>.</p>
+  </div>
   {% if contributors %}
   <div class="ledger-list">
     {% for contributor in contributors %}
