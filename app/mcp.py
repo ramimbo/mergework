@@ -119,6 +119,35 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MCP_WALLET_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Serialized MRWK wallet payload returned in structuredContent.",
+    "properties": {
+        "address": {
+            "type": "string",
+            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
+        },
+        "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "label": {"type": ["string", "null"]},
+        "github_login": {"type": ["string", "null"]},
+        "balance_mrwk": {"type": "string"},
+        "nonce": {"type": "integer", "minimum": 0},
+        "next_nonce": {"type": "integer", "minimum": 1},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "created_at",
+    ],
+    "additionalProperties": True,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -312,33 +341,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["public_key_hex"],
             "additionalProperties": False,
         },
-        "outputSchema": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-                },
-                "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
-                "label": {"type": ["string", "null"]},
-                "github_login": {"type": ["string", "null"]},
-                "balance_mrwk": {"type": "string"},
-                "nonce": {"type": "integer", "minimum": 0},
-                "next_nonce": {"type": "integer", "minimum": 1},
-                "created_at": {"type": "string"},
-            },
-            "required": [
-                "address",
-                "public_key_hex",
-                "label",
-                "github_login",
-                "balance_mrwk",
-                "nonce",
-                "next_nonce",
-                "created_at",
-            ],
-            "additionalProperties": True,
-        },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "get_wallet",
@@ -355,6 +358,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["address"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_wallet_transfer",
