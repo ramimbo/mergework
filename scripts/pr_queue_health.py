@@ -191,7 +191,9 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
         if len(rounds) < 2:
             continue
         current_round = max(round_number for round_number, _bounty in rounds)
-        for round_number, bounty in sorted(rounds):
+        for round_number, bounty in sorted(
+            rounds, key=lambda item: (item[0], int(item[1]["number"]))
+        ):
             if round_number == current_round:
                 continue
             superseded_review_bounty_rounds.append(

@@ -488,6 +488,41 @@ def test_pr_queue_health_flags_live_review_rounds_with_reward_prefix_without_rev
     )
 
 
+def test_pr_queue_health_handles_duplicate_review_round_numbers_stably() -> None:
+    title = "MRWK bounty: 40 MRWK - review open MergeWork PRs with evidence, round "
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 1,
+                    "title": f"{title}20",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                },
+                {
+                    "number": 2,
+                    "title": f"{title}20",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                },
+                {
+                    "number": 3,
+                    "title": f"{title}21",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                },
+            ],
+            "pull_requests": [],
+        }
+    )
+
+    assert report["summary"]["superseded_review_bounty_rounds"] == 2
+    assert [item["issue"] for item in report["superseded_review_bounty_rounds"]] == [1, 2]
+
+
 def test_pr_queue_health_markdown_no_issues_output_is_pasteable(tmp_path, capsys) -> None:
     fixture = {
         "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 5}],
