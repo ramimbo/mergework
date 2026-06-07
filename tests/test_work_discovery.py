@@ -80,7 +80,17 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert body["state_definitions"]["board_or_index"] == (
         "Index issues help discovery but are not claimable bounty work."
     )
-    assert body["non_claimable_issue_states"][0]["availability_state"] == "proposed_work"
+    proposed_work_state = body["non_claimable_issue_states"][0]
+    assert proposed_work_state["availability_state"] == "proposed_work"
+    assert proposed_work_state["repo"] == "ramimbo/mergework"
+    assert proposed_work_state["title"] == "Proposed work requests"
+    assert proposed_work_state["source_urls"] == {
+        "github_label": (
+            "https://github.com/ramimbo/mergework/issues"
+            "?q=is%3Aissue+is%3Aopen+label%3Aproposed-work"
+        ),
+        "lifecycle_docs": "/docs/bounty-rules#proposed-work-requests",
+    }
     assert body["non_claimable_issue_states"][1]["availability_state"] == "board_or_index"
     assert body["non_claimable_issue_states"][1]["issue_number"] == 785
 
