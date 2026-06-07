@@ -436,10 +436,11 @@ def register_public_routes(
         type: str | None = Query(None),  # noqa: A002
     ) -> HTMLResponse:
         reject_path_whitespace_padding(address, "MRWK wallet address")
-        if request.query_params.getlist("tx_type"):
-            raise HTTPException(
-                status_code=400, detail="tx_type is not supported on wallet pages; use type"
-            )
+        reject_unsupported_query_params(
+            request,
+            ("tx_type",),
+            context="wallet pages; use type",
+        )
         for value in request.query_params.getlist("type"):
             if contains_control_character(value):
                 raise HTTPException(
