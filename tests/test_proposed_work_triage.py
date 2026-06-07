@@ -390,6 +390,14 @@ def test_proposed_work_triage_markdown_and_json_cli(tmp_path, capsys) -> None:
     assert "#672 Read-only proposed-work intake triage report" in markdown
 
 
+def test_proposed_work_triage_rejects_non_object_offline_fixture(tmp_path) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps([]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="proposed-work input must be a JSON object"):
+        main(["--input", str(fixture), "--format", "json"])
+
+
 def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
     tmp_path, capsys
 ) -> None:
@@ -401,6 +409,32 @@ def test_proposed_work_triage_rejects_payment_bounty_issue_in_offline_mode(
 
     assert excinfo.value.code == 2
     assert "--payment-bounty-issue is only valid in live --repo mode" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "--input must be a non-empty value"),
+        (["--input", "   "], "--input must be a non-empty value"),
+        (["--input", " tests/fixtures/missing.json "], "--input must not include"),
+        (["--repo", ""], "--repo must be a non-empty value"),
+        (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
+    ),
+)
+def test_proposed_work_triage_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([*source_args, "--format", "json"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
 
 
 def test_proposed_work_triage_live_mode_uses_read_only_gh(monkeypatch, capsys) -> None:
@@ -755,8 +789,6 @@ def test_proposed_work_triage_rejects_non_positive_limit(capsys) -> None:
     Regression for #809: `--limit 0`/`-1` previously returned status=ok with a
     silently truncated issue list via Python slice semantics.
     """
-    import pytest
-
     for bad in ("0", "-1"):
         with pytest.raises(SystemExit) as excinfo:
             main(["--repo", "ramimbo/mergework", "--format", "json", "--limit", bad])
@@ -766,8 +798,6 @@ def test_proposed_work_triage_rejects_non_positive_limit(capsys) -> None:
 
 
 def test_proposed_work_triage_rejects_non_integer_limit(capsys) -> None:
-    import pytest
-
     with pytest.raises(SystemExit) as excinfo:
         main(["--repo", "ramimbo/mergework", "--format", "json", "--limit", "abc"])
     assert excinfo.value.code == 2

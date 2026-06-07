@@ -289,6 +289,32 @@ def test_claim_inventory_classifies_required_statuses(tmp_path, capsys) -> None:
     assert output["summary"]["already_paid"] == 3
 
 
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "--input must be a non-empty value"),
+        (["--input", "   "], "--input must be a non-empty value"),
+        (["--input", " tests/fixtures/missing.json "], "--input must not include"),
+        (["--repo", ""], "--repo must be a non-empty value"),
+        (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
+    ),
+)
+def test_claim_inventory_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([*source_args, "--format", "json"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
+
+
 def test_claim_inventory_markdown_report_is_pasteable() -> None:
     markdown = format_markdown_report(analyze_inventory(_fixture()))
 
