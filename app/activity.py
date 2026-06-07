@@ -102,8 +102,6 @@ def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Temp
         sort: str | None = Query(None),
     ) -> dict[str, Any]:
         _validate_activity_filter_params(request)
-        if sort is not None and contains_control_character(sort):
-            raise HTTPException(status_code=400, detail="sort must not contain control characters")
         try:
             with session_scope(db_url) as session:
                 return activity_context(session, q, account, sort)
@@ -118,8 +116,6 @@ def register_activity_routes(app: FastAPI, *, db_url: str, templates: Jinja2Temp
         sort: str | None = Query(None),
     ) -> HTMLResponse:
         _validate_activity_filter_params(request)
-        if sort is not None and contains_control_character(sort):
-            raise HTTPException(status_code=400, detail="sort must not contain control characters")
         try:
             with session_scope(db_url) as session:
                 context = activity_context(session, q, account, sort)
