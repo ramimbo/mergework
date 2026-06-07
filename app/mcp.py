@@ -520,25 +520,19 @@ _KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
 }
 
 
-# Static set of MCP tool names used to compute close-match suggestions when a
-# caller invokes an unknown tool. Built once from the same source list that
-# ``tools/list`` advertises, so the suggestion set can never include a name
-# that an agent would not be able to call successfully. The rejected name
-# from the caller is never echoed in the response.
-_MCP_TOOL_NAMES: frozenset[str] = frozenset(tool["name"] for tool in MCP_TOOLS)
-
-
 def _suggested_tool_name(name: str) -> str | None:
-    """Return a single static ``MCP_TOOLS`` name close to ``name`` or ``None``.
+    """Return a single known MCP tool name close to ``name`` or ``None``.
 
-    Suggestions are computed against the static ``_MCP_TOOL_NAMES`` frozenset
-    only. The rejected name from the caller is never echoed in the response
-    surface; this helper only returns a known-good tool name (one that the
-    caller can actually invoke) or ``None`` when there is no useful match.
+    Suggestions are computed against the static :data:`_KNOWN_TOOL_NAMES`
+    frozenset (the same set that bounds ``error.data.tool``), so the returned
+    suggestion is always a name an agent can call successfully. The rejected
+    name from the caller is never echoed in the response surface; this
+    helper only returns a known-good tool name or ``None`` when there is no
+    useful match.
     """
     if not isinstance(name, str) or not name:
         return None
-    matches = difflib.get_close_matches(name, _MCP_TOOL_NAMES, n=1, cutoff=0.6)
+    matches = difflib.get_close_matches(name, _KNOWN_TOOL_NAMES, n=1, cutoff=0.6)
     return matches[0] if matches else None
 
 
