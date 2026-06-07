@@ -119,6 +119,37 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MCP_WALLET_TRANSFER_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Serialized signed wallet transfer returned in structuredContent.",
+    "properties": {
+        "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "type": {"type": "string", "enum": ["wallet_transfer"]},
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "from_address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"},
+        "to_address": {"type": "string", "pattern": "^mrwk1[0-9a-f]{40}$"},
+        "amount_mrwk": {
+            "type": "string",
+            "pattern": r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$",
+        },
+        "nonce": {"type": "integer", "minimum": 1},
+        "memo": {"type": ["string", "null"]},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "hash",
+        "type",
+        "ledger_sequence",
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "memo",
+        "created_at",
+    ],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -359,6 +390,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "submit_wallet_transfer",
         "description": "Submit a signed MRWK wallet transfer",
+        "outputSchema": MCP_WALLET_TRANSFER_OUTPUT_SCHEMA,
     },
     {
         "name": "get_ledger_entry",

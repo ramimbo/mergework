@@ -313,7 +313,8 @@ Tools:
 - `register_wallet` (`tools/list` advertises the public-key input schema and the
   registered wallet output schema)
 - `get_wallet`
-- `submit_wallet_transfer`
+- `submit_wallet_transfer` (`tools/list` advertises the signed-transfer output
+  schema returned in structuredContent)
 - `get_ledger_entry`
 - `get_proof`
 - `submit_work_proof` (`format: "json"` returns structuredContent; `tools/list`
