@@ -578,7 +578,9 @@ current nonce, next nonce to sign with, and registration timestamp:
 
 Account responses identify the normalized ledger address, optional GitHub login,
 existence, current balance, accepted-work summary, and whether the account can
-move funds directly:
+move funds directly. They also include scoped activity links so clients can move
+from an account response into the accepted-work activity feed without rebuilding
+URLs:
 
 ```json
 {
@@ -588,6 +590,9 @@ move funds directly:
   "exists": true,
   "balance_mrwk": "395",
   "transfer_status": "Claim GitHub balances from /me after linking a registered mrwk1 wallet.",
+  "activity_url": "/activity?account=github%3Atatelyman",
+  "activity_public_url": "https://mrwk.online/activity?account=github%3Atatelyman",
+  "activity_api_url": "/api/v1/activity?account=github%3Atatelyman",
   "accepted_work": {
     "accepted_awards": 5,
     "accepted_mrwk": "395",
@@ -620,6 +625,9 @@ curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
   "exists": true,
   "balance_mrwk": "99959140",
   "transfer_status": "Internal ledger account. MRWK wallet transfers are only available for registered mrwk1 addresses.",
+  "activity_url": "/activity?account=treasury%3Amrwk",
+  "activity_public_url": "https://mrwk.online/activity?account=treasury%3Amrwk",
+  "activity_api_url": "/api/v1/activity?account=treasury%3Amrwk",
   "accepted_work": {
     "accepted_awards": 0,
     "accepted_mrwk": "0",
@@ -654,6 +662,9 @@ be pasted directly into GitHub comments, reports, or reconciliation logs.
 ```json
 {
   "account": "github:carpedkm",
+  "activity_url": "/activity?account=github%3Acarpedkm",
+  "activity_public_url": "https://mrwk.online/activity?account=github%3Acarpedkm",
+  "activity_api_url": "/api/v1/activity?account=github%3Acarpedkm",
   "summary": {
     "accepted_awards": 6,
     "accepted_mrwk": "340",

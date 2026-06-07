@@ -9,6 +9,7 @@ import app.accounts as accounts_module
 import app.serializers as serializers_module
 from app.accounts import (
     account_action_urls,
+    account_activity_urls,
     account_api_context,
     account_page_context,
     normalized_account,
@@ -59,6 +60,11 @@ def test_account_contexts_include_balance_status_and_proof_backed_rows(
     assert api_context["transfer_status"].startswith("Claim GitHub balances")
     assert api_context["accepted_work"]["accepted_awards"] == 1
     assert api_context["accepted_work"]["latest_proof_hash"] == proof.hash
+    assert api_context["activity_url"] == "/activity?account=github%3Aalice"
+    assert api_context["activity_api_url"] == "/api/v1/activity?account=github%3Aalice"
+    assert (
+        api_context["activity_public_url"] == "https://mrwk.online/activity?account=github%3Aalice"
+    )
 
     assert page_context["account"]["account"] == "github:alice"
     assert page_context["account_action_urls"] == {
@@ -116,6 +122,8 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert accepted_response.status_code == 200
     assert accepted_response.json()["summary"]["accepted_mrwk"] == "25"
     assert accepted_response.json()["accepted_work"][0]["submission_url"].endswith("/pull/178")
+    assert accepted_response.json()["activity_url"] == "/activity?account=github%3Abob"
+    assert accepted_response.json()["activity_api_url"] == "/api/v1/activity?account=github%3Abob"
     assert page_response.status_code == 200
     assert "github:bob" in page_response.text
     assert "25 MRWK" in page_response.text
@@ -131,6 +139,14 @@ def test_account_action_urls_escape_query_accounts() -> None:
         "account_json": "/api/v1/accounts/github:alice",
         "accepted_work_json": "/api/v1/accounts/github:alice/accepted-work",
         "activity": "/api/v1/activity?account=github%3Aalice",
+    }
+
+
+def test_account_activity_urls_expose_page_and_api_links() -> None:
+    assert account_activity_urls("github:alice") == {
+        "activity_url": "/activity?account=github%3Aalice",
+        "activity_public_url": "https://mrwk.online/activity?account=github%3Aalice",
+        "activity_api_url": "/api/v1/activity?account=github%3Aalice",
     }
 
 
@@ -202,6 +218,10 @@ def test_account_routes_expose_pending_payouts_separately_from_paid_work(
     assert accepted_api["summary"] == account_api["accepted_work"]
     assert accepted_api["pending_summary"] == account_api["pending_summary"]
     assert account_api["pending_payouts"] == accepted_api["pending_payouts"]
+    assert accepted_api["activity_url"] == account_api["activity_url"]
+    assert accepted_api["activity_public_url"] == account_api["activity_public_url"]
+    assert accepted_api["activity_api_url"] == account_api["activity_api_url"]
+    assert account_api["activity_url"] == "/activity?account=github%3Aalice"
     assert accepted_api["pending_payouts"] == [
         {
             "proposal_id": proposal.id,
