@@ -147,6 +147,7 @@
     </ol>
     <div class="next-steps-actions" aria-label="Bounty action links">
       {% if issue_url %}<a href="{{ issue_url }}" rel="nofollow noopener">Open source issue</a>{% endif %}
+      {% if issue_url %}<a href="/activity?q={{ issue_url | urlencode }}">Accepted-work activity</a>{% endif %}
       <a href="/bounties?repo={{ bounty.repo | urlencode }}&amp;issue_number={{ bounty.issue_number }}">View source bounty matches</a>
       <a href="/api/v1/bounties/{{ bounty.id }}">View JSON details</a>
       <a href="{{ requirements.attempt_endpoint }}">Check active attempts</a>
