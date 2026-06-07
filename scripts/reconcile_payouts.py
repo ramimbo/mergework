@@ -14,7 +14,21 @@ from app.ledger.reconciliation import (
 
 
 def main() -> int:
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ValueError as exc:
+        print(
+            json.dumps(
+                {
+                    "summary": {"status": "configuration_invalid"},
+                    "issues": [{"status": "configuration_invalid", "message": str(exc)}],
+                    "duplicate_source_urls": [],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 1
     with session_scope(settings.database_url) as session:
         checks = reconcile_accepted_payouts(session)
         duplicate_sources = duplicate_accepted_source_urls(session)
