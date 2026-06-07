@@ -12,6 +12,7 @@ def test_activity_context_preserves_empty_feed_shape(sqlite_url: str) -> None:
             "query": "",
             "api_activity_url": "/api/v1/activity",
             "clear_activity_url": "/activity",
+            "account_page_url": None,
             "totals": {
                 "accepted_awards": 0,
                 "accepted_mrwk": "0",
