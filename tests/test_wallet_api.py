@@ -744,6 +744,27 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Link a wallet" in me
 
 
+def test_transfer_page_reports_invalid_prefill_query_addresses(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, valid_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex, "Prefill smoke wallet")
+
+    response = client.get(
+        "/transfer",
+        params={"from_address": "not-a-wallet", "to_address": valid_address},
+    )
+
+    assert response.status_code == 200
+    assert 'name="from_address" placeholder="mrwk1..." value="" required>' in response.text
+    assert (
+        f'name="to_address" placeholder="mrwk1..." value="{valid_address}" required>'
+        in response.text
+    )
+    assert "Ignored invalid from address from the URL." in response.text
+    assert "The recipient address was prefilled from the URL." in response.text
+
+
 def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()
