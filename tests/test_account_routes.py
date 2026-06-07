@@ -395,3 +395,51 @@ def test_account_api_does_not_advertise_wallet_transfers_for_plain_accounts(
 def test_normalized_account_keeps_existing_account_validation_boundaries() -> None:
     assert normalized_account(" Reserve:Bounty:001 ") == "reserve:bounty:1"
     assert normalized_account("MRWK1" + ("A" * 40)) == "mrwk1" + ("a" * 40)
+
+
+def test_account_path_rejects_url_encoded_special_characters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    special_inputs = [
+        "!@#$",
+        "%21%40%23%24",
+        "account!test",
+        "test@domain",
+        "#fragment",
+        "$money",
+    ]
+
+    for bad_input in special_inputs:
+        api_response = client.get(f"/api/v1/accounts/{bad_input}")
+        assert api_response.status_code == 400, (
+            f"expected 400 for /api/v1/accounts/{bad_input}, got {api_response.status_code}"
+        )
+        assert "URL-encoded special characters" in api_response.json()["detail"]
+
+        accepted_response = client.get(f"/api/v1/accounts/{bad_input}/accepted-work")
+        assert accepted_response.status_code == 400
+        assert "URL-encoded special characters" in accepted_response.json()["detail"]
+
+        page_response = client.get(f"/accounts/{bad_input}")
+        assert page_response.status_code == 400
+        assert "URL-encoded special characters" in page_response.json()["detail"]
+
+
+def test_account_path_allows_valid_canonical_identifiers() -> None:
+    valid_accounts = [
+        "github:alice",
+        "github:bob-123",
+        "mrwk1" + ("a" * 40),
+        "treasury:mrwk",
+        "reserve:bounty:42",
+        "plain-account",
+        "some.other_account",
+    ]
+    for account in valid_accounts:
+        normalized = normalized_account(account)
+        assert "!" not in normalized
+        assert "#" not in normalized

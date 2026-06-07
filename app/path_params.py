@@ -22,6 +22,20 @@ def reject_path_whitespace_padding(value: str, field: str) -> None:
         )
 
 
+_ACCOUNT_INVALID_SPECIAL_RE = re.compile(r"[!@#$%^&*()+\=\[\]{}\|\\;'\"<>?,]+")
+
+
+def reject_account_special_characters(account: str) -> None:
+    """Reject account identifiers that contain special characters not valid
+    in any canonical account shape (github:, mrwk1, treasury:, reserve:)."""
+    if not _ACCOUNT_INVALID_SPECIAL_RE.search(account):
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="account must not contain URL-encoded special characters",
+    )
+
+
 def issue_number_search_value(query: str) -> int | None:
     """Return a bounded GitHub issue number from a plain numeric search query."""
     clean = query.removeprefix("#")
