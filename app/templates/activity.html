@@ -22,6 +22,7 @@
 {% endif %}
 <nav class="actions detail-actions" aria-label="Activity inspection links">
   <a href="{{ api_activity_url }}">View JSON activity</a>
+  {% if account_page_url %}<a href="{{ account_page_url }}">View account page</a>{% endif %}
 </nav>
 
 <section class="grid">
