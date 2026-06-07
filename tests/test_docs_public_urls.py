@@ -225,6 +225,19 @@ def test_docs_smoke_validates_duplicate_markdown_heading_anchors(tmp_path: Path)
     assert _local_target_exists(source, "docs.md#current-transfer-paths-2") is False
 
 
+def test_docs_smoke_decodes_percent_encoded_local_links(tmp_path: Path) -> None:
+    source = tmp_path / "README.md"
+    target = tmp_path / "docs path.md"
+    source.write_text(
+        "[Docs](docs%20path.md#caf%C3%A9-examples)\n",
+        encoding="utf-8",
+    )
+    target.write_text("## Café Examples\n\nDetails.\n", encoding="utf-8")
+
+    assert _local_target_exists(source, "docs%20path.md#caf%C3%A9-examples") is True
+    assert _local_target_exists(source, "docs%20path.md#caf%C3%A9-missing") is False
+
+
 def test_markdown_anchors_ignore_fenced_code_headings(tmp_path: Path) -> None:
     target = tmp_path / "docs.md"
     target.write_text(

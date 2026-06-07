@@ -33,6 +33,7 @@ from app.models import (
 from app.openapi_request_bodies import (
     LEDGER_ENTRY_RESPONSE,
     LEDGER_LIST_RESPONSE,
+    MCP_BODY,
     PROOF_RESPONSE,
 )
 from app.path_params import (
@@ -311,7 +312,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         code = 401 if result["status"] == "unauthorized" else 200
         return JSONResponse(result, status_code=code)
 
-    @app.post("/mcp")
+    @app.post("/mcp", openapi_extra=MCP_BODY)
     async def mcp(request: Request) -> Any:
         return await handle_mcp_request(request, db_url, call_mcp_tool)
 
