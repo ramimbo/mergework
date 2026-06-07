@@ -813,8 +813,9 @@ def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypat
     assert "Signed in as alice." in me
     assert "github:alice" in me
     assert "4 MRWK available to claim" in me
-    assert 'href="/accounts/github:alice"' in me
-    assert 'href="/activity?account=github:alice"' in me
+    assert 'href="/accounts/github%3Aalice"' in me
+    assert 'href="/activity?account=github%3Aalice"' in me
+    assert "Linked wallet" not in me
 
 
 def test_me_page_links_linked_wallet(sqlite_url: str, monkeypatch) -> None:
