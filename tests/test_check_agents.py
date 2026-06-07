@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,26 @@ def test_agent_instruction_paths_include_nested_agents_files() -> None:
     )
 
     assert paths == ["AGENTS.md", "docs/AGENTS.md"]
+
+
+def test_tracked_paths_decodes_git_output_as_utf8(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args, **kwargs):  # noqa: ANN001, ANN202
+        assert args == ["git", "ls-files"]
+        assert kwargs["encoding"] == "utf-8"
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            stdout="AGENTS.md\ndocs/AGENTS.md\nnotes/naïve-名.md\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(check_agents.subprocess, "run", fake_run)
+
+    assert check_agents.tracked_paths() == [
+        "AGENTS.md",
+        "docs/AGENTS.md",
+        "notes/naïve-名.md",
+    ]
 
 
 def test_main_rejects_oversized_nested_agents_file(
