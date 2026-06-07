@@ -11,6 +11,9 @@
     {% if previous_sequence %}<a href="/ledger/{{ previous_sequence }}">Previous entry</a>{% endif %}
     {% if next_sequence %}<a href="/ledger/{{ next_sequence }}">Next entry</a>{% endif %}
     <a href="/api/v1/ledger/{{ entry.sequence }}">Entry JSON</a>
+    {% if entry.to and (entry.to.startswith("github:") or entry.to.startswith("mrwk1")) %}
+    <a href="/activity?account={{ entry.to | urlencode }}">Recipient activity</a>
+    {% endif %}
   </nav>
   <div class="meta-grid">
     {% if entry.type == "bounty_reserve" %}
