@@ -488,6 +488,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'role="search"' in paid.text
     assert 'aria-label="Activity inspection links"' in paid.text
     assert 'href="/api/v1/activity">View JSON activity</a>' in paid.text
+    assert "View account page" not in paid.text
     assert 'name="account"' not in paid.text
     assert 'name="q"' in paid.text
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in paid.text
@@ -506,6 +507,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert (
         'href="/api/v1/activity?account=github%3Abob">View JSON activity</a>' in scoped_account.text
     )
+    assert 'href="/accounts/github:bob">View account page</a>' in scoped_account.text
     assert "github:bob" in scoped_account.text
     assert "75 MRWK" in scoped_account.text
 
@@ -520,6 +522,7 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert (
         'href="/api/v1/activity?q=pull%2F12&amp;account=github%3Abob">View JSON activity</a>'
     ) in scoped_account_query.text
+    assert 'href="/accounts/github:bob">View account page</a>' in scoped_account_query.text
 
     filtered = client.get("/activity?q=bob")
     issue_ref = client.get("/activity?q=%2312")
