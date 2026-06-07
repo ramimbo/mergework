@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
@@ -117,6 +118,15 @@ def account_action_urls(account: str) -> dict[str, str]:
     }
 
 
+def account_activity_urls(account: str) -> dict[str, str]:
+    activity_path = f"/activity?{urlencode({'account': account})}"
+    return {
+        "activity_url": activity_path,
+        "activity_public_url": f"{get_settings().public_base_url.rstrip('/')}{activity_path}",
+        "activity_api_url": f"/api/v1/activity?{urlencode({'account': account})}",
+    }
+
+
 def _account_api_context_for_normalized_account(session: Session, account: str) -> dict[str, Any]:
     account_row = session.get(Account, account)
     pending_payouts = safe_pending_payouts_for_account(session, account)
@@ -130,6 +140,7 @@ def _account_api_context_for_normalized_account(session: Session, account: str) 
         "accepted_work": safe_account_accepted_summary(session, account),
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
+        **account_activity_urls(account),
     }
 
 
@@ -146,6 +157,7 @@ def account_accepted_work_context(session: Session, account: str) -> dict[str, A
         "accepted_work": accepted_work_for_account(session, account),
         "pending_summary": pending_payout_summary(pending_payouts),
         "pending_payouts": pending_payouts,
+        **account_activity_urls(account),
     }
 
 
