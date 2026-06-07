@@ -59,5 +59,29 @@
     <dd><a href="/proofs/{{ entry.proof_hash }}">{{ entry.proof_hash }}</a></dd>
     {% endif %}
   </dl>
+  {% if entry.type == "bounty_payment" and entry.proof_hash %}
+  <div class="section-head">
+    <h2>Related activity</h2>
+    <p>Open accepted-work searches for this ledger payment, recipient, or submission.</p>
+  </div>
+  <div class="meta-grid">
+    {% if entry.to %}
+    <article>
+      <span>Recipient activity</span>
+      <strong><a href="/activity?account={{ entry.to | urlencode }}">Filter {{ entry.to }}</a></strong>
+    </article>
+    {% endif %}
+    <article>
+      <span>Proof activity</span>
+      <strong><a href="/activity?q={{ entry.proof_hash | urlencode }}">Search proof hash</a></strong>
+    </article>
+    {% if entry.reference %}
+    <article>
+      <span>Submission activity</span>
+      <strong><a href="/activity?q={{ entry.reference | urlencode }}">Search submission</a></strong>
+    </article>
+    {% endif %}
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

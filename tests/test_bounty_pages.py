@@ -1131,9 +1131,16 @@ def test_ledger_and_proof_pages_make_bounty_payments_scannable(sqlite_url: str) 
         'href="https://github.com/ramimbo/mergework/pull/99" rel="nofollow noopener"'
         in ledger_entry_page.text
     )
+    assert "Related activity" in ledger_entry_page.text
+    assert 'href="/activity?account=github%3Acontributor"' in ledger_entry_page.text
+    assert f'href="/activity?q={proof_hash}"' in ledger_entry_page.text
+    assert 'href="/activity?q=https%3A//github.com/ramimbo/mergework/pull/99"' in (
+        ledger_entry_page.text
+    )
     genesis_page = client.get("/ledger/1")
     assert genesis_page.status_code == 200
     assert 'href="/ledger">All ledger entries</a>' in genesis_page.text
+    assert "Related activity" not in genesis_page.text
     assert 'href="/ledger/0">Previous entry</a>' not in genesis_page.text
     assert 'href="/ledger/2">Next entry</a>' in genesis_page.text
     latest_sequence = client.get("/api/v1/ledger?limit=1").json()[0]["sequence"]
@@ -1255,6 +1262,7 @@ def test_ledger_entry_reference_fallbacks(sqlite_url: str) -> None:
     assert unsafe_reference_page.status_code == 200
     assert "javascript:alert(1)" in unsafe_reference_page.text
     assert 'href="javascript:alert(1)"' not in unsafe_reference_page.text
+    assert 'href="/activity?q=javascript%3Aalert%281%29"' in unsafe_reference_page.text
 
 
 def test_bounties_list_cards_have_status_pills(sqlite_url: str) -> None:
