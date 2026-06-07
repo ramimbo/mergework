@@ -30,7 +30,12 @@ from app.me import me_page_context
 from app.models import (
     Proof,
 )
-from app.openapi_request_bodies import MCP_BODY
+from app.openapi_request_bodies import (
+    LEDGER_ENTRY_RESPONSE,
+    LEDGER_LIST_RESPONSE,
+    MCP_BODY,
+    PROOF_RESPONSE,
+)
 from app.path_params import (
     SQLITE_INTEGER_MAX,
     positive_bounty_id,
@@ -250,7 +255,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
         with session_scope(db_url) as session:
             return recent_ledger_entries(session, limit, offset)
 
-    @app.get("/api/v1/ledger")
+    @app.get("/api/v1/ledger", openapi_extra=LEDGER_LIST_RESPONSE)
     def api_ledger(
         request: Request,
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -261,7 +266,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
             reject_noncanonical_int_query_param(request, name)
         return ledger_rows(limit, offset)
 
-    @app.get("/api/v1/ledger/{sequence}")
+    @app.get("/api/v1/ledger/{sequence}", openapi_extra=LEDGER_ENTRY_RESPONSE)
     def api_ledger_entry(sequence: int | str) -> dict[str, Any]:
         sequence_id = positive_ledger_sequence(sequence)
         with session_scope(db_url) as session:
@@ -270,7 +275,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
                 raise HTTPException(status_code=404, detail="ledger entry not found")
             return entry
 
-    @app.get("/api/v1/proofs/{proof_hash}")
+    @app.get("/api/v1/proofs/{proof_hash}", openapi_extra=PROOF_RESPONSE)
     def api_proof(proof_hash: str) -> dict[str, Any]:
         proof_hash = proof_hash_from_path(proof_hash)
         with session_scope(db_url) as session:

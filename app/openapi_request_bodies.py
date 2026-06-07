@@ -138,6 +138,59 @@ LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+LEDGER_LIST_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            {"type": "array", "items": LEDGER_ENTRY_RESPONSE_SCHEMA},
+            description="Recent ledger entries.",
+        ),
+    },
+}
+
+LEDGER_ENTRY_RESPONSE = {
+    "responses": {
+        "200": _json_response(LEDGER_ENTRY_RESPONSE_SCHEMA, description="Ledger entry."),
+    },
+}
+
+BOUNTY_PAYMENT_PROOF_RESPONSE_SCHEMA = _object_schema(
+    {
+        "kind": {"type": "string", "enum": ["bounty_payment"]},
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "repo": {"type": "string"},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "submission_url": {"type": "string"},
+        "accepted_by": {"type": "string"},
+        "to_account": {"type": "string"},
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "ledger_hash": LOWERCASE_HEX_64_SCHEMA,
+        "verifier_result": {"type": "object", "additionalProperties": True},
+    },
+    required=[
+        "kind",
+        "bounty_id",
+        "repo",
+        "issue_number",
+        "submission_url",
+        "accepted_by",
+        "to_account",
+        "amount_mrwk",
+        "ledger_sequence",
+        "ledger_hash",
+        "verifier_result",
+    ],
+)
+
+PROOF_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            BOUNTY_PAYMENT_PROOF_RESPONSE_SCHEMA,
+            description="Public bounty payment proof payload.",
+        ),
+    },
+}
+
 WALLET_TRANSFER_RESPONSE_SCHEMA = _object_schema(
     {
         "hash": LOWERCASE_HEX_64_SCHEMA,

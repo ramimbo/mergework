@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,72 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_openapi_response_schemas_expose_ledger_and_proof_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    ledger_list_schema = _get_response_schema(openapi, "/api/v1/ledger")
+    assert ledger_list_schema["type"] == "array"
+
+    ledger_item_schema = ledger_list_schema["items"]
+    _assert_properties(
+        ledger_item_schema,
+        {
+            "sequence",
+            "type",
+            "from",
+            "to",
+            "amount_mrwk",
+            "reference",
+            "previous_hash",
+            "entry_hash",
+            "proof_hash",
+            "created_at",
+        },
+    )
+
+    ledger_item_props = ledger_item_schema["properties"]
+    assert ledger_item_props["sequence"]["minimum"] == 1
+    assert ledger_item_props["entry_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert ledger_item_props["proof_hash"]["nullable"] is True
+    assert ledger_item_props["proof_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert ledger_item_props["amount_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+
+    ledger_entry_schema = _get_response_schema(openapi, "/api/v1/ledger/{sequence}")
+    _assert_properties(ledger_entry_schema, ledger_item_props)
+    assert ledger_entry_schema["properties"]["proof_hash"]["nullable"] is True
+    assert ledger_entry_schema["properties"]["entry_hash"]["pattern"] == "^[0-9a-f]{64}$"
+
+    proof_schema = _get_response_schema(openapi, "/api/v1/proofs/{proof_hash}")
+    expected_proof_fields = {
+        "kind",
+        "bounty_id",
+        "repo",
+        "issue_number",
+        "submission_url",
+        "accepted_by",
+        "to_account",
+        "amount_mrwk",
+        "ledger_sequence",
+        "ledger_hash",
+        "verifier_result",
+    }
+    _assert_properties(proof_schema, expected_proof_fields)
+    assert set(proof_schema["required"]) == expected_proof_fields
+
+    proof_props = proof_schema["properties"]
+    assert proof_props["kind"]["enum"] == ["bounty_payment"]
+    assert proof_props["bounty_id"]["minimum"] == 1
+    assert proof_props["issue_number"]["minimum"] == 1
+    assert proof_props["ledger_sequence"]["minimum"] == 1
+    assert proof_props["ledger_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert proof_props["amount_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert proof_props["verifier_result"]["type"] == "object"
+    assert proof_props["verifier_result"]["additionalProperties"] is True
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
