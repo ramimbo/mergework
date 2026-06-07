@@ -4,7 +4,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.ledger.service import LedgerError
@@ -13,6 +13,8 @@ from app.mcp_results import MCPTextResult
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
+MCP_INITIALIZED_NOTIFICATION_METHOD = "notifications/initialized"
+MCP_PING_METHOD = "ping"
 
 
 MCP_BOUNTY_SUMMARY_OUTPUT_SCHEMA: dict[str, Any] = {
@@ -633,6 +635,10 @@ def _initialize_response(response_id: Any, params: Any) -> dict[str, Any]:
     }
 
 
+def _ping_response(response_id: Any) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": response_id, "result": {}}
+
+
 def _structured_json_payload(text: str) -> dict[str, Any] | list[Any] | None:
     try:
         payload = json.loads(text)
@@ -679,7 +685,7 @@ def _tool_result_response(
 
 async def handle_mcp_request(
     request: Request, database_url: str, call_tool: MCPToolHandler
-) -> dict[str, Any] | JSONResponse:
+) -> dict[str, Any] | Response:
     try:
         payload = await request.json()
     except ValueError:
@@ -690,8 +696,14 @@ async def handle_mcp_request(
 
     response_id = payload.get("id")
     method = payload.get("method")
+    if method == MCP_INITIALIZED_NOTIFICATION_METHOD and "id" not in payload:
+        return Response(status_code=204)
+
     if method == "initialize":
         return _initialize_response(response_id, payload.get("params"))
+
+    if method == MCP_PING_METHOD:
+        return _ping_response(response_id)
 
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": response_id, "result": {"tools": MCP_TOOLS}}

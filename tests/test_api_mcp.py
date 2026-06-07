@@ -1179,6 +1179,30 @@ def test_mcp_rejects_malformed_requests_without_500(sqlite_url: str) -> None:
     }
 
 
+def test_mcp_accepts_initialized_notification_without_response(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_mcp_ping_returns_empty_result(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "ping-1", "method": "ping"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"jsonrpc": "2.0", "id": "ping-1", "result": {}}
+
+
 @pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
