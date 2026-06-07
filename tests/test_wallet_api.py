@@ -813,6 +813,29 @@ def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypat
     assert "Signed in as alice." in me
     assert "github:alice" in me
     assert "4 MRWK available to claim" in me
+    assert 'href="/accounts/github%3Aalice"' in me
+    assert 'href="/activity?account=github%3Aalice"' in me
+    assert "Linked wallet" not in me
+
+
+def test_me_page_links_linked_wallet(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        register_wallet(session, public_key_hex=public_hex, github_login="alice")
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+
+    me = client.get("/me").text
+
+    assert 'aria-label="Contributor account links"' in me
+    assert f'href="/wallets/{address}"' in me
+    assert "Linked wallet" in me
 
 
 def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) -> None:

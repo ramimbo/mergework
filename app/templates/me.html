@@ -5,8 +5,14 @@
   <p class="eyebrow">GitHub</p>
   <h1>Contributor account</h1>
   {% if github_login %}
+  {% set github_account = "github:" ~ github_login %}
   <p class="lead">Signed in as {{ github_login }}.</p>
-  <p class="notice"><code>github:{{ github_login }}</code> has {{ github_balance_mrwk }} MRWK available to claim.</p>
+  <p class="notice"><code>{{ github_account }}</code> has {{ github_balance_mrwk }} MRWK available to claim.</p>
+  <nav class="next-steps-actions" aria-label="Contributor account links">
+    <a href="/accounts/{{ github_account | urlencode }}">GitHub ledger account</a>
+    <a href="/activity?account={{ github_account | urlencode }}">GitHub account activity</a>
+    {% if linked_wallet_address %}<a href="/wallets/{{ linked_wallet_address | urlencode }}">Linked wallet</a>{% endif %}
+  </nav>
   <form method="post" action="/auth/logout" class="inline-form">
     <button type="submit">Sign out</button>
   </form>
