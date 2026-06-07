@@ -57,10 +57,20 @@ def snapshot_account_proof_json(proof: dict[str, Any]) -> str:
 
 
 def verify_snapshot_account_proof(
-    proof: dict[str, Any],
+    proof: object,
     expected_root: dict[str, Any] | None = None,
 ) -> bool:
     try:
+        if not isinstance(proof, dict):
+            return False
+        if _str_field(proof.get("schema"), "proof.schema") != SNAPSHOT_MERKLE_PROOF_SCHEMA:
+            return False
+        if (
+            _int_field(proof.get("schema_version"), "proof.schema_version")
+            != SNAPSHOT_MERKLE_SCHEMA_VERSION
+        ):
+            return False
+
         root = _validated_root_object(proof.get("root"))
         if expected_root is not None and root != _validated_root_object(expected_root):
             return False

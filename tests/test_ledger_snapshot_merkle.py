@@ -149,6 +149,8 @@ def test_snapshot_merkle_proof_rejects_tampering(sqlite_url: str) -> None:
     proof = snapshot_account_proof(snapshot, "github:alice")
 
     tamper_cases = [
+        ("proof schema", lambda item: item.__setitem__("schema", "mergework.other.v1")),
+        ("proof schema version", lambda item: item.__setitem__("schema_version", 2)),
         ("account", lambda item: item["leaf"].__setitem__("account", "github:bob")),
         (
             "balance",
@@ -251,3 +253,7 @@ def test_snapshot_merkle_verifier_rejects_expected_root_mismatch(sqlite_url: str
 
     assert verify_snapshot_account_proof(proof)
     assert not verify_snapshot_account_proof(proof, other_root)
+
+
+def test_snapshot_merkle_verifier_rejects_non_object_proof() -> None:
+    assert not verify_snapshot_account_proof("not a proof")
