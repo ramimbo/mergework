@@ -220,6 +220,24 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+TREASURY_PROPOSAL_LIST_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            {"type": "array", "items": TREASURY_PROPOSAL_RESPONSE_SCHEMA},
+            description="Treasury proposals.",
+        ),
+    },
+}
+
+TREASURY_PROPOSAL_DETAIL_RESPONSE = {
+    "responses": {
+        "200": _json_response(
+            TREASURY_PROPOSAL_RESPONSE_SCHEMA,
+            description="Treasury proposal.",
+        ),
+    },
+}
+
 MCP_JSONRPC_ID_SCHEMA = {
     "description": "JSON-RPC request id returned unchanged in the response.",
     "nullable": True,

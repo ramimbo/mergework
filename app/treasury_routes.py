@@ -11,7 +11,12 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError
 from app.models import TreasuryProposal
-from app.openapi_request_bodies import TREASURY_CHALLENGE_BODY, TREASURY_PROPOSAL_BODY
+from app.openapi_request_bodies import (
+    TREASURY_CHALLENGE_BODY,
+    TREASURY_PROPOSAL_BODY,
+    TREASURY_PROPOSAL_DETAIL_RESPONSE,
+    TREASURY_PROPOSAL_LIST_RESPONSE,
+)
 from app.path_params import SQLITE_INTEGER_MAX, positive_proposal_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -129,7 +134,7 @@ def register_treasury_routes(
     require_github_login: Any,
     json_object: Any,
 ) -> None:
-    @app.get("/api/v1/treasury/proposals")
+    @app.get("/api/v1/treasury/proposals", openapi_extra=TREASURY_PROPOSAL_LIST_RESPONSE)
     def api_treasury_proposals(
         request: Request,
         limit: Annotated[int, Query(ge=1, le=200)] = 100,
@@ -200,7 +205,10 @@ def register_treasury_routes(
         with session_scope(db_url) as session:
             return treasury_status(session)
 
-    @app.get("/api/v1/treasury/proposals/{proposal_id}")
+    @app.get(
+        "/api/v1/treasury/proposals/{proposal_id}",
+        openapi_extra=TREASURY_PROPOSAL_DETAIL_RESPONSE,
+    )
     def api_treasury_proposal(request: Request, proposal_id: str) -> dict[str, Any]:
         _reject_treasury_proposal_detail_filters(request)
         proposal_id_int = positive_proposal_id(proposal_id)
