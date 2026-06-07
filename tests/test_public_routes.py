@@ -158,6 +158,17 @@ def test_hub_marks_static_service_links_as_untrusted(sqlite_url: str) -> None:
         assert f'href="{url}" rel="nofollow noopener"' in page.text
 
 
+def test_hub_links_contributor_starting_points(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert 'href="/bounties?status=open&amp;availability=effectively_open"' in page.text
+    assert 'href="/api/v1/work-discovery"' in page.text
+    assert 'href="/api/v1/bounties?status=open&amp;availability=effectively_open"' in page.text
+
+
 def test_ltc_lab_project_links_are_marked_untrusted(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
