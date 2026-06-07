@@ -83,11 +83,29 @@ python scripts/export_ledger_snapshot.py > ledger-snapshot.json
 python scripts/export_ledger_snapshot.py --schema > ledger-snapshot.schema.json
 ```
 
+Phase 2B adds deterministic Merkle artifacts for the same snapshot balances:
+
+```bash
+python scripts/export_ledger_snapshot_merkle.py > ledger-snapshot-root.json
+python scripts/export_ledger_snapshot_merkle.py --account github:alice > ledger-snapshot-proof.json
+```
+
 The snapshot includes schema/version metadata, a generated UTC timestamp, source
 metadata, the latest ledger sequence and entry hash, the fixed genesis supply in
 integer microunits, deterministically sorted account balances in integer
 microunits, credited/debited/net supply totals, hash-chain verification, and
 fixed-supply conservation verification.
+
+Merkle roots and account proofs are read-only verification artifacts. Account
+leaves use a versioned canonical JSON object containing `account` and integer
+`balance_microunits`. Internal nodes also hash versioned canonical JSON and
+promote an unpaired final node at each level. The final root hash binds the
+snapshot schema/version, latest ledger sequence/hash, tree size, and account
+tree hash. Generated timestamp and source metadata do not affect the root.
+
+Use a proof with the matching published root object when checking a balance.
+Verification rejects changed account ids, balances, leaf indexes, sibling
+hashes or order, tree size, root hash, or ledger anchor.
 
 Snapshot `proposal_validation` is intentionally `partial`: the exporter verifies
 committed ledger entries, the hash chain, and fixed-supply conservation, but it

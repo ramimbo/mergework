@@ -216,11 +216,25 @@ python scripts/export_ledger_snapshot.py > ledger-snapshot.json
 python scripts/export_ledger_snapshot.py --schema > ledger-snapshot.schema.json
 ```
 
+For Phase 2B account-balance proofs, export deterministic Merkle artifacts from
+the same read-only snapshot:
+
+```bash
+python scripts/export_ledger_snapshot_merkle.py > ledger-snapshot-root.json
+python scripts/export_ledger_snapshot_merkle.py --account github:alice > ledger-snapshot-proof.json
+```
+
 Snapshots include committed ledger balances in integer microunits, hash-chain
 verification, fixed-supply conservation verification, and
 `proposal_validation: "partial"`. They do not replay every historical treasury
 proposal or include pending proposals as committed ledger state, and they are
 not a bridge, exchange, off-ramp, redemption mechanism, or price signal.
+
+Merkle leaves are versioned canonical JSON over `account` and integer
+`balance_microunits`. The root object binds the latest ledger sequence/hash,
+snapshot schema/version, tree size, and account tree hash; timestamp and source
+metadata do not affect the root. Verify account proofs against the matching root
+object before treating a balance as included in that snapshot.
 
 ## MCP Endpoint
 
