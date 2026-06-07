@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.bounty_sorting import BOUNTY_SORT_OPTIONS
 from app.ledger.service import LedgerError
 from app.mcp_results import MCPTextResult
 
@@ -152,7 +153,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
                 "sort": {
                     "type": "string",
-                    "enum": ["newest", "reward"],
+                    "enum": list(BOUNTY_SORT_OPTIONS),
                     "default": "newest",
                     "description": "Sort order for returned bounties.",
                 },

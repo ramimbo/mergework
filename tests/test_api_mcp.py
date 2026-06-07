@@ -350,6 +350,12 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert list_bounties_schema["properties"]["q"]["maxLength"] == 500
     assert list_bounties_schema["properties"]["repo"]["maxLength"] == 200
     assert list_bounties_schema["properties"]["issue_number"]["minimum"] == 1
+    assert list_bounties_schema["properties"]["sort"]["enum"] == [
+        "newest",
+        "reward",
+        "available",
+        "awards",
+    ]
     assert list_bounties_schema["properties"]["limit"]["maximum"] == 100
     list_bounties_output_schema = tools["result"]["tools"][0]["outputSchema"]
     assert list_bounties_output_schema["type"] == "array"
