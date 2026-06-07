@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,115 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_account_openapi_response_schemas_expose_account_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    account_schema = _get_response_schema(openapi, "/api/v1/accounts/{account}")
+    _assert_properties(
+        account_schema,
+        {
+            "account",
+            "ledger_address",
+            "github_login",
+            "exists",
+            "balance_mrwk",
+            "transfer_status",
+            "accepted_work",
+            "pending_summary",
+            "pending_payouts",
+        },
+    )
+    assert set(account_schema["required"]) == {
+        "account",
+        "ledger_address",
+        "github_login",
+        "exists",
+        "balance_mrwk",
+        "transfer_status",
+        "accepted_work",
+        "pending_summary",
+        "pending_payouts",
+    }
+    assert account_schema["properties"]["balance_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert account_schema["properties"]["github_login"]["nullable"] is True
+
+    accepted_summary = account_schema["properties"]["accepted_work"]
+    _assert_properties(
+        accepted_summary,
+        {
+            "accepted_awards",
+            "accepted_mrwk",
+            "latest_ledger_sequence",
+            "latest_submission_url",
+            "latest_proof_hash",
+            "latest_proof_url",
+            "latest_proof_public_url",
+        },
+    )
+    assert accepted_summary["properties"]["latest_ledger_sequence"]["nullable"] is True
+    assert accepted_summary["properties"]["latest_proof_hash"]["nullable"] is True
+    assert accepted_summary["properties"]["latest_proof_hash"]["pattern"] == "^[0-9a-f]{64}$"
+
+    pending_summary = account_schema["properties"]["pending_summary"]
+    _assert_properties(pending_summary, {"pending_awards", "pending_mrwk", "next_executes_after"})
+    assert pending_summary["properties"]["next_executes_after"]["nullable"] is True
+
+    pending_payout = account_schema["properties"]["pending_payouts"]["items"]
+    _assert_properties(
+        pending_payout,
+        {
+            "proposal_id",
+            "proposal_url",
+            "status",
+            "amount_mrwk",
+            "bounty_id",
+            "bounty_url",
+            "repo",
+            "issue_number",
+            "issue_url",
+            "submission_url",
+            "accepted_by",
+            "proposed_at",
+            "executes_after",
+        },
+    )
+    assert pending_payout["properties"]["amount_mrwk"]["nullable"] is True
+    assert pending_payout["properties"]["bounty_id"]["nullable"] is True
+
+    accepted_work_schema = _get_response_schema(openapi, "/api/v1/accounts/{account}/accepted-work")
+    _assert_properties(
+        accepted_work_schema,
+        {"account", "summary", "accepted_work", "pending_summary", "pending_payouts"},
+    )
+    accepted_row = accepted_work_schema["properties"]["accepted_work"]["items"]
+    _assert_properties(
+        accepted_row,
+        {
+            "ledger_sequence",
+            "ledger_url",
+            "ledger_public_url",
+            "proof_hash",
+            "proof_url",
+            "proof_public_url",
+            "amount_mrwk",
+            "submission_url",
+            "issue_url",
+            "repo",
+            "issue_number",
+            "bounty_id",
+            "bounty_url",
+            "bounty_public_url",
+            "accepted_by",
+            "created_at",
+        },
+    )
+    assert accepted_row["properties"]["proof_hash"]["pattern"] == "^[0-9a-f]{64}$"
+    assert accepted_row["properties"]["ledger_public_url"]["nullable"] is True
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
