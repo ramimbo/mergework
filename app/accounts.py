@@ -210,11 +210,12 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
         request: Request, account: str, tx_type: str | None = Query(None)
     ) -> HTMLResponse:
         reject_path_whitespace_padding(account, "account")
-        if request.query_params.getlist("type"):
-            raise HTTPException(
-                status_code=400,
-                detail="type is not supported on account pages; use tx_type",
-            )
+        reject_unsupported_query_params(
+            request,
+            ("type",),
+            context="account pages",
+            detail="type is not supported on account pages; use tx_type",
+        )
         for value in request.query_params.getlist("tx_type"):
             if contains_control_character(value):
                 raise HTTPException(

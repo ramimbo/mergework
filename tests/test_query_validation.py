@@ -80,6 +80,21 @@ def test_unsupported_query_params_reports_first_present_name() -> None:
     assert exc_info.value.detail == "type is not supported on account JSON detail"
 
 
+def test_unsupported_query_params_allows_custom_detail() -> None:
+    request = _request("type=github_claim")
+
+    with pytest.raises(HTTPException) as exc_info:
+        reject_unsupported_query_params(
+            request,
+            ("type",),
+            context="account pages",
+            detail="type is not supported on account pages; use tx_type",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "type is not supported on account pages; use tx_type"
+
+
 def test_unsupported_query_params_allows_absent_names() -> None:
     reject_unsupported_query_params(
         _request("page=1"),

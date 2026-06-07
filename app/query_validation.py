@@ -62,12 +62,16 @@ def reject_repeated_query_param(request: Request, name: str) -> None:
 
 
 def reject_unsupported_query_params(
-    request: Request, names: tuple[str, ...], *, context: str
+    request: Request,
+    names: tuple[str, ...],
+    *,
+    context: str,
+    detail: str | None = None,
 ) -> None:
     """Reject query parameters that are valid elsewhere but unsupported here."""
     for name in names:
         if _query_param_values(request, name):
             raise HTTPException(
                 status_code=400,
-                detail=f"{name} is not supported on {context}",
+                detail=detail or f"{name} is not supported on {context}",
             )
