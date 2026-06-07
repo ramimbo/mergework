@@ -729,6 +729,21 @@ def test_run_gh_reports_timeout_and_invalid_json(monkeypatch) -> None:
         raise AssertionError("expected invalid JSON RuntimeError")
 
 
+def test_run_gh_reports_missing_executable(monkeypatch) -> None:
+    def missing_gh(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr("scripts.proposed_work_triage.subprocess.run", missing_gh)
+
+    try:
+        _run_gh(["issue", "list"])
+    except RuntimeError as exc:
+        assert "GitHub CLI executable 'gh' was not found" in str(exc)
+        assert "live mode" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("expected missing gh RuntimeError")
+
+
 def test_run_gh_rejects_mutating_commands_before_subprocess(monkeypatch) -> None:
     def fail_if_called(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
         raise AssertionError("mutating gh command should be rejected before subprocess.run")
