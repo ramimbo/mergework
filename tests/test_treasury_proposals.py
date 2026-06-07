@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+import app.treasury as treasury_module
 from app.auth import signed_value
 from app.db import session_scope
 from app.ledger.service import (
@@ -1492,6 +1493,46 @@ def test_treasury_challenges_reject_raw_control_characters(
         assert session.scalar(select(func.count(TreasuryChallenge.id))) == 0
 
 
+def test_treasury_challenges_accept_documented_length_boundaries(
+    sqlite_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    boundary_challenge_type = "x" * 80
+    monkeypatch.setattr(
+        treasury_module,
+        "CHALLENGE_TYPES",
+        treasury_module.CHALLENGE_TYPES | {boundary_challenge_type},
+    )
+    client = _client(sqlite_url, monkeypatch)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        _seed_accepted_work(session, "alice")
+    proposal = client.post(
+        "/api/v1/bounties",
+        headers=ADMIN_HEADERS,
+        json=_bounty_payload(issue_number=82, reward_mrwk="2"),
+    ).json()
+    client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
+
+    challenge_type_response = client.post(
+        f"/api/v1/treasury/proposals/{proposal['id']}/challenges",
+        json={
+            "challenge_type": boundary_challenge_type,
+            "reason": "Valid boundary challenge type.",
+        },
+    )
+    reason_response = client.post(
+        f"/api/v1/treasury/proposals/{proposal['id']}/challenges",
+        json={"challenge_type": "subjective_note", "reason": "x" * 1000},
+    )
+
+    assert challenge_type_response.status_code == 200
+    assert challenge_type_response.json()["challenge_type"] == boundary_challenge_type
+    assert reason_response.status_code == 200
+    assert len(reason_response.json()["reason"]) == 1000
+    with session_scope(sqlite_url) as session:
+        assert session.scalar(select(func.count(TreasuryChallenge.id))) == 2
+
+
 @pytest.mark.parametrize(
     ("challenge_body", "expected_detail"),
     [
@@ -1518,7 +1559,7 @@ def test_treasury_challenges_reject_too_long_fields(
     proposal = client.post(
         "/api/v1/bounties",
         headers=ADMIN_HEADERS,
-        json=_bounty_payload(issue_number=82, reward_mrwk="2"),
+        json=_bounty_payload(issue_number=83, reward_mrwk="2"),
     ).json()
     client.cookies.set("mrwk_user", signed_value("alice", "test-cookie-secret"))
 
