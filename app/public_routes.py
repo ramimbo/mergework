@@ -451,8 +451,18 @@ def register_public_routes(
         return templates.TemplateResponse(request, "wallet_detail.html", context)
 
     @app.get("/transfer", response_class=HTMLResponse)
-    def transfer_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "transfer.html")
+    def transfer_page(request: Request, to_address: str | None = Query(None)) -> HTMLResponse:
+        reject_repeated_query_param(request, "to_address")
+        transfer_defaults = {"to_address": ""}
+        if to_address is not None:
+            if contains_control_character(to_address):
+                raise HTTPException(
+                    status_code=400, detail="to_address must not contain control characters"
+                )
+            transfer_defaults["to_address"] = normalized_wallet_address(to_address)
+        return templates.TemplateResponse(
+            request, "transfer.html", {"transfer_defaults": transfer_defaults}
+        )
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:

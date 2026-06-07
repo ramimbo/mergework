@@ -744,6 +744,23 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Link a wallet" in me
 
 
+def test_transfer_page_prefills_valid_recipient_address(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    recipient_address = "mrwk1" + ("c" * 40)
+
+    transfer = client.get(f"/transfer?to_address={recipient_address}")
+    invalid_transfer = client.get("/transfer?to_address=github:alice")
+
+    assert transfer.status_code == 200
+    assert (
+        f'name="to_address" placeholder="mrwk1..." value="{recipient_address}" required'
+        in transfer.text
+    )
+    assert invalid_transfer.status_code == 400
+    assert invalid_transfer.json()["detail"] == "invalid MRWK wallet address"
+
+
 def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()

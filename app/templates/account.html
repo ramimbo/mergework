@@ -20,6 +20,9 @@
     <a href="{{ account_action_urls.account_json }}">Account JSON</a>
     <a href="{{ account_action_urls.accepted_work_json }}">Accepted-work JSON</a>
     <a href="{{ account_action_urls.activity }}">Activity for account</a>
+    {% if account_action_urls.transfer_recipient %}
+    <a href="{{ account_action_urls.transfer_recipient }}">Send MRWK to this wallet</a>
+    {% endif %}
   </div>
 </section>
 
