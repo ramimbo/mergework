@@ -8,14 +8,14 @@ try:
     from datetime import UTC
 except ImportError:
     UTC = timezone(timedelta(0))
-from typing import Any
-from urllib.parse import urlparse
+from typing import Any  # noqa: E402
+from urllib.parse import urlparse  # noqa: E402
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.control_chars import contains_control_character
-from app.ledger.service import (
+from app.control_chars import contains_control_character  # noqa: E402
+from app.ledger.service import (  # noqa: E402
     MICRO_UNITS,
     TREASURY_ACCOUNT,
     LedgerError,
@@ -31,7 +31,7 @@ from app.ledger.service import (
     resolve_payout_account,
     validate_public_url,
 )
-from app.models import (
+from app.models import (  # noqa: E402
     Bounty,
     LedgerEntry,
     Proof,
@@ -40,8 +40,8 @@ from app.models import (
     TreasuryProposal,
     utc_now,
 )
-from app.path_params import SQLITE_INTEGER_MAX
-from app.serializers import bounty_to_dict, public_utc_timestamp
+from app.path_params import SQLITE_INTEGER_MAX  # noqa: E402
+from app.serializers import bounty_to_dict, public_utc_timestamp  # noqa: E402
 
 TREASURY_PROPOSAL_DELAY = timedelta(hours=24)
 TREASURY_EPOCH_WINDOW = timedelta(hours=24)

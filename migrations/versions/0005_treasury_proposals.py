@@ -3,13 +3,14 @@ from __future__ import annotations
 try:
     from datetime import UTC
 except ImportError:
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
+
     UTC = timezone(timedelta(0))
 
-from collections.abc import Sequence
+from collections.abc import Sequence  # noqa: E402
 
-import sqlalchemy as sa
-from alembic import op
+import sqlalchemy as sa  # noqa: E402
+from alembic import op  # noqa: E402
 
 revision = "0005_treasury_proposals"
 down_revision: str | None = "0004_bounty_attempts"

@@ -3,16 +3,17 @@ from __future__ import annotations
 try:
     from datetime import UTC
 except ImportError:
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
+
     UTC = timezone(timedelta(0))
 
-import os
-from logging.config import fileConfig
+import os  # noqa: E402
+from logging.config import fileConfig  # noqa: E402
 
-from alembic import context
-from sqlalchemy import engine_from_config, pool
+from alembic import context  # noqa: E402
+from sqlalchemy import engine_from_config, pool  # noqa: E402
 
-from app.models import Base
+from app.models import Base  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:

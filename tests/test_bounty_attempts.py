@@ -8,15 +8,15 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 
-from fastapi.testclient import TestClient
-from sqlalchemy import select
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
-from app.bounty_attempts import bounty_attempt_to_dict, bounty_attempt_warnings
-from app.db import create_schema, session_scope
-from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty
-from app.main import _signed_value, create_app
-from app.models import BountyAttempt, LedgerEntry
-from app.treasury import propose_treasury_action
+from app.bounty_attempts import bounty_attempt_to_dict, bounty_attempt_warnings  # noqa: E402
+from app.db import create_schema, session_scope  # noqa: E402
+from app.ledger.service import close_bounty, create_bounty, ensure_genesis, pay_bounty  # noqa: E402
+from app.main import _signed_value, create_app  # noqa: E402
+from app.models import BountyAttempt, LedgerEntry  # noqa: E402
+from app.treasury import propose_treasury_action  # noqa: E402
 
 COOKIE_SECRET = "test-cookie-secret"
 

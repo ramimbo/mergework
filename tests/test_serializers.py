@@ -8,12 +8,17 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 
-from sqlalchemy import event
+from sqlalchemy import event  # noqa: E402
 
-from app.db import create_schema, session_scope
-from app.ledger.service import create_bounty, ensure_genesis, pay_bounty, register_wallet
-from app.models import Bounty, Proof, WalletTransfer
-from app.serializers import (
+from app.db import create_schema, session_scope  # noqa: E402
+from app.ledger.service import (  # noqa: E402
+    create_bounty,
+    ensure_genesis,
+    pay_bounty,
+    register_wallet,
+)
+from app.models import Bounty, Proof, WalletTransfer  # noqa: E402
+from app.serializers import (  # noqa: E402
     accepted_work_for_account,
     account_accepted_summary,
     activity_to_dict,
@@ -27,7 +32,7 @@ from app.serializers import (
     wallet_to_dict,
     wallet_transfer_to_dict,
 )
-from app.treasury import propose_treasury_action
+from app.treasury import propose_treasury_action  # noqa: E402
 
 
 class BrokenSession:

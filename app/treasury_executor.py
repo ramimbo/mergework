@@ -8,16 +8,19 @@ try:
     from datetime import UTC
 except ImportError:
     UTC = timezone(timedelta(0))
-from typing import Any
+from typing import Any  # noqa: E402
 
-from sqlalchemy import select
+from sqlalchemy import select  # noqa: E402
 
-from app.db import session_scope
-from app.github_bounty_board import refresh_bounty_board_issue
-from app.github_issue_finalization import finalize_created_bounty_issue, finalize_paid_bounty_issue
-from app.ledger.service import LedgerError
-from app.models import Bounty, TreasuryProposal, utc_now
-from app.treasury import (
+from app.db import session_scope  # noqa: E402
+from app.github_bounty_board import refresh_bounty_board_issue  # noqa: E402
+from app.github_issue_finalization import (  # noqa: E402
+    finalize_created_bounty_issue,
+    finalize_paid_bounty_issue,
+)
+from app.ledger.service import LedgerError  # noqa: E402
+from app.models import Bounty, TreasuryProposal, utc_now  # noqa: E402
+from app.treasury import (  # noqa: E402
     execute_treasury_proposal,
     proposal_to_dict,
     record_proposal_result_field,

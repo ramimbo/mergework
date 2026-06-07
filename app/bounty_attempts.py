@@ -8,20 +8,23 @@ try:
 except ImportError:
     UTC = timezone(timedelta(0))
 
-from typing import Annotated, Any
+from typing import Annotated, Any  # noqa: E402
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from fastapi import Depends, FastAPI, HTTPException, Query, Request  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from sqlalchemy import func, select, update  # noqa: E402
+from sqlalchemy.exc import IntegrityError  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.control_chars import contains_control_character
-from app.db import session_scope
-from app.ledger.service import LedgerError, validate_public_url
-from app.models import Bounty, BountyAttempt
-from app.openapi_request_bodies import OPTIONAL_ATTEMPT_BODY, OPTIONAL_ATTEMPT_RELEASE_BODY
-from app.query_validation import (
+from app.control_chars import contains_control_character  # noqa: E402
+from app.db import session_scope  # noqa: E402
+from app.ledger.service import LedgerError, validate_public_url  # noqa: E402
+from app.models import Bounty, BountyAttempt  # noqa: E402
+from app.openapi_request_bodies import (  # noqa: E402
+    OPTIONAL_ATTEMPT_BODY,
+    OPTIONAL_ATTEMPT_RELEASE_BODY,
+)
+from app.query_validation import (  # noqa: E402
     reject_noncanonical_bool_query_param,
     reject_noncanonical_int_query_param,
     reject_repeated_query_param,

@@ -10,16 +10,16 @@ try:
     from datetime import UTC
 except ImportError:
     UTC = timezone(timedelta(0))
-from decimal import Decimal, InvalidOperation
-from typing import Any, cast
-from urllib.parse import urlparse
+from decimal import Decimal, InvalidOperation  # noqa: E402
+from typing import Any, cast  # noqa: E402
+from urllib.parse import urlparse  # noqa: E402
 
-from sqlalchemy import case, func, select, update
-from sqlalchemy.engine import CursorResult
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func, select, update  # noqa: E402
+from sqlalchemy.engine import CursorResult  # noqa: E402
+from sqlalchemy.exc import IntegrityError  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.models import (
+from app.models import (  # noqa: E402
     Account,
     Bounty,
     LedgerEntry,
@@ -29,7 +29,7 @@ from app.models import (
     WalletTransfer,
     utc_now,
 )
-from app.wallets import (
+from app.wallets import (  # noqa: E402
     WalletError,
     address_from_public_key_hex,
     canonical_wallet_json,

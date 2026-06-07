@@ -1406,7 +1406,6 @@ def test_maintainer_activity_check_rejects_negative_threshold() -> None:
     except ImportError:
         UTC = timezone(timedelta(0))
 
-
     from scripts.submission_quality_gate import _maintainer_activity_check
 
     now = datetime(2026, 6, 2, 12, 0, 0, tzinfo=UTC)

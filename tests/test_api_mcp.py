@@ -9,21 +9,21 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 
-import pytest
-from fastapi.testclient import TestClient
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
-from app.db import create_schema, session_scope
-from app.ledger.service import (
+from app.db import create_schema, session_scope  # noqa: E402
+from app.ledger.service import (  # noqa: E402
     GENESIS_SUPPLY_MICRO,
     close_bounty,
     create_bounty,
     ensure_genesis,
     pay_bounty,
 )
-from app.main import create_app
-from app.models import BountyAttempt, Proof
-from app.serializers import public_utc_timestamp
-from app.treasury import propose_treasury_action
+from app.main import create_app  # noqa: E402
+from app.models import BountyAttempt, Proof  # noqa: E402
+from app.serializers import public_utc_timestamp  # noqa: E402
+from app.treasury import propose_treasury_action  # noqa: E402
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:

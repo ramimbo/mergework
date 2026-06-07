@@ -18,7 +18,6 @@ MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
 
 
 MCP_BOUNTY_SUMMARY_OUTPUT_SCHEMA: dict[str, Any] = {
-
     "type": "object",
     "description": "Serialized MRWK bounty payload returned in structuredContent.",
     "properties": {
@@ -124,7 +123,6 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
 
 MCP_TOOLS: list[dict[str, Any]] = [
     {
-
         "name": "list_bounties",
         "description": (
             "List MRWK bounties with optional status, q, sort, limit, and availability filters"

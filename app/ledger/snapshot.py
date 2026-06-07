@@ -8,18 +8,18 @@ try:
 except ImportError:
     UTC = timezone(timedelta(0))
 
-from typing import Any
+from typing import Any  # noqa: E402
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.ledger.service import (
+from app.ledger.service import (  # noqa: E402
     GENESIS_SUPPLY_MICRO,
     canonical_json,
     verify_hash_chain,
     verify_supply_conservation,
 )
-from app.models import LedgerEntry
+from app.models import LedgerEntry  # noqa: E402
 
 LEDGER_SNAPSHOT_SCHEMA = "mergework.ledger_snapshot.v1"
 LEDGER_SNAPSHOT_SCHEMA_VERSION = 1

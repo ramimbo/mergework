@@ -9,8 +9,8 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 
-from app.db import create_schema, session_scope
-from app.ledger.service import (
+from app.db import create_schema, session_scope  # noqa: E402
+from app.ledger.service import (  # noqa: E402
     GENESIS_SUPPLY_MICRO,
     TREASURY_ACCOUNT,
     add_ledger_entry,
@@ -18,16 +18,16 @@ from app.ledger.service import (
     ensure_genesis,
     pay_bounty,
 )
-from app.ledger.snapshot import (
+from app.ledger.snapshot import (  # noqa: E402
     LEDGER_SNAPSHOT_SCHEMA,
     LEDGER_SNAPSHOT_SCHEMA_VERSION,
     ledger_snapshot,
     ledger_snapshot_json,
     ledger_snapshot_schema_json,
 )
-from app.models import LedgerEntry
-from scripts.export_ledger_snapshot import main as export_ledger_snapshot_main
-from scripts.export_ledger_snapshot import read_only_session_scope
+from app.models import LedgerEntry  # noqa: E402
+from scripts.export_ledger_snapshot import main as export_ledger_snapshot_main  # noqa: E402
+from scripts.export_ledger_snapshot import read_only_session_scope  # noqa: E402
 
 
 def test_ledger_snapshot_exports_deterministic_integer_balances(sqlite_url: str) -> None:

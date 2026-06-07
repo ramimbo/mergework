@@ -8,13 +8,13 @@ except ImportError:
     UTC = timezone(timedelta(0))
 
 
-from app.mcp_work_proof import (
+from app.mcp_work_proof import (  # noqa: E402
     generic_work_proof_guidance_json,
     work_proof_guidance,
     work_proof_guidance_json,
     work_proof_submission_requirements,
 )
-from app.models import Bounty
+from app.models import Bounty  # noqa: E402
 
 
 def _action(requirements: dict[str, object], action_id: str) -> dict[str, object]:

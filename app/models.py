@@ -7,8 +7,16 @@ try:
 except ImportError:
     UTC = timezone(timedelta(0))
 
-from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import (  # noqa: E402
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship  # noqa: E402
 
 
 def utc_now() -> datetime:
