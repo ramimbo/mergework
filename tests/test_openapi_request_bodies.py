@@ -482,6 +482,7 @@ def test_public_get_openapi_activity_response_schema_matches_runtime_shape(
 
     runtime_payload = client.get("/api/v1/activity").json()
     assert set(runtime_payload).issubset(set(activity_schema["properties"]))
+    assert set(activity_schema["required"]).issubset(runtime_payload.keys())
     assert runtime_payload["totals"].keys() <= totals_schema["properties"].keys()
     assert runtime_payload["pending_totals"].keys() <= pending_totals_schema["properties"].keys()
 
