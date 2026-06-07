@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,25 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_auth_me_openapi_response_schema_exposes_session_fields(sqlite_url: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    schema = _get_response_schema(openapi, "/api/v1/auth/me")
+    assert schema["type"] == "object"
+    assert set(schema["required"]) == {"authenticated", "github_login"}
+    _assert_properties(schema, {"authenticated", "github_login"})
+
+    props = schema["properties"]
+    assert props["authenticated"]["type"] == "boolean"
+    assert props["github_login"]["type"] == "string"
+    assert props["github_login"]["nullable"] is True
+
+    response = client.get("/api/v1/auth/me")
+    assert response.status_code == 200
+    assert response.json() == {"authenticated": False, "github_login": None}
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:

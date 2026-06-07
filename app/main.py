@@ -30,7 +30,7 @@ from app.me import me_page_context
 from app.models import (
     Proof,
 )
-from app.openapi_request_bodies import MCP_BODY
+from app.openapi_request_bodies import AUTH_ME_RESPONSE, MCP_BODY
 from app.path_params import (
     SQLITE_INTEGER_MAX,
     positive_bounty_id,
@@ -229,7 +229,7 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     register_account_routes(app, db_url=db_url, templates=templates)
 
-    @app.get("/api/v1/auth/me")
+    @app.get("/api/v1/auth/me", openapi_extra=AUTH_ME_RESPONSE)
     def api_auth_me(request: Request) -> dict[str, Any]:
         login = auth.github_login_from_request(request)
         return {"authenticated": login is not None, "github_login": login}
