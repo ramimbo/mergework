@@ -5,6 +5,7 @@ from collections.abc import Iterable
 
 from fastapi.testclient import TestClient
 
+from app.db import create_schema
 from app.main import create_app
 
 EXPECTED_TTL_STRING_PATTERN = (
@@ -19,6 +20,12 @@ def _post_schema(openapi: dict, path: str) -> dict:
 
 def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
     return openapi["paths"][path]["post"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
         "schema"
     ]
 
@@ -365,6 +372,86 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_treasury_status_openapi_response_schema_matches_runtime_fields(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    schema = _get_response_schema(openapi, "/api/v1/treasury/status")
+    expected_top_level = {
+        "type",
+        "epoch_window_hours",
+        "reserve_cap_mrwk",
+        "executed_reserve_24h_mrwk",
+        "pending_create_reserve_mrwk",
+        "available_create_reserve_mrwk",
+        "next_capacity_release_at",
+        "next_projected_capacity_release_at",
+        "pending_create_bounties",
+        "projected_capacity_events",
+        "recent_reserves",
+    }
+
+    assert schema["type"] == "object"
+    assert set(schema["required"]) == expected_top_level
+    _assert_properties(schema, expected_top_level)
+    assert schema["properties"]["type"]["enum"] == ["treasury_status"]
+    assert schema["properties"]["epoch_window_hours"]["minimum"] == 1
+    assert schema["properties"]["reserve_cap_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert schema["properties"]["next_capacity_release_at"]["nullable"] is True
+    assert schema["properties"]["next_projected_capacity_release_at"]["nullable"] is True
+
+    pending_create = schema["properties"]["pending_create_bounties"]["items"]
+    assert set(pending_create["required"]) == {
+        "proposal_id",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "max_awards",
+        "reserve_mrwk",
+        "proposed_at",
+        "executes_after",
+        "capacity_releases_at",
+    }
+    assert pending_create["properties"]["issue_url"]["format"] == "uri"
+    assert pending_create["properties"]["proposal_id"]["minimum"] == 1
+    assert pending_create["properties"]["reward_mrwk"]["pattern"] == (
+        r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$"
+    )
+
+    event = schema["properties"]["projected_capacity_events"]["items"]
+    assert set(event["required"]) == {
+        "at",
+        "event_type",
+        "amount_mrwk",
+        "available_create_reserve_mrwk",
+        "note",
+    }
+    assert set(event["properties"]["event_type"]["enum"]) == {
+        "recent_reserve_releases",
+        "pending_create_executes",
+        "pending_create_releases",
+    }
+
+    reserve = schema["properties"]["recent_reserves"]["items"]
+    assert set(reserve["required"]) == {
+        "ledger_sequence",
+        "amount_mrwk",
+        "reference",
+        "created_at",
+        "expires_at",
+    }
+    assert reserve["properties"]["reference"]["nullable"] is True
+
+    runtime = client.get("/api/v1/treasury/status")
+    assert runtime.status_code == 200
+    assert set(runtime.json()) == expected_top_level
+    assert runtime.json()["type"] == "treasury_status"
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
