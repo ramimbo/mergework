@@ -65,6 +65,12 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert "Awards open" in all_rows.text
     assert "Open reward pool" in all_rows.text
     assert 'href="/api/v1/bounties">View JSON results</a>' in all_rows.text
+    assert 'href="/api/v1/bounties/summary">View summary JSON</a>' in all_rows.text
+    assert 'href="/api/v1/work-discovery">Work discovery JSON</a>' in all_rows.text
+    assert (
+        'href="/bounties?status=open&amp;sort=reward&amp;availability=effectively_open">'
+        "Claimable now</a>"
+    ) in all_rows.text
     assert "1</strong>" in all_rows.text
     assert "50 MRWK</strong>" in all_rows.text
     assert "50 MRWK still available" in all_rows.text
@@ -76,6 +82,10 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert f'href="/bounties/{paid_bounty.id}"' in paid_rows.text
     assert 'href="/bounties?status=paid"' in paid_rows.text
     assert 'href="/api/v1/bounties?status=paid">View JSON results</a>' in paid_rows.text
+    assert (
+        'href="/api/v1/bounties/summary?status=paid">View summary JSON</a>'
+        in paid_rows.text
+    )
     assert "0 MRWK</strong>" in paid_rows.text
 
     paid_rows_uppercase = client.get("/bounties?status=PAID")
@@ -325,6 +335,14 @@ def test_bounties_page_honors_limit_filter(sqlite_url: str) -> None:
         'href="/api/v1/bounties?q=public&amp;sort=reward&amp;limit=2">View JSON results</a>'
         in filtered_limited_page.text
     )
+    assert (
+        'href="/api/v1/bounties/summary?q=public&amp;sort=reward&amp;limit=2">'
+        "View summary JSON</a>"
+    ) in filtered_limited_page.text
+    assert (
+        'href="/bounties?status=open&amp;q=public&amp;sort=reward&amp;limit=2'
+        '&amp;availability=effectively_open">Claimable now</a>'
+    ) in filtered_limited_page.text
 
     invalid_limit = client.get("/bounties?limit=0")
     assert invalid_limit.status_code == 422
@@ -1345,6 +1363,12 @@ def test_bounty_detail_page_has_back_navigation(sqlite_url: str) -> None:
     assert page.status_code == 200
     assert "Back to bounties" in page.text
     assert 'href="/bounties"' in page.text
+    assert (
+        'href="/bounties?status=open&amp;repo=ramimbo/mergework&amp;issue_number=92'
+        '&amp;sort=reward&amp;availability=effectively_open">'
+        "Check claimable source matches</a>"
+    ) in page.text
+    assert 'href="/api/v1/work-discovery">Work discovery JSON</a>' in page.text
 
     # Detail page should also have a status pill with status-specific class
     assert "status-pill status-open" in page.text

@@ -71,6 +71,12 @@
 </section>
 <p class="notice">
   <a href="{{ api_results_url }}">View JSON results</a>
+  <span aria-hidden="true">&middot;</span>
+  <a href="{{ api_summary_url }}">View summary JSON</a>
+  <span aria-hidden="true">&middot;</span>
+  <a href="{{ work_discovery_url }}">Work discovery JSON</a>
+  <span aria-hidden="true">&middot;</span>
+  <a href="{{ claimable_now_url }}">Claimable now</a>
 </p>
 <div class="list">
   {% for bounty in bounties %}

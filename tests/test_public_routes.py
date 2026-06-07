@@ -56,6 +56,15 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
             "/api/v1/bounties?status=open&q=proof&repo=ramimbo%2Fmergework"
             "&issue_number=649&sort=reward"
         ),
+        "api_summary_url": (
+            "/api/v1/bounties/summary?status=open&q=proof&repo=ramimbo%2Fmergework"
+            "&issue_number=649&sort=reward"
+        ),
+        "work_discovery_url": "/api/v1/work-discovery",
+        "claimable_now_url": (
+            "/bounties?status=open&q=proof&repo=ramimbo%2Fmergework&issue_number=649"
+            "&sort=reward&availability=effectively_open"
+        ),
         "clear_search_url": (
             "/bounties?status=open&repo=ramimbo%2Fmergework&issue_number=649&sort=reward"
         ),
@@ -82,6 +91,11 @@ def test_public_bounties_context_preserves_limited_json_results_url() -> None:
     context = public_bounties_context([], status=None, q="issue #580", sort="newest", limit=25)
 
     assert context["api_results_url"] == "/api/v1/bounties?q=issue+%23580&limit=25"
+    assert context["api_summary_url"] == "/api/v1/bounties/summary?q=issue+%23580&limit=25"
+    assert context["claimable_now_url"] == (
+        "/bounties?status=open&q=issue%20%23580&sort=reward&limit=25"
+        "&availability=effectively_open"
+    )
     assert (
         context["status_filter_urls"]["open"] == "/bounties?status=open&q=issue%20%23580&limit=25"
     )
