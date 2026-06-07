@@ -328,9 +328,10 @@ backward-compatible JSON string in `result.content[0].text` and parsed
 `result.structuredContent`. Prefer `structuredContent` when present, and fall
 back to text for human-readable not-found messages.
 
-`get_balance` keeps the legacy balance text and also includes
-`result.structuredContent.account`, `balance_mrwk`, and `balance_microunits` so
-callers do not need to parse the text response.
+`get_balance` keeps the legacy balance text, advertises its structured output
+schema through `tools/list`, and also includes `result.structuredContent.account`,
+`balance_mrwk`, and `balance_microunits` so callers do not need to parse the
+text response.
 
 ### Argument-validation errors
 

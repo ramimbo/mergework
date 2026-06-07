@@ -468,6 +468,15 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance_schema["additionalProperties"] is False
     assert balance_schema["properties"]["account"]["minLength"] == 1
     assert "github:<login>" in balance_schema["properties"]["account"]["description"]
+    balance_output_schema = balance_tool["outputSchema"]
+    assert balance_output_schema["required"] == [
+        "account",
+        "balance_mrwk",
+        "balance_microunits",
+    ]
+    assert balance_output_schema["additionalProperties"] is False
+    assert balance_output_schema["properties"]["balance_mrwk"]["type"] == "string"
+    assert balance_output_schema["properties"]["balance_microunits"]["minimum"] == 0
     ledger_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "get_ledger_entry"
     )
