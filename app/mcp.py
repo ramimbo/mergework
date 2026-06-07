@@ -454,6 +454,13 @@ MCP_TOOLS: list[dict[str, Any]] = [
 # the set) cannot echo arbitrary caller input into the response body.
 _KNOWN_TOOL_NAMES: frozenset[str] = frozenset(tool["name"] for tool in MCP_TOOLS)
 
+# Stable, ordered sequence of the same names so that
+# :func:`difflib.get_close_matches` returns deterministic results in
+# equal-score tie cases. ``frozenset`` iteration order is not stable
+# across runs, which would otherwise make ``did_you_mean`` non-
+# reproducible when several names tie at the same cutoff score.
+_KNOWN_TOOL_NAME_CHOICES: tuple[str, ...] = tuple(sorted(_KNOWN_TOOL_NAMES))
+
 
 def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
@@ -532,7 +539,7 @@ def _suggested_tool_name(name: str) -> str | None:
     """
     if not isinstance(name, str) or not name:
         return None
-    matches = difflib.get_close_matches(name, _KNOWN_TOOL_NAMES, n=1, cutoff=0.6)
+    matches = difflib.get_close_matches(name, _KNOWN_TOOL_NAME_CHOICES, n=1, cutoff=0.6)
     return matches[0] if matches else None
 
 
