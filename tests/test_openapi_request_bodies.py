@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,40 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_wallet_openapi_response_schema_exposes_wallet_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    wallet_schema = _get_response_schema(openapi, "/api/v1/wallets/{address}")
+    _assert_properties(
+        wallet_schema,
+        {
+            "address",
+            "public_key_hex",
+            "label",
+            "github_login",
+            "balance_mrwk",
+            "nonce",
+            "next_nonce",
+            "created_at",
+        },
+    )
+    wallet_props = wallet_schema["properties"]
+    assert wallet_props["address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
+    assert wallet_props["address"]["minLength"] == 45
+    assert wallet_props["address"]["maxLength"] == 45
+    assert wallet_props["public_key_hex"]["pattern"] == "^[0-9a-f]{64}$"
+    assert wallet_props["public_key_hex"]["minLength"] == 64
+    assert wallet_props["public_key_hex"]["maxLength"] == 64
+    assert wallet_props["balance_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert wallet_props["nonce"]["minimum"] == 0
+    assert wallet_props["next_nonce"]["minimum"] == 1
+    assert wallet_props["label"]["nullable"] is True
+    assert wallet_props["github_login"]["nullable"] is True
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:

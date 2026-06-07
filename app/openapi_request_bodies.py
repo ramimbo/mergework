@@ -412,6 +412,12 @@ WALLET_REGISTER_BODY = {
     },
 }
 
+WALLET_LOOKUP_RESPONSE = {
+    "responses": {
+        "200": _json_response(WALLET_RESPONSE_SCHEMA),
+    },
+}
+
 SIGNED_WALLET_ACTION_PROPERTIES = {
     "address": MRWK_WALLET_ADDRESS_SCHEMA,
     "nonce": INTEGER_OR_STRING_SCHEMA,
