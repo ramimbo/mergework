@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
+import scripts.export_ledger_snapshot as export_ledger_snapshot_script
 from app.db import create_schema, session_scope
 from app.ledger.service import (
     GENESIS_SUPPLY_MICRO,
@@ -168,6 +169,33 @@ def test_exporter_main_accepts_schema_argv(capsys) -> None:
     schema = json.loads(capsys.readouterr().out)
 
     assert schema["$id"] == LEDGER_SNAPSHOT_SCHEMA
+
+
+def test_exporter_schema_mode_does_not_load_settings(monkeypatch) -> None:
+    monkeypatch.setattr(
+        export_ledger_snapshot_script,
+        "get_settings",
+        lambda: (_ for _ in ()).throw(AssertionError("settings should not load")),
+    )
+
+    assert export_ledger_snapshot_main(["--schema"]) == 0
+
+
+def test_exporter_reports_malformed_settings_without_traceback(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        export_ledger_snapshot_script,
+        "get_settings",
+        lambda: (_ for _ in ()).throw(
+            ValueError("MERGEWORK_BOUNTY_BOARD_ISSUE_NUMBER must be an integer")
+        ),
+    )
+
+    assert export_ledger_snapshot_main([]) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "ledger snapshot export configuration invalid" in output.err
+    assert "MERGEWORK_BOUNTY_BOARD_ISSUE_NUMBER must be an integer" in output.err
+    assert "Traceback (most recent call last)" not in output.err
 
 
 def test_exporter_main_accepts_snapshot_argv(sqlite_url: str, capsys) -> None:
