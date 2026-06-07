@@ -15,6 +15,11 @@ if __package__ in {None, ""}:
 from scripts.bounty_refs import BOUNTY_REF_RE
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
+REVIEW_ROUND_TITLE_RE = re.compile(
+    r"^\s*MRWK bounty\s*:\s*(?:\d+\s+MRWK\s*-\s*)?"
+    r"(?P<scope>.+?\breview\b.+?),\s*round\s+(?P<round>\d+)\b",
+    re.IGNORECASE,
+)
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
@@ -123,6 +128,24 @@ def _issue(pr: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
     }
 
 
+def _review_round_key(raw: dict[str, Any]) -> tuple[str, int] | None:
+    title = str(raw.get("title") or "")
+    match = REVIEW_ROUND_TITLE_RE.search(title)
+    if not match:
+        return None
+    return (" ".join(match.group("scope").lower().split()), int(match.group("round")))
+
+
+def _bounty_issue(raw: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
+    return {
+        "issue": raw["number"],
+        "title": raw.get("title") or "",
+        "url": raw.get("url"),
+        "reason": reason,
+        "detail": detail,
+    }
+
+
 def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
     bounties = {
         int(item["number"]): item
@@ -152,6 +175,35 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
     dirty_or_unstable_merge_state: list[dict[str, Any]] = []
     needs_info: list[dict[str, Any]] = []
     duplicate_groups: dict[tuple[int, str], list[int]] = defaultdict(list)
+    review_round_groups: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+
+    for bounty in bounties.values():
+        if not _is_open_bounty(bounty):
+            continue
+        parsed = _review_round_key(bounty)
+        if parsed is None:
+            continue
+        scope, round_number = parsed
+        review_round_groups[scope].append((round_number, bounty))
+
+    superseded_review_bounty_rounds: list[dict[str, Any]] = []
+    for rounds in review_round_groups.values():
+        if len(rounds) < 2:
+            continue
+        current_round = max(round_number for round_number, _bounty in rounds)
+        for round_number, bounty in sorted(
+            rounds, key=lambda item: (item[0], int(item[1]["number"]))
+        ):
+            if round_number == current_round:
+                continue
+            superseded_review_bounty_rounds.append(
+                _bounty_issue(
+                    bounty,
+                    "superseded_review_bounty_round",
+                    f"Review bounty round {round_number} is still open while round "
+                    f"{current_round} is the latest open round for this review scope",
+                )
+            )
 
     for pr in normalized_prs:
         if not pr["refs"]:
@@ -226,6 +278,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             "dirty_or_unstable_merge_state": len(dirty_or_unstable_merge_state),
             "needs_info": len(needs_info),
             "duplicate_scope_groups": len(duplicate_scope_groups),
+            "superseded_review_bounty_rounds": len(superseded_review_bounty_rounds),
         },
         "closed_bounty_references": closed_bounty_references,
         "non_live_bounty_references": non_live_bounty_references,
@@ -233,6 +286,7 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
         "dirty_or_unstable_merge_state": dirty_or_unstable_merge_state,
         "needs_info": needs_info,
         "duplicate_scope_groups": duplicate_scope_groups,
+        "superseded_review_bounty_rounds": superseded_review_bounty_rounds,
     }
     return report
 
@@ -247,6 +301,7 @@ def has_queue_issues(report: dict[str, Any]) -> bool:
             "dirty_or_unstable_merge_state",
             "needs_info",
             "duplicate_scope_groups",
+            "superseded_review_bounty_rounds",
         )
     )
 
@@ -271,6 +326,11 @@ def format_text_report(report: dict[str, Any]) -> str:
         for item in report["duplicate_scope_groups"]:
             prs = ", ".join(f"#{number}" for number in item["pull_requests"])
             lines.append(f"- Bounty #{item['bounty']}: {item['scope']} ({prs})")
+    if report["superseded_review_bounty_rounds"]:
+        lines.append("")
+        lines.append("Superseded review bounty rounds")
+        for item in report["superseded_review_bounty_rounds"]:
+            lines.append(f"- Issue #{item['issue']}: {item['title']} ({item['detail']})")
     return "\n".join(lines)
 
 
@@ -284,6 +344,14 @@ def _markdown_pr_issue(item: dict[str, Any]) -> str:
     if isinstance(url, str) and url:
         pr_label = f"[{pr_label}]({url})"
     return f"- {pr_label}: {_single_line(item['title'])} ({_single_line(item['detail'])})"
+
+
+def _markdown_bounty_issue(item: dict[str, Any]) -> str:
+    issue_label = f"Issue #{item['issue']}"
+    url = item.get("url")
+    if isinstance(url, str) and url:
+        issue_label = f"[{issue_label}]({url})"
+    return f"- {issue_label}: {_single_line(item['title'])} ({_single_line(item['detail'])})"
 
 
 def format_markdown_report(report: dict[str, Any]) -> str:
@@ -307,6 +375,11 @@ def format_markdown_report(report: dict[str, Any]) -> str:
         for item in report["duplicate_scope_groups"]:
             prs = ", ".join(f"#{number}" for number in item["pull_requests"])
             lines.append(f"- Bounty #{item['bounty']}: {_single_line(item['scope'])} ({prs})")
+    if report["superseded_review_bounty_rounds"]:
+        lines.append("")
+        lines.append("### Superseded review bounty rounds")
+        for item in report["superseded_review_bounty_rounds"]:
+            lines.append(_markdown_bounty_issue(item))
     return "\n".join(lines)
 
 
