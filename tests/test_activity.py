@@ -313,6 +313,8 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
         "/api/v1/activity?account=github:alice&account=github:bob"
     )
     repeated_page_account_response = client.get("/activity?account=github:alice&account=github:bob")
+    repeated_sort_api_response = client.get("/api/v1/activity?sort=awards&sort=recent")
+    repeated_sort_page_response = client.get("/activity?sort=awards&sort=recent")
     invalid_account_response = client.get("/api/v1/activity?account=github%3A%20")
     invalid_page_account_response = client.get("/activity?account=github%3A%20")
 
@@ -340,6 +342,10 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert repeated_page_account_response.json()["detail"] == (
         "account must be provided at most once"
     )
+    assert repeated_sort_api_response.status_code == 400
+    assert repeated_sort_api_response.json()["detail"] == ("sort must be provided at most once")
+    assert repeated_sort_page_response.status_code == 400
+    assert repeated_sort_page_response.json()["detail"] == ("sort must be provided at most once")
     assert invalid_account_response.status_code == 400
     assert invalid_account_response.json()["detail"] == "github login must be valid"
     assert invalid_page_account_response.status_code == 400

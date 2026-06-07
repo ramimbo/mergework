@@ -88,7 +88,7 @@ def _activity_page_url(
 
 
 def _validate_activity_filter_params(request: Request) -> None:
-    for name in ("q", "account"):
+    for name in ("q", "account", "sort"):
         reject_control_char_query_param(request, name)
         reject_repeated_query_param(request, name)
 
