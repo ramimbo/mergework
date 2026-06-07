@@ -443,6 +443,51 @@ def test_pr_queue_health_flags_superseded_review_bounty_rounds() -> None:
     assert "round 20 is the latest open round" in markdown
 
 
+def test_pr_queue_health_flags_live_review_rounds_with_reward_prefix_without_review_label() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 933,
+                    "title": (
+                        "MRWK bounty: 40 MRWK - review open MergeWork PRs with evidence, round 20"
+                    ),
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "url": "https://github.com/ramimbo/mergework/issues/933",
+                },
+                {
+                    "number": 1009,
+                    "title": (
+                        "MRWK bounty: 40 MRWK - review open MergeWork PRs with evidence, round 21"
+                    ),
+                    "state": "OPEN",
+                    "awards_remaining": 30,
+                    "labels": [{"name": "mrwk:bounty"}],
+                    "url": "https://github.com/ramimbo/mergework/issues/1009",
+                },
+                {
+                    "number": 1010,
+                    "title": "MRWK bounty: 40 MRWK - bug reports and smoke checks, round 21",
+                    "state": "OPEN",
+                    "awards_remaining": 30,
+                    "labels": [{"name": "mrwk:bounty"}],
+                },
+            ],
+            "pull_requests": [],
+        }
+    )
+
+    assert report["summary"]["superseded_review_bounty_rounds"] == 1
+    assert report["superseded_review_bounty_rounds"][0]["issue"] == 933
+    assert (
+        report["superseded_review_bounty_rounds"][0]["detail"]
+        == "Review bounty round 20 is still open while round 21 is the latest open "
+        "round for this review scope"
+    )
+
+
 def test_pr_queue_health_markdown_no_issues_output_is_pasteable(tmp_path, capsys) -> None:
     fixture = {
         "bounties": [{"number": 310, "state": "OPEN", "awards_remaining": 5}],

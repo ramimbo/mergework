@@ -16,7 +16,8 @@ from scripts.bounty_refs import BOUNTY_REF_RE
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 REVIEW_ROUND_TITLE_RE = re.compile(
-    r"^\s*MRWK bounty\s*:\s*(?P<scope>.+?\breview\b.+?),\s*round\s+(?P<round>\d+)\b",
+    r"^\s*MRWK bounty\s*:\s*(?:\d+\s+MRWK\s*-\s*)?"
+    r"(?P<scope>.+?\breview\b.+?),\s*round\s+(?P<round>\d+)\b",
     re.IGNORECASE,
 )
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
@@ -131,9 +132,6 @@ def _review_round_key(raw: dict[str, Any]) -> tuple[str, int] | None:
     title = str(raw.get("title") or "")
     match = REVIEW_ROUND_TITLE_RE.search(title)
     if not match:
-        return None
-    labels = {label.lower() for label in _labels(raw)}
-    if labels and "review" not in labels:
         return None
     return (" ".join(match.group("scope").lower().split()), int(match.group("round")))
 
