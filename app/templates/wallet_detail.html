@@ -18,7 +18,7 @@
     <dt>Public key</dt>
     <dd><code>{{ wallet.public_key_hex }}</code></dd>
     <dt>GitHub login</dt>
-    <dd>{{ wallet.github_login or "-" }}</dd>
+    <dd>{% if wallet.github_login %}<a href="/accounts/github:{{ wallet.github_login }}">{{ wallet.github_login }}</a>{% else %}-{% endif %}</dd>
     <dt>Signed actions</dt>
     <dd>{{ wallet.nonce }}</dd>
     <dt>Next action number</dt>

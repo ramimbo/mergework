@@ -710,6 +710,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "alice-smoke" in github_search
     assert 'href="/accounts/github:alice-smoke">alice-smoke</a>' in wallets
     assert 'href="/accounts/github:alice-smoke">alice-smoke</a>' in github_search
+    assert 'href="/accounts/github:alice-smoke">alice-smoke</a>' in detail
     funded_row_start = wallets.index(
         f'<a href="/wallets/{funded_address}"><code>{funded_address}</code></a>'
     )
@@ -722,6 +723,14 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
     assert "Filter wallet transactions" in funded_detail
+    funded_github_login_start = funded_detail.index("<dt>GitHub login</dt>")
+    funded_github_login_row = funded_detail[
+        funded_github_login_start : funded_detail.index(
+            "<dt>Signed actions</dt>", funded_github_login_start
+        )
+    ]
+    assert "<dd>-</dd>" in funded_github_login_row
+    assert "/accounts/github:" not in funded_github_login_row
     assert 'value="test_funding" selected' in funded_type_filter
     assert "Showing test_funding transactions." in funded_type_filter
     assert "Showing all transactions." not in funded_all_type_filter
