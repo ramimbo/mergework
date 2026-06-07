@@ -312,7 +312,7 @@ Tools:
 - `get_balance`
 - `register_wallet` (`tools/list` advertises the public-key input schema and the
   registered wallet output schema)
-- `get_wallet`
+- `get_wallet` (`tools/list` advertises the wallet output schema)
 - `submit_wallet_transfer`
 - `get_ledger_entry`
 - `get_proof`
