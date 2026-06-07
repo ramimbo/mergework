@@ -235,6 +235,12 @@ MCP_HOST=https://mcp.mrwk.online
 The legacy MCP host `https://mcp.mrwk.ltclab.site` remains available for
 existing clients.
 
+After a successful `initialize` request, clients may send the standard
+`notifications/initialized` JSON-RPC notification without an `id`. The server
+accepts it with `204 No Content`, because JSON-RPC notifications do not return a
+response body. Clients may also send the standard `ping` request and receive an
+empty JSON-RPC result.
+
 List tools:
 
 ```bash

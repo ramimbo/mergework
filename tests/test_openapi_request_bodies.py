@@ -39,9 +39,16 @@ def test_mcp_openapi_contract_exposes_jsonrpc_request_and_response(sqlite_url: s
     assert set(request_schema["required"]) == {"jsonrpc", "method"}
     request_props = request_schema["properties"]
     assert request_props["jsonrpc"]["enum"] == ["2.0"]
-    assert set(request_props["method"]["enum"]) == {"initialize", "tools/list", "tools/call"}
+    assert set(request_props["method"]["enum"]) == {
+        "initialize",
+        "notifications/initialized",
+        "ping",
+        "tools/list",
+        "tools/call",
+    }
     assert request_props["id"]["nullable"] is True
     assert request_props["params"]["additionalProperties"] is True
+    assert "content" not in operation["responses"]["204"]
 
     _assert_properties(response_schema, {"jsonrpc", "id", "result", "error"})
     assert response_schema["properties"]["jsonrpc"]["enum"] == ["2.0"]
@@ -53,6 +60,11 @@ def test_mcp_openapi_contract_exposes_jsonrpc_request_and_response(sqlite_url: s
         {"protocolVersion", "capabilities", "serverInfo"}.issubset(variant["properties"])
         for variant in result_variants
     )
+    empty_result_variant = next(
+        variant for variant in result_variants if variant["properties"] == {}
+    )
+    assert empty_result_variant["additionalProperties"] is False
+    assert empty_result_variant["maxProperties"] == 0
     assert any("tools" in variant["properties"] for variant in result_variants)
     assert any("content" in variant["properties"] for variant in result_variants)
     _assert_properties(response_schema["properties"]["error"], {"code", "message"})

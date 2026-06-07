@@ -236,7 +236,13 @@ MCP_REQUEST_SCHEMA = _object_schema(
         "id": MCP_JSONRPC_ID_SCHEMA,
         "method": {
             "type": "string",
-            "enum": ["initialize", "tools/list", "tools/call"],
+            "enum": [
+                "initialize",
+                "notifications/initialized",
+                "ping",
+                "tools/list",
+                "tools/call",
+            ],
             "description": "Supported MCP JSON-RPC method.",
         },
         "params": {
@@ -289,6 +295,13 @@ MCP_INITIALIZE_RESULT_SCHEMA = _object_schema(
     description="MCP initialize result payload.",
 )
 
+MCP_EMPTY_RESULT_SCHEMA = _object_schema(
+    {},
+    description="Empty MCP result payload.",
+)
+MCP_EMPTY_RESULT_SCHEMA["additionalProperties"] = False
+MCP_EMPTY_RESULT_SCHEMA["maxProperties"] = 0
+
 MCP_TOOLS_LIST_RESULT_SCHEMA = _object_schema(
     {
         "tools": {
@@ -307,6 +320,7 @@ MCP_RESPONSE_SCHEMA = _object_schema(
         "result": {
             "oneOf": [
                 MCP_INITIALIZE_RESULT_SCHEMA,
+                MCP_EMPTY_RESULT_SCHEMA,
                 MCP_TOOLS_LIST_RESULT_SCHEMA,
                 MCP_TOOL_RESULT_SCHEMA,
             ],
@@ -506,6 +520,11 @@ MCP_BODY = {
     "requestBody": _request_body(MCP_REQUEST_SCHEMA),
     "responses": {
         "200": _json_response(MCP_RESPONSE_SCHEMA, description="MCP JSON-RPC response."),
+        "204": {
+            "description": (
+                "MCP notification accepted. JSON-RPC notifications do not return a response body."
+            )
+        },
         "400": _json_response(
             MCP_ERROR_RESPONSE_SCHEMA,
             description="MCP JSON-RPC parse or invalid request error.",
