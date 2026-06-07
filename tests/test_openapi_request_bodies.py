@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -365,6 +371,120 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_get_openapi_activity_response_schema_matches_runtime_shape(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    activity_schema = _get_response_schema(openapi, "/api/v1/activity")
+    _assert_properties(
+        activity_schema,
+        {
+            "totals",
+            "pending_totals",
+            "query",
+            "account",
+            "contributors",
+            "pending_payouts",
+            "recent",
+            "api_activity_url",
+            "clear_activity_url",
+            "account_page_url",
+        },
+    )
+    assert set(activity_schema["required"]) == {
+        "totals",
+        "pending_totals",
+        "query",
+        "contributors",
+        "pending_payouts",
+        "recent",
+        "api_activity_url",
+        "clear_activity_url",
+        "account_page_url",
+    }
+
+    totals_schema = activity_schema["properties"]["totals"]
+    _assert_properties(totals_schema, {"accepted_awards", "accepted_mrwk", "contributors"})
+    assert set(totals_schema["required"]) == {
+        "accepted_awards",
+        "accepted_mrwk",
+        "contributors",
+    }
+
+    pending_totals_schema = activity_schema["properties"]["pending_totals"]
+    _assert_properties(pending_totals_schema, {"pending_awards", "pending_mrwk"})
+    assert set(pending_totals_schema["required"]) == {"pending_awards", "pending_mrwk"}
+
+    contributor_schema = activity_schema["properties"]["contributors"]["items"]
+    _assert_properties(
+        contributor_schema,
+        {
+            "account",
+            "accepted_awards",
+            "accepted_mrwk",
+            "latest_submission_url",
+            "latest_bounty_repo",
+            "latest_bounty_issue_number",
+            "latest_bounty_issue_url",
+            "latest_proof_hash",
+            "latest_proof_url",
+        },
+    )
+    assert set(contributor_schema["required"]) == {
+        "account",
+        "accepted_awards",
+        "accepted_mrwk",
+    }
+
+    pending_schema = activity_schema["properties"]["pending_payouts"]["items"]
+    _assert_properties(
+        pending_schema,
+        {
+            "proposal_id",
+            "proposal_url",
+            "status",
+            "account",
+            "amount_mrwk",
+            "submission_url",
+            "bounty_repo",
+            "bounty_issue_number",
+            "bounty_issue_url",
+            "bounty_id",
+            "bounty_url",
+            "accepted_by",
+            "proposed_at",
+            "executes_after",
+        },
+    )
+
+    recent_schema = activity_schema["properties"]["recent"]["items"]
+    _assert_properties(
+        recent_schema,
+        {
+            "ledger_sequence",
+            "account",
+            "amount_mrwk",
+            "submission_url",
+            "bounty_repo",
+            "bounty_issue_number",
+            "bounty_issue_url",
+            "proof_hash",
+            "proof_url",
+            "bounty_id",
+            "bounty_url",
+            "created_at",
+        },
+    )
+
+    runtime_payload = client.get("/api/v1/activity").json()
+    assert set(runtime_payload).issubset(set(activity_schema["properties"]))
+    assert set(activity_schema["required"]).issubset(runtime_payload.keys())
+    assert runtime_payload["totals"].keys() <= totals_schema["properties"].keys()
+    assert runtime_payload["pending_totals"].keys() <= pending_totals_schema["properties"].keys()
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
