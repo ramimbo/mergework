@@ -689,6 +689,9 @@ async def handle_mcp_request(
         return JSONResponse(_jsonrpc_error(None, -32600, "invalid request"), status_code=400)
 
     response_id = payload.get("id")
+    if payload.get("jsonrpc") != "2.0":
+        return JSONResponse(_jsonrpc_error(response_id, -32600, "invalid request"), status_code=400)
+
     method = payload.get("method")
     if method == "initialize":
         return _initialize_response(response_id, payload.get("params"))
