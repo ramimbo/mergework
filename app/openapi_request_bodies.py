@@ -110,6 +110,16 @@ WALLET_MEMO_SCHEMA = {
     "maxLength": 240,
 }
 
+ATTEMPT_SOURCE_URL_SCHEMA = {
+    "type": "string",
+    "format": "uri",
+    "maxLength": 500,
+    "description": (
+        "Optional public HTTP(S) work URL. The API trims whitespace, rejects "
+        "credentials, private hosts, control characters, and values over 500 characters."
+    ),
+}
+
 WALLET_RESPONSE_SCHEMA = _object_schema(
     {
         "address": MRWK_WALLET_ADDRESS_SCHEMA,
@@ -157,7 +167,7 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
         "id": {"type": "integer", "minimum": 1},
         "bounty_id": {"type": "integer", "minimum": 1},
         "submitter_account": {"type": "string"},
-        "source_url": {"type": "string", "nullable": True},
+        "source_url": {**ATTEMPT_SOURCE_URL_SCHEMA, "nullable": True},
         "status": {"type": "string"},
         "expires_at": {"type": "string"},
         "created_at": {"type": "string"},
@@ -346,9 +356,8 @@ OPTIONAL_ATTEMPT_BODY = {
                     ),
                 },
                 "source_url": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "Optional public work branch or pull request URL.",
+                    **ATTEMPT_SOURCE_URL_SCHEMA,
+                    "nullable": True,
                 },
                 "ttl_seconds": {
                     "anyOf": [
