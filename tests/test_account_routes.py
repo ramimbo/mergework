@@ -409,7 +409,7 @@ def test_account_path_rejects_url_encoded_special_characters(sqlite_url: str) ->
         "%21%40%23%24",
         "account!test",
         "test@domain",
-        "#fragment",
+        "%23fragment",
         "$money",
     ]
 
