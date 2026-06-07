@@ -344,6 +344,28 @@ def ledger_entry_page_context(
     }
 
 
+def _transfer_prefill_context(
+    from_address: str | None,
+    to_address: str | None,
+) -> dict[str, Any]:
+    values = {"from_address": "", "to_address": ""}
+    notices: list[str] = []
+    fields = (
+        ("from_address", from_address, "from address", "sender address"),
+        ("to_address", to_address, "to address", "recipient address"),
+    )
+    for field, raw_value, invalid_label, valid_label in fields:
+        if raw_value is None:
+            continue
+        try:
+            values[field] = normalized_wallet_address(raw_value)
+        except HTTPException:
+            notices.append(f"Ignored invalid {invalid_label} from the URL.")
+        else:
+            notices.append(f"The {valid_label} was prefilled from the URL.")
+    return {"transfer_prefill": values, "transfer_prefill_notices": notices}
+
+
 def register_public_routes(
     app: FastAPI,
     *,
@@ -451,8 +473,13 @@ def register_public_routes(
         return templates.TemplateResponse(request, "wallet_detail.html", context)
 
     @app.get("/transfer", response_class=HTMLResponse)
-    def transfer_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "transfer.html")
+    def transfer_page(
+        request: Request,
+        from_address: str | None = Query(None),
+        to_address: str | None = Query(None),
+    ) -> HTMLResponse:
+        context = _transfer_prefill_context(from_address, to_address)
+        return templates.TemplateResponse(request, "transfer.html", context)
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
