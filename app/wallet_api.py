@@ -21,6 +21,7 @@ from app.openapi_request_bodies import (
     WALLET_TRANSFER_BODY,
 )
 from app.path_params import reject_path_whitespace_padding
+from app.query_validation import reject_unsupported_query_params
 from app.serializers import ledger_to_dict, wallet_to_dict, wallet_transfer_to_dict
 
 JsonObjectLoader = Callable[[Request], Awaitable[dict[str, Any]]]
@@ -69,11 +70,11 @@ def register_wallet_api_routes(
     @app.get("/api/v1/wallets/{address}")
     def api_wallet(request: Request, address: str) -> dict[str, Any]:
         reject_path_whitespace_padding(address, "MRWK wallet address")
-        if request.query_params.getlist("type") or request.query_params.getlist("tx_type"):
-            raise HTTPException(
-                status_code=400,
-                detail="transaction filters are not supported on wallet JSON detail",
-            )
+        reject_unsupported_query_params(
+            request,
+            ("type", "tx_type"),
+            context="wallet JSON detail",
+        )
         address = normalized_wallet_address(address)
         with session_scope(db_url) as session:
             wallet = session.get(Wallet, address)
