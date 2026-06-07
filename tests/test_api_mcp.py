@@ -3305,6 +3305,40 @@ def test_mcp_field_error_data_attaches_repo_requires_issue_number(sqlite_url: st
     )
 
 
+def test_mcp_field_error_data_attaches_submit_work_proof_selector_conflict(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_work_proof",
+                "arguments": {"bounty_id": 1, "issue_number": 946},
+            },
+        },
+    )
+
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=10,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "submit_work_proof",
+            "field": None,
+            "message": "use bounty_id or issue_number, not both",
+        },
+    )
+
+
 def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str) -> None:
     """A ``ValueError`` whose message is not on the whitelist must fall
     back to the legacy envelope *without* an ``error.data`` key, so the

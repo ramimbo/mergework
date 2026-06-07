@@ -366,8 +366,9 @@ The shape is:
   arbitrary caller-supplied string into this slot, so the value is safe
   to surface to LLM prompts or logs.
 - `field` — the offending field name, or `null` for field-less phrases such
-  as `unknown tool`, `matches multiple bounties`, or
-  `repo can only be used with issue_number`. Some upstream messages are
+  as `unknown tool`, `matches multiple bounties`,
+  `repo can only be used with issue_number`, or
+  `use bounty_id or issue_number, not both`. Some upstream messages are
   emitted as `"<field> <field-less phrase>"` (for example
   `issue_number matches multiple bounties`); the classifier treats those
   as field-less and drops the leading field token from the response.
