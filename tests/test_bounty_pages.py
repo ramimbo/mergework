@@ -204,7 +204,10 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert f'href="/api/v1/treasury/proposals/{proposal_id}">Proposal #{proposal_id}</a>' in (
         detail.text
     )
-    assert "would pay github:alice for" in detail.text
+    assert re.search(
+        r'would pay\s*<a href="/accounts/github:alice">github:alice</a>\s*for',
+        detail.text,
+    )
     assert (
         'href="https://github.com/ramimbo/mergework/pull/67" rel="nofollow noopener">'
         "submitted work</a>"

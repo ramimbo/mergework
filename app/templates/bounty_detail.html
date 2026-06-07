@@ -68,7 +68,13 @@
       {% for proposal in bounty.pending_payout_proposals %}
       <li>
         <a href="/api/v1/treasury/proposals/{{ proposal.proposal_id }}">Proposal #{{ proposal.proposal_id }}</a>
-        would pay {{ proposal.to_account or "an account" }} for
+        would pay
+        {% if proposal.to_account %}
+        <a href="/accounts/{{ proposal.to_account }}">{{ proposal.to_account }}</a>
+        {% else %}
+        an account
+        {% endif %}
+        for
         {% set submission_url = safe_public_url(proposal.submission_url) %}
         {% if submission_url %}
         <a href="{{ submission_url }}" rel="nofollow noopener">submitted work</a>
