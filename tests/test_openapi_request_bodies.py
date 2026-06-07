@@ -319,7 +319,10 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
     )
 
     conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
-    _assert_properties(conflict_schema, {"status", "attempt", "bounty_id", "warnings"})
+    not_available_schema, duplicate_schema, fallback_schema = conflict_schema["oneOf"]
+    _assert_properties(not_available_schema, {"status", "bounty_id", "warnings"})
+    _assert_properties(duplicate_schema, {"status", "attempt", "warnings"})
+    _assert_properties(fallback_schema, {"detail"})
 
     release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
     _assert_properties(release_schema, {"status", "attempt"})
@@ -365,6 +368,75 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_post_openapi_attempt_and_treasury_responses_publish_required_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    attempt_required = [
+        "id",
+        "bounty_id",
+        "submitter_account",
+        "source_url",
+        "status",
+        "expires_at",
+        "created_at",
+        "updated_at",
+    ]
+    registered_attempt_schema = _post_response_schema(
+        openapi, "/api/v1/bounties/{bounty_id}/attempts", "201"
+    )
+    assert registered_attempt_schema["required"] == ["status", "attempt", "warnings"]
+    assert registered_attempt_schema["properties"]["attempt"]["required"] == attempt_required
+
+    conflict_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts", "409")
+    not_available_schema, duplicate_schema, fallback_schema = conflict_schema["oneOf"]
+    assert not_available_schema["required"] == ["status", "bounty_id", "warnings"]
+    assert duplicate_schema["required"] == ["status", "attempt", "warnings"]
+    assert duplicate_schema["properties"]["attempt"]["required"] == attempt_required
+    assert fallback_schema["required"] == ["detail"]
+
+    release_schema = _post_response_schema(openapi, "/api/v1/bounty-attempts/{attempt_id}/release")
+    assert release_schema["required"] == ["status", "attempt"]
+    assert release_schema["properties"]["attempt"]["required"] == attempt_required
+
+    proposal_required = [
+        "id",
+        "type",
+        "action",
+        "status",
+        "payload_hash",
+        "payload",
+        "proposed_by",
+        "executed_by",
+        "proposed_at",
+        "executes_after",
+        "executed_at",
+        "executed_ledger_sequence",
+        "result",
+        "challenges",
+    ]
+    proposal_schema = _post_response_schema(openapi, "/api/v1/treasury/proposals")
+    assert proposal_schema["required"] == proposal_required
+
+    challenge_required = [
+        "id",
+        "proposal_id",
+        "challenger_account",
+        "challenge_type",
+        "status",
+        "reason",
+        "created_at",
+    ]
+    assert proposal_schema["properties"]["challenges"]["items"]["required"] == challenge_required
+
+    challenge_schema = _post_response_schema(
+        openapi, "/api/v1/treasury/proposals/{proposal_id}/challenges"
+    )
+    assert challenge_schema["required"] == challenge_required
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
