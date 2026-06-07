@@ -84,6 +84,16 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert "Open public bounty" not in paid_rows_uppercase.text
     assert 'href="/bounties?status=paid" aria-current="page"' in paid_rows_uppercase.text
 
+    paid_detail = client.get(f"/bounties/{paid_bounty.id}")
+    bounty_activity_url = "https%3A//github.com/ramimbo/mergework/issues/51"
+    bounty_activity = client.get(f"/api/v1/activity?q={bounty_activity_url}").json()
+    assert paid_detail.status_code == 200
+    assert (
+        f'href="/activity?q={bounty_activity_url}">Accepted-work activity</a>' in paid_detail.text
+    )
+    assert [row["bounty_issue_number"] for row in bounty_activity["recent"]] == [51]
+    assert bounty_activity["totals"]["accepted_awards"] == 1
+
 
 def test_bounties_summary_api_matches_public_list_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
