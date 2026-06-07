@@ -26,6 +26,7 @@ from app.ledger.service import (
     validate_public_url,
 )
 from app.models import Bounty, Proof, Submission
+from app.openapi_request_bodies import WORK_DISCOVERY_RESPONSE
 from app.path_params import SQLITE_INTEGER_MAX, issue_number_search_value, positive_bounty_id
 from app.query_validation import (
     reject_control_char_query_param,
@@ -264,7 +265,7 @@ def register_bounty_api_routes(
             )
         )
 
-    @app.get("/api/v1/work-discovery")
+    @app.get("/api/v1/work-discovery", openapi_extra=WORK_DISCOVERY_RESPONSE)
     def api_work_discovery(
         request: Request,
         limit: Annotated[
