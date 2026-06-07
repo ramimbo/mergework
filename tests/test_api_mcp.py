@@ -499,6 +499,116 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     }
 
 
+def test_mcp_input_schema_runtime_conformance_examples(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=942,
+            issue_url="https://github.com/ramimbo/mergework/issues/942",
+            title="MCP schema conformance",
+            reward_mrwk="150",
+            acceptance="MCP advertised schemas should match representative runtime behavior.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    tools_response = client.post(
+        "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    ).json()
+    tools_by_name = {tool["name"]: tool for tool in tools_response["result"]["tools"]}
+
+    conformance_cases = [
+        (
+            "list_bounties",
+            {"limit": 1},
+            ("properties", "limit", "maximum"),
+            100,
+            {"limit": 101},
+        ),
+        (
+            "get_bounty",
+            {"id": bounty_id, "include_awards": False},
+            ("properties", "include_awards", "type"),
+            "boolean",
+            {"id": bounty_id, "include_awards": "true"},
+        ),
+        (
+            "list_bounty_attempts",
+            {"bounty_id": bounty_id, "limit": 1},
+            ("properties", "limit", "maximum"),
+            100,
+            {"bounty_id": bounty_id, "limit": 101},
+        ),
+        (
+            "get_balance",
+            {"account": "treasury:mrwk"},
+            ("properties", "account", "minLength"),
+            1,
+            {"account": ""},
+        ),
+        (
+            "get_ledger_entry",
+            {"sequence": 1},
+            ("properties", "sequence", "minimum"),
+            1,
+            {"sequence": 0},
+        ),
+        (
+            "get_proof",
+            {"hash": "0" * 64},
+            ("properties", "hash", "pattern"),
+            "^[0-9a-fA-F]{64}$",
+            {"hash": "not-a-proof-hash"},
+        ),
+        (
+            "submit_work_proof",
+            {"bounty_id": bounty_id, "format": "json"},
+            ("properties", "format", "enum"),
+            ["text", "json"],
+            {"bounty_id": bounty_id, "format": "xml"},
+        ),
+    ]
+
+    for (
+        tool_name,
+        valid_args,
+        schema_path,
+        expected_schema_value,
+        invalid_args,
+    ) in conformance_cases:
+        tool_schema = tools_by_name[tool_name]["inputSchema"]
+        schema_value = tool_schema
+        for key in schema_path:
+            schema_value = schema_value[key]
+        assert schema_value == expected_schema_value
+
+        valid = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": f"{tool_name}-valid",
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": valid_args},
+            },
+        ).json()
+        assert "error" not in valid, tool_name
+
+        invalid = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": f"{tool_name}-invalid",
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": invalid_args},
+            },
+        ).json()
+        assert invalid["error"]["code"] == -32602
+        assert invalid["error"]["message"] == "invalid tool arguments"
+
+
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
