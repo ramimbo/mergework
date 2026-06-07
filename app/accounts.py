@@ -110,11 +110,14 @@ def account_transfer_status(account: str) -> str:
 
 def account_action_urls(account: str) -> dict[str, str]:
     path_account = quote(account, safe=":")
-    return {
+    urls = {
         "account_json": f"/api/v1/accounts/{path_account}",
         "accepted_work_json": f"/api/v1/accounts/{path_account}/accepted-work",
         "activity": f"/api/v1/activity?{urlencode({'account': account})}",
     }
+    if account.startswith("mrwk1"):
+        urls["transfer_recipient"] = f"/transfer?{urlencode({'to_address': account})}"
+    return urls
 
 
 def _account_api_context_for_normalized_account(session: Session, account: str) -> dict[str, Any]:

@@ -132,6 +132,29 @@ def test_account_action_urls_escape_query_accounts() -> None:
         "accepted_work_json": "/api/v1/accounts/github:alice/accepted-work",
         "activity": "/api/v1/activity?account=github%3Aalice",
     }
+    wallet_address = "mrwk1" + ("a" * 40)
+    assert account_action_urls(wallet_address) == {
+        "account_json": f"/api/v1/accounts/{wallet_address}",
+        "accepted_work_json": f"/api/v1/accounts/{wallet_address}/accepted-work",
+        "activity": f"/api/v1/activity?account={wallet_address}",
+        "transfer_recipient": f"/transfer?to_address={wallet_address}",
+    }
+
+
+def test_wallet_account_page_links_to_prefilled_transfer_recipient(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    wallet_address = "mrwk1" + ("b" * 40)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    wallet_account = client.get(f"/accounts/{wallet_address}")
+    github_account = client.get("/accounts/github:alice")
+
+    assert wallet_account.status_code == 200
+    assert f'href="/transfer?to_address={wallet_address}">Send MRWK to this wallet</a>' in (
+        wallet_account.text
+    )
+    assert github_account.status_code == 200
+    assert "Send MRWK to this wallet" not in github_account.text
 
 
 def test_account_routes_expose_pending_payouts_separately_from_paid_work(
