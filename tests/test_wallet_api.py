@@ -430,6 +430,18 @@ def test_wallet_lookup_rejects_invalid_addresses_before_lookup(sqlite_url: str) 
     assert unknown_wallet.json()["detail"] == "wallet not found"
 
 
+def test_wallet_page_rejects_unsupported_tx_type_with_shared_guard(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex)
+
+    response = client.get(f"/wallets/{address}?tx_type=wallet_transfer&tx_type=bounty_payment")
+
+    assert response.status_code == 400
+    assert "tx_type is not supported on wallet pages; use type" in response.text
+
+
 @pytest.mark.parametrize(
     "path",
     ["/api/v1/wallets/register", "/api/v1/wallets/link-github"],
