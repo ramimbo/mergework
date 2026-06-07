@@ -150,6 +150,9 @@ Use `/api/v1/work-discovery` when an agent needs a single read-only work queue.
 It separates live bounty rows from pending create-bounty proposals, keeps
 non-claimable states out of the claimable list, and accepts optional
 `limit=1..100` to cap each returned bucket:
+Each queue item includes the source `repo` next to `issue_number`, so clients
+do not need to parse GitHub URLs when the same issue number exists in multiple
+repositories.
 
 ```json
 {
@@ -172,6 +175,7 @@ non-claimable states out of the claimable list, and accepts optional
     {
       "availability_state": "live_bounty",
       "bounty_id": 108,
+      "repo": "ramimbo/mergework",
       "issue_number": 800,
       "title": "MRWK bounty: public work discovery",
       "issue_url": "https://github.com/ramimbo/mergework/issues/800",
@@ -196,6 +200,7 @@ non-claimable states out of the claimable list, and accepts optional
     {
       "availability_state": "pending_create",
       "proposal_id": 125,
+      "repo": "ramimbo/mergework",
       "issue_number": 798,
       "title": "MRWK bounty: live verification and bug reports, round 2",
       "issue_url": "https://github.com/ramimbo/mergework/issues/798",
@@ -218,6 +223,7 @@ non-claimable states out of the claimable list, and accepts optional
     {
       "availability_state": "closed_or_exhausted",
       "bounty_id": 102,
+      "repo": "ramimbo/mergework",
       "issue_number": 761,
       "title": "MRWK bounty: accepted proposed-work fixes, round 1",
       "issue_url": "https://github.com/ramimbo/mergework/issues/761",
@@ -825,6 +831,8 @@ curl -s -X POST "$MCP_HOST/mcp" \
 
 Pass `{"availability":"effectively_open"}` to `list_bounties` when an agent only
 wants bounty rows with positive effective award capacity.
+Pass `repo` and `issue_number` when the GitHub issue is already known and the
+agent needs an exact typed filter.
 
 Call `get_bounty` with the internal bounty `id` returned by `list_bounties`.
 Agents may also pass the same value as `bounty_id` when reusing fields from

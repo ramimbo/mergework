@@ -261,6 +261,7 @@ def test_activity_api_filters_by_exact_account(sqlite_url: str) -> None:
 
     assert scoped["account"] == "github:alice"
     assert scoped["query"] == ""
+    assert scoped["account_page_url"] == "/accounts/github:alice"
     assert scoped["totals"] == {
         "accepted_awards": 1,
         "accepted_mrwk": "25",
@@ -581,10 +582,11 @@ def test_activity_page_renders_pending_accepted_work(sqlite_url: str) -> None:
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
-    page = client.get("/activity")
+    page = client.get("/activity?account=github:alice")
     filtered = client.get(f"/activity?q=%23{proposal.id}")
 
     assert page.status_code == 200
+    assert 'href="/accounts/github:alice">View account profile</a>' in page.text
     assert "Pending accepted work" in page.text
     assert "Queued for treasury execution, not proof-backed paid work." in page.text
     assert f'href="/api/v1/treasury/proposals/{proposal.id}"' in page.text

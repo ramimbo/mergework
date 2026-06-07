@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
@@ -184,11 +185,11 @@ def _local_target_exists(source: Path, target: str) -> bool:
     clean, separator, fragment = target.partition("#")
     if clean.startswith(("http://", "https://", "mailto:")):
         return True
-    target_path = (source.parent / clean).resolve() if clean else source.resolve()
+    target_path = (source.parent / unquote(clean)).resolve() if clean else source.resolve()
     if not target_path.exists():
         return False
     if separator and fragment and target_path.suffix.lower() in {".md", ".markdown"}:
-        return fragment in _markdown_anchors(target_path)
+        return unquote(fragment) in _markdown_anchors(target_path)
     return True
 
 
