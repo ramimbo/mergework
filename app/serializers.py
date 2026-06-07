@@ -10,6 +10,10 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.activity_sorting import (
+    normalize_activity_sort,
+    sort_activity_contributors,
+)
 from app.bounty_attempts import (
     active_bounty_attempt_counts,
     bounty_attempt_summary,
@@ -623,7 +627,11 @@ def pending_activity_rows(
 
 
 def activity_to_dict(
-    session: Session, query: str | None = None, *, account: str | None = None
+    session: Session,
+    query: str | None = None,
+    *,
+    account: str | None = None,
+    sort: str | None = None,
 ) -> dict[str, Any]:
     """Build the public activity feed and contributor totals."""
     search_query = _activity_search_query(query)
@@ -658,6 +666,7 @@ def activity_to_dict(
                 "accepted_awards": 0,
                 "accepted_microunits": 0,
                 "accepted_mrwk": "0",
+                "latest_ledger_sequence": int(row["ledger_sequence"]),
                 "latest_submission_url": row["submission_url"],
                 "latest_bounty_repo": row["bounty_repo"],
                 "latest_bounty_issue_number": row["bounty_issue_number"],
@@ -670,12 +679,10 @@ def activity_to_dict(
         contributor["accepted_microunits"] += int(row["amount_microunits"])
         contributor["accepted_mrwk"] = format_mrwk(contributor["accepted_microunits"])
 
-    contributors = sorted(
-        by_account.values(),
-        key=lambda item: (-int(item["accepted_microunits"]), str(item["account"])),
-    )
+    contributors = sort_activity_contributors(list(by_account.values()), sort)
     for contributor in contributors:
         del contributor["accepted_microunits"]
+        del contributor["latest_ledger_sequence"]
 
     total_microunits = sum(int(row["amount_microunits"]) for row in recent)
     for row in recent:
@@ -686,6 +693,7 @@ def activity_to_dict(
     for row in pending_payouts:
         del row["amount_microunits"]
 
+    normalized_sort = normalize_activity_sort(sort)
     activity = {
         "totals": {
             "accepted_awards": len(recent),
@@ -697,6 +705,7 @@ def activity_to_dict(
             "pending_mrwk": format_mrwk(pending_microunits),
         },
         "query": search_query,
+        "sort": normalized_sort,
         "contributors": contributors,
         "pending_payouts": pending_payouts[:100],
         "recent": recent[:100],
