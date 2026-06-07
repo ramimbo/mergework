@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import json
 from collections.abc import Callable
 from typing import Any
@@ -453,6 +454,13 @@ MCP_TOOLS: list[dict[str, Any]] = [
 # the set) cannot echo arbitrary caller input into the response body.
 _KNOWN_TOOL_NAMES: frozenset[str] = frozenset(tool["name"] for tool in MCP_TOOLS)
 
+# Stable, ordered sequence of the same names so that
+# :func:`difflib.get_close_matches` returns deterministic results in
+# equal-score tie cases. ``frozenset`` iteration order is not stable
+# across runs, which would otherwise make ``did_you_mean`` non-
+# reproducible when several names tie at the same cutoff score.
+_KNOWN_TOOL_NAME_CHOICES: tuple[str, ...] = tuple(sorted(_KNOWN_TOOL_NAMES))
+
 
 def _jsonrpc_error(response_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": response_id, "error": {"code": code, "message": message}}
@@ -517,6 +525,22 @@ _KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
     "matches multiple bounties": "matches multiple bounties",
     "repo can only be used with issue_number": ("repo can only be used with issue_number"),
 }
+
+
+def _suggested_tool_name(name: str) -> str | None:
+    """Return a single known MCP tool name close to ``name`` or ``None``.
+
+    Suggestions are computed against the static :data:`_KNOWN_TOOL_NAMES`
+    frozenset (the same set that bounds ``error.data.tool``), so the returned
+    suggestion is always a name an agent can call successfully. The rejected
+    name from the caller is never echoed in the response surface; this
+    helper only returns a known-good tool name or ``None`` when there is no
+    useful match.
+    """
+    if not isinstance(name, str) or not name:
+        return None
+    matches = difflib.get_close_matches(name, _KNOWN_TOOL_NAME_CHOICES, n=1, cutoff=0.6)
+    return matches[0] if matches else None
 
 
 def _classify_value_error(exc: ValueError) -> dict[str, Any] | None:
@@ -591,7 +615,9 @@ def _invalid_tool_arguments_response(
     ``"invalid tool arguments"`` for backward compatibility. The new
     ``error.data`` is attached only when the underlying ``ValueError``
     message matches a whitelisted safe phrase, so untrusted caller input
-    never reaches the response.
+    never reaches the response. For the ``unknown tool`` path the payload
+    may additionally carry a static ``did_you_mean`` suggestion drawn from
+    ``MCP_TOOLS`` when there is a single close match.
     """
     error_payload: dict[str, Any] = {"code": -32602, "message": "invalid tool arguments"}
     classified = _classify_value_error(exc)
@@ -605,12 +631,19 @@ def _invalid_tool_arguments_response(
         # definition, not in the whitelist; reflecting it would surface
         # untrusted caller input, so the slot is left as ``None``.
         safe_tool = tool_name if tool_name in _KNOWN_TOOL_NAMES else None
-        error_payload["data"] = {
+        data: dict[str, Any] = {
             "code": classified["code"],
             "tool": safe_tool,
             "field": classified["field"],
             "message": classified["message"],
         }
+        # When the underlying message is the whitelisted "unknown tool" phrase,
+        # surface a single close-match suggestion from the static MCP tool list.
+        # The suggestion is one of the names an agent could call successfully
+        # or ``None``; the rejected name is never echoed.
+        if classified["message"] == _KNOWN_FIELDLESS_MESSAGES["unknown tool"]:
+            data["did_you_mean"] = _suggested_tool_name(tool_name)
+        error_payload["data"] = data
     return {"jsonrpc": "2.0", "id": response_id, "error": error_payload}
 
 
