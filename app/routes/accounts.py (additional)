@@ -1,0 +1,9 @@
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/api/v1/accounts/{account}")
+async def get_account_route(
+    account: str = Path(..., title="Account ID", description="The account ID"),
+):
+    return await get_account(account)
