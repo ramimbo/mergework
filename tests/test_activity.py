@@ -516,7 +516,8 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'Showing accepted work for <code>github:bob</code> matching "pull/12"' in (
         scoped_account_query.text
     )
-    clear_url = 'href="/activity?account=github%3Abob&amp;q=pull%2F12">Clear</a>'
+    # Clear link drops q (and any non-default sort) but keeps the account scope.
+    clear_url = 'href="/activity?account=github%3Abob">Clear</a>'
     assert clear_url in scoped_account_query.text
     assert (
         'href="/api/v1/activity?q=pull%2F12&amp;account=github%3Abob">View JSON activity</a>'
@@ -529,7 +530,8 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert 'value="bob"' in filtered.text
     assert "Showing accepted work matching “bob”." in filtered.text
     assert 'href="/api/v1/activity?q=bob">View JSON activity</a>' in filtered.text
-    assert 'href="/activity?q=bob">Clear</a>' in filtered.text
+    # Clear link drops q, so it points to the bare /activity route.
+    assert 'href="/activity">Clear</a>' in filtered.text
     assert "No contributors match this search." not in filtered.text
     assert "No accepted work matches this search." not in filtered.text
     assert issue_ref.status_code == 200
@@ -548,12 +550,13 @@ def test_activity_page_renders_empty_and_paid_states(sqlite_url: str) -> None:
     assert "No pending accepted work matches this search." in no_match.text
     assert "No accepted bounty payments yet." not in no_match.text
     assert "No proof-backed accepted work rows yet." not in no_match.text
-    assert 'href="/activity?q=alice">Clear search</a>' in no_match.text
+    # Clear search link drops q and points to bare /activity route.
+    assert 'href="/activity">Clear search</a>' in no_match.text
 
     scoped_no_match = client.get("/activity?account=GitHub:Bob&q=alice")
 
     assert scoped_no_match.status_code == 200
-    clear_url = 'href="/activity?account=github%3Abob&amp;q=alice">Clear search</a>'
+    clear_url = 'href="/activity?account=github%3Abob">Clear search</a>'
     assert clear_url in scoped_no_match.text
 
 
@@ -748,5 +751,5 @@ def test_activity_page_renders_sort_selector_and_label(sqlite_url: str) -> None:
     assert combined.status_code == 200
     assert 'value="zoe"' in combined.text
     assert 'value="awards" selected' in combined.text
-    # Clear link should preserve q and account scope, just reset sort
-    assert 'href="/activity?q=zoe">Clear</a>' in combined.text
+    # Clear link drops both q and sort; with no account scope it points to /activity.
+    assert 'href="/activity">Clear</a>' in combined.text

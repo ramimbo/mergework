@@ -48,7 +48,7 @@ def activity_context(
     context["api_activity_url"] = _activity_api_url(
         context["query"], context.get("account"), normalized_sort
     )
-    context["clear_activity_url"] = _activity_page_url(context.get("account"), context.get("query"))
+    context["clear_activity_url"] = _activity_page_url(context.get("account"))
     context["account_page_url"] = _account_page_url(context.get("account"))
     context["sort_options"] = ACTIVITY_SORT_LABELS
     context["selected_sort"] = normalized_sort
