@@ -462,6 +462,32 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert wallet_schema["properties"]["address"]["pattern"] == (
         "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
     )
+    transfer_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "submit_wallet_transfer"
+    )
+    transfer_schema = transfer_tool["inputSchema"]
+    assert transfer_schema["required"] == [
+        "from_address",
+        "to_address",
+        "amount_mrwk",
+        "nonce",
+        "signature_hex",
+    ]
+    assert transfer_schema["additionalProperties"] is False
+    assert transfer_schema["properties"]["from_address"]["pattern"] == (
+        "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
+    )
+    assert transfer_schema["properties"]["to_address"]["pattern"] == (
+        "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$"
+    )
+    assert (
+        transfer_schema["properties"]["amount_mrwk"]["pattern"]
+        == "^(?=.*[1-9])\\d+(?:\\.\\d{1,6})?$"
+    )
+    assert transfer_schema["properties"]["nonce"]["minimum"] == 1
+    assert transfer_schema["properties"]["memo"]["maxLength"] == 240
+    assert transfer_schema["properties"]["memo"]["default"] == ""
+    assert transfer_schema["properties"]["signature_hex"]["pattern"] == "^[0-9a-fA-F]{128}$"
     balance_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_balance")
     balance_schema = balance_tool["inputSchema"]
     assert balance_schema["required"] == ["account"]
