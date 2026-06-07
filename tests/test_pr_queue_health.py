@@ -70,6 +70,7 @@ def test_pr_queue_health_flags_required_queue_cases(tmp_path, capsys) -> None:
         "dirty_or_unstable_merge_state": 2,
         "needs_info": 1,
         "duplicate_scope_groups": 1,
+        "superseded_review_bounty_rounds": 0,
     }
     assert report["closed_bounty_references"][0]["pull_request"] == 1
     assert report["missing_bounty_references"][0]["pull_request"] == 2
@@ -385,6 +386,61 @@ def test_pr_queue_health_markdown_report_includes_required_sections() -> None:
     assert "PR has mrwk:needs-info label" in markdown
     assert "### Likely duplicate bounty scope" in markdown
     assert "- Bounty #292: guard mcp bounty search oversized numeric query (#3, #4)" in markdown
+
+
+def test_pr_queue_health_flags_superseded_review_bounty_rounds() -> None:
+    report = analyze_queue(
+        {
+            "bounties": [
+                {
+                    "number": 643,
+                    "title": "MRWK bounty: review open MergeWork PRs with evidence, round 17",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}, {"name": "review"}],
+                    "url": "https://github.com/ramimbo/mergework/issues/643",
+                },
+                {
+                    "number": 654,
+                    "title": "MRWK bounty: review open MergeWork PRs with evidence, round 18",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}, {"name": "review"}],
+                    "url": "https://github.com/ramimbo/mergework/issues/654",
+                },
+                {
+                    "number": 933,
+                    "title": "MRWK bounty: review open MergeWork PRs with evidence, round 20",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}, {"name": "review"}],
+                    "url": "https://github.com/ramimbo/mergework/issues/933",
+                },
+                {
+                    "number": 944,
+                    "title": "MRWK bounty: bug reports and smoke checks, round 3",
+                    "state": "OPEN",
+                    "awards_remaining": 1,
+                    "labels": [{"name": "mrwk:bounty"}],
+                },
+            ],
+            "pull_requests": [],
+        }
+    )
+
+    assert report["summary"]["superseded_review_bounty_rounds"] == 2
+    assert [item["issue"] for item in report["superseded_review_bounty_rounds"]] == [643, 654]
+    assert (
+        report["superseded_review_bounty_rounds"][0]["detail"]
+        == "Review bounty round 17 is still open while round 20 is the latest open "
+        "round for this review scope"
+    )
+
+    markdown = format_markdown_report(report)
+
+    assert "### Superseded review bounty rounds" in markdown
+    assert "[Issue #643](https://github.com/ramimbo/mergework/issues/643)" in markdown
+    assert "round 20 is the latest open round" in markdown
 
 
 def test_pr_queue_health_markdown_no_issues_output_is_pasteable(tmp_path, capsys) -> None:
