@@ -14,7 +14,7 @@
   <p class="lead">Sign in to link a wallet and claim any older <code>github:*</code> balance.</p>
   <h2>Link a wallet</h2>
   <div class="actions">
-    <a href="/auth/github/login?next=/me">Sign in with GitHub</a>
+    <a href="{{ sign_in_url }}">Sign in with GitHub</a>
   </div>
   {% endif %}
 </section>
@@ -23,9 +23,12 @@
 <section class="panel wallet-tool" data-github-tool data-github-login="{{ github_login }}">
   <h2>Link a wallet</h2>
   <form data-action="link-github">
-    <label>Wallet address <input name="address" placeholder="mrwk1..." required></label>
+    <label>Wallet address <input name="address" placeholder="mrwk1..." value="{{ link_wallet_address }}" required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" autocomplete="off" autocapitalize="none" spellcheck="false" required></textarea></label>
     <p class="notice">Use the private key for this wallet address; a different key will be rejected. Clear this field after use. Never share your private key.</p>
+    {% if link_wallet_address %}
+    <p class="notice">Link form is prefilled from the selected wallet.</p>
+    {% endif %}
     <p class="notice" data-link-nonce-status>Transaction number is handled automatically.</p>
     <button type="submit">Sign and link</button>
   </form>

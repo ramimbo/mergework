@@ -719,6 +719,7 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "/accounts/github:" not in funded_row
     assert "No registered wallets match this search." in no_wallet_match
     assert "To claim GitHub bounty balance" in detail
+    assert f'href="/me?address={address}">Link GitHub</a>' in detail
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
     assert "Filter wallet transactions" in funded_detail
@@ -742,6 +743,31 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer
     assert "Link a wallet" in me
+
+
+def test_me_page_prefills_link_wallet_from_selected_wallet(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    _register_wallet(client, public_hex, "Link target")
+
+    anonymous_me = client.get(f"/me?address={address}").text
+    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+    signed_in_me = client.get(f"/me?address={address.upper()}").text
+    invalid_prefill = client.get("/me?address=not-a-wallet")
+    repeated_prefill = client.get(f"/me?address={address}&address={address}")
+
+    assert f'href="/auth/github/login?next=/me?address={address}"' in anonymous_me
+    assert f'value="{address}" required' in signed_in_me
+    assert "Link form is prefilled from the selected wallet." in signed_in_me
+    assert invalid_prefill.status_code == 400
+    assert invalid_prefill.json()["detail"] == "invalid MRWK wallet address"
+    assert repeated_prefill.status_code == 400
+    assert repeated_prefill.json()["detail"] == "address must be provided at most once"
 
 
 def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:

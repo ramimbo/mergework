@@ -32,6 +32,8 @@ def test_me_page_context_defaults_for_anonymous_user(sqlite_url: str) -> None:
         "github_login": None,
         "github_balance_mrwk": "0",
         "linked_wallet_address": "",
+        "link_wallet_address": "",
+        "sign_in_url": "/auth/github/login?next=/me",
     }
 
 
@@ -57,4 +59,19 @@ def test_me_page_context_reports_balance_and_linked_wallet(sqlite_url: str) -> N
         "github_login": "alice",
         "github_balance_mrwk": "4",
         "linked_wallet_address": address,
+        "link_wallet_address": "",
+        "sign_in_url": "/auth/github/login?next=/me",
     }
+
+
+def test_me_page_context_prefills_selected_wallet_address(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    public_hex = _wallet_public_hex()
+    address = address_from_public_key_hex(public_hex)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        context = me_page_context(session, None, address.upper())
+
+    assert context["link_wallet_address"] == address
+    assert context["sign_in_url"] == f"/auth/github/login?next=/me?address={address}"

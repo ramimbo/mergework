@@ -338,10 +338,11 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
     )
 
     @app.get("/me", response_class=HTMLResponse)
-    def me_page(request: Request) -> HTMLResponse:
+    def me_page(request: Request, address: str | None = Query(None)) -> HTMLResponse:
+        reject_repeated_query_param(request, "address")
         login = auth.github_login_from_request(request)
         with session_scope(db_url) as session:
-            context = me_page_context(session, login)
+            context = me_page_context(session, login, address)
         return templates.TemplateResponse(
             request,
             "me.html",
