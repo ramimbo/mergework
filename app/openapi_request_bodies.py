@@ -67,6 +67,53 @@ MRWK_DECIMAL_SCHEMA = {
     "pattern": r"^\d+(?:\.\d{1,6})?$",
 }
 
+HEALTH_RESPONSE_SCHEMA = _object_schema(
+    {
+        "ok": {"type": "boolean"},
+        "service": {"type": "string"},
+        "ticker": {"type": "string"},
+        "ledger_height": {"type": "integer", "minimum": 0},
+    },
+    required=["ok", "service", "ticker", "ledger_height"],
+    description="Public health check response.",
+)
+
+SYSTEM_STATUS_RESPONSE_SCHEMA = _object_schema(
+    {
+        "name": {"type": "string"},
+        "ticker": {"type": "string"},
+        "genesis_supply_mrwk": MRWK_DECIMAL_SCHEMA,
+        "ledger_height": {"type": "integer", "minimum": 0},
+        "active_bounties": {"type": "integer", "minimum": 0},
+        "treasury_balance_mrwk": MRWK_DECIMAL_SCHEMA,
+        "current_transfer_paths": {"type": "array", "items": {"type": "string"}},
+        "unsupported_public_paths": {"type": "array", "items": {"type": "string"}},
+        "unsupported_public_paths_summary": {"type": "string"},
+        "future_path": {"type": "string"},
+        "future_path_boundary": {"type": "string"},
+    },
+    required=[
+        "name",
+        "ticker",
+        "genesis_supply_mrwk",
+        "ledger_height",
+        "active_bounties",
+        "treasury_balance_mrwk",
+        "current_transfer_paths",
+        "unsupported_public_paths",
+        "unsupported_public_paths_summary",
+        "future_path",
+        "future_path_boundary",
+    ],
+    description="Public system status response.",
+)
+
+HEALTH_RESPONSE: dict[int | str, dict[str, Any]] = {200: _json_response(HEALTH_RESPONSE_SCHEMA)}
+
+SYSTEM_STATUS_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: _json_response(SYSTEM_STATUS_RESPONSE_SCHEMA)
+}
+
 BOUNDED_TTL_STRING_SCHEMA = {
     "type": "string",
     "description": "Integer value encoded as a string (60..604800).",

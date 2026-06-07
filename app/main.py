@@ -30,7 +30,7 @@ from app.me import me_page_context
 from app.models import (
     Proof,
 )
-from app.openapi_request_bodies import MCP_BODY
+from app.openapi_request_bodies import HEALTH_RESPONSE, MCP_BODY, SYSTEM_STATUS_RESPONSE
 from app.path_params import (
     SQLITE_INTEGER_MAX,
     positive_bounty_id,
@@ -181,12 +181,12 @@ def create_app(database_url: str | None = None, webhook_secret: str | None = Non
 
     auth = auth_module.register_auth_routes(app, settings=settings)
 
-    @app.get("/health")
+    @app.get("/health", responses=HEALTH_RESPONSE)
     def health() -> dict[str, Any]:
         with session_scope(db_url) as session:
             return health_status(session)
 
-    @app.get("/api/v1/status")
+    @app.get("/api/v1/status", responses=SYSTEM_STATUS_RESPONSE)
     def api_status() -> dict[str, Any]:
         with session_scope(db_url) as session:
             return system_status(session)

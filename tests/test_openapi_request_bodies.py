@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -378,3 +384,46 @@ def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None
 
     assert attempt_body.get("required") is not True
     assert release_body.get("required") is not True
+
+
+def test_public_status_openapi_response_schemas_expose_runtime_fields(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    health_schema = _get_response_schema(openapi, "/health")
+    assert health_schema["description"] == "Public health check response."
+    assert health_schema["required"] == ["ok", "service", "ticker", "ledger_height"]
+    assert health_schema["properties"]["ok"] == {"type": "boolean"}
+    assert health_schema["properties"]["ledger_height"] == {"type": "integer", "minimum": 0}
+
+    status_schema = _get_response_schema(openapi, "/api/v1/status")
+    assert status_schema["description"] == "Public system status response."
+    assert status_schema["required"] == [
+        "name",
+        "ticker",
+        "genesis_supply_mrwk",
+        "ledger_height",
+        "active_bounties",
+        "treasury_balance_mrwk",
+        "current_transfer_paths",
+        "unsupported_public_paths",
+        "unsupported_public_paths_summary",
+        "future_path",
+        "future_path_boundary",
+    ]
+    assert status_schema["properties"]["ledger_height"] == {"type": "integer", "minimum": 0}
+    assert status_schema["properties"]["active_bounties"] == {"type": "integer", "minimum": 0}
+    assert status_schema["properties"]["genesis_supply_mrwk"]["pattern"] == (r"^\d+(?:\.\d{1,6})?$")
+    assert status_schema["properties"]["treasury_balance_mrwk"]["pattern"] == (
+        r"^\d+(?:\.\d{1,6})?$"
+    )
+    assert status_schema["properties"]["current_transfer_paths"]["items"] == {"type": "string"}
+    assert status_schema["properties"]["unsupported_public_paths"]["items"] == {"type": "string"}
+
+    health = client.get("/health").json()
+    status = client.get("/api/v1/status").json()
+
+    assert set(health_schema["required"]) == set(health)
+    assert set(status_schema["required"]) == set(status)
