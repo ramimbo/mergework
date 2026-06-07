@@ -38,6 +38,13 @@ MERGEWORK_CONTRIBUTOR_STARTING_POINTS = (
         ),
     },
     {
+        "title": "Work discovery queue",
+        "href": "/api/v1/work-discovery",
+        "description": (
+            "Use the unified public queue to separate claimable bounties from pending work."
+        ),
+    },
+    {
         "title": "Current bounty JSON",
         "href": "/api/v1/bounties?status=open&availability=effectively_open",
         "description": "Use the public API to verify live status, capacity, and requirements.",
