@@ -432,7 +432,7 @@ def test_public_get_work_discovery_openapi_response_schema_exposes_buckets(
     )
     assert "live_bounty" in bounty_item["properties"]["availability_state"]["enum"]
     assert bounty_item["properties"]["issue_url"]["format"] == "uri"
-    assert bounty_item["properties"]["reward_mrwk"]["pattern"] == r"^\d+(?:\.\d{1,6})?$"
+    assert bounty_item["properties"]["reward_mrwk"]["pattern"] == r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$"
     assert bounty_item["properties"]["source_urls"]["required"] == [
         "bounty",
         "attempts",
@@ -460,6 +460,7 @@ def test_public_get_work_discovery_openapi_response_schema_exposes_buckets(
         },
     )
     assert pending_item["properties"]["availability_state"]["enum"] == ["pending_create"]
+    assert pending_item["properties"]["reward_mrwk"]["pattern"] == r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$"
     assert pending_item["properties"]["source_urls"]["required"] == ["proposal", "github_issue"]
 
     non_claimable = schema["properties"]["non_claimable_issue_states"]["items"]
