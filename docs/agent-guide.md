@@ -329,6 +329,11 @@ back to text for human-readable not-found messages.
 `result.structuredContent.account`, `balance_mrwk`, and `balance_microunits` so
 callers do not need to parse the text response.
 
+When changing an advertised MCP `inputSchema`, add a representative conformance
+test that reads the constraint from `tools/list`, verifies one valid
+`tools/call`, and verifies one invalid `tools/call` is rejected with JSON-RPC
+`-32602`.
+
 ## Contribution Rules
 
 - Read `AGENTS.md` before starting.
