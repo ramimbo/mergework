@@ -36,6 +36,7 @@ from app.serializers import (
 
 MCP_INTEGER_RE = re.compile(r"^(?:0|-?[1-9][0-9]*)$")
 MCP_BOUNTY_SEARCH_QUERY_MAX_LENGTH = 500
+MCP_UNEXPECTED_ARGUMENT_MESSAGE = "unexpected argument"
 
 
 def call_mcp_tool(
@@ -142,7 +143,7 @@ def call_mcp_tool(
     def require_known_fields(*allowed_fields: str) -> None:
         unknown_fields = set(args) - set(allowed_fields)
         if unknown_fields:
-            raise ValueError(f"unknown argument: {sorted(unknown_fields)[0]}")
+            raise ValueError(MCP_UNEXPECTED_ARGUMENT_MESSAGE)
 
     def bounty_by_issue_number(repo_selector: str | None) -> Bounty | None:
         issue_query = select(Bounty).where(Bounty.issue_number == positive_int_arg("issue_number"))
@@ -183,11 +184,10 @@ def call_mcp_tool(
             return bounty_by_issue_number(repo_selector)
         raise ValueError(f"{internal_id_field} or issue_number is required")
 
-    def reject_unexpected_args(tool_name: str, allowed: set[str]) -> None:
+    def reject_unexpected_args(_tool_name: str, allowed: set[str]) -> None:
         unexpected = sorted(set(args) - allowed)
         if unexpected:
-            names = ", ".join(unexpected)
-            raise ValueError(f"{tool_name} received unexpected argument(s): {names}")
+            raise ValueError(MCP_UNEXPECTED_ARGUMENT_MESSAGE)
 
     with session_scope(database_url) as session:
         if name == "list_bounties":
@@ -245,6 +245,7 @@ def call_mcp_tool(
             )
             return json.dumps(sorted_bounties[:limit])
         if name == "get_bounty":
+            require_known_fields("id", "bounty_id", "issue_number", "repo", "include_awards")
             bounty = selected_bounty("id", internal_id_aliases=("bounty_id",))
             if bounty is None:
                 return "bounty not found"
@@ -253,6 +254,14 @@ def call_mcp_tool(
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
             return json.dumps(bounty_data)
         if name == "list_bounty_attempts":
+            require_known_fields(
+                "id",
+                "bounty_id",
+                "issue_number",
+                "repo",
+                "include_expired",
+                "limit",
+            )
             bounty = selected_bounty("bounty_id", internal_id_aliases=("id",))
             if bounty is None:
                 return "bounty not found"
@@ -270,6 +279,7 @@ def call_mcp_tool(
                 "attempts": attempt_listing["attempts"],
             }
         if name == "get_balance":
+            require_known_fields("account")
             account = normalized_account(str_arg("account"))
             balance_microunits = get_balance(session, account)
             balance_mrwk = format_mrwk(balance_microunits)
@@ -290,6 +300,7 @@ def call_mcp_tool(
             )
             return json.dumps(wallet_to_dict(session, wallet))
         if name == "get_wallet":
+            require_known_fields("address")
             wallet_row = session.get(Wallet, normalized_wallet_address(str_arg("address")))
             if wallet_row is None:
                 return "wallet not found"
@@ -317,11 +328,13 @@ def call_mcp_tool(
             )
             return json.dumps(wallet_transfer_to_dict(transfer))
         if name == "get_ledger_entry":
+            require_known_fields("sequence")
             entry = ledger_entry_to_dict(session, positive_int_arg("sequence"))
             if entry is None:
                 return "ledger entry not found"
             return json.dumps(entry)
         if name == "get_proof":
+            require_known_fields("hash")
             proof = session.get(Proof, proof_hash_from_path(str_arg("hash")))
             if proof is None:
                 return "proof not found"

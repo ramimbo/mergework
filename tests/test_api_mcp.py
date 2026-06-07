@@ -3305,6 +3305,73 @@ def test_mcp_field_error_data_attaches_repo_requires_issue_number(sqlite_url: st
     )
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    [
+        ("list_bounties", {}),
+        ("get_bounty", {"id": 1}),
+        ("list_bounty_attempts", {"bounty_id": 1}),
+        ("get_balance", {"account": "treasury:mrwk"}),
+        ("register_wallet", {"public_key_hex": "22" * 32}),
+        ("get_wallet", {"address": "mrwk1" + "1" * 40}),
+        (
+            "submit_wallet_transfer",
+            {
+                "from_address": "mrwk1" + "1" * 40,
+                "to_address": "mrwk1" + "2" * 40,
+                "amount_mrwk": "1",
+                "nonce": 1,
+                "memo": "test",
+                "signature_hex": "aa" * 64,
+            },
+        ),
+        ("get_ledger_entry", {"sequence": 1}),
+        ("get_proof", {"hash": "a" * 64}),
+        ("submit_work_proof", {"format": "json"}),
+    ],
+)
+def test_mcp_field_error_data_attaches_unexpected_argument_without_echo(
+    sqlite_url: str,
+    tool_name: str,
+    arguments: dict[str, object],
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    sentinel_key = "caller_supplied_extra_probe"
+    sentinel_value = "do-not-echo-this-extra-value"
+    call_arguments = {**arguments, sentinel_key: sentinel_value}
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": call_arguments,
+            },
+        },
+    )
+
+    body = response.text
+    assert sentinel_key not in body
+    assert sentinel_value not in body
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=10,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": tool_name,
+            "field": None,
+            "message": "unexpected argument",
+        },
+    )
+
+
 def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str) -> None:
     """A ``ValueError`` whose message is not on the whitelist must fall
     back to the legacy envelope *without* an ``error.data`` key, so the

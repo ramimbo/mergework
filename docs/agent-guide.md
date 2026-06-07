@@ -366,13 +366,17 @@ The shape is:
   arbitrary caller-supplied string into this slot, so the value is safe
   to surface to LLM prompts or logs.
 - `field` — the offending field name, or `null` for field-less phrases such
-  as `unknown tool`, `matches multiple bounties`, or
+  as `unknown tool`, `unexpected argument`, `matches multiple bounties`, or
   `repo can only be used with issue_number`. Some upstream messages are
   emitted as `"<field> <field-less phrase>"` (for example
   `issue_number matches multiple bounties`); the classifier treats those
   as field-less and drops the leading field token from the response.
 - `message` — a static, whitelisted safe phrase. Caller input is never
   echoed, so the payload is safe to surface to LLM prompts or logs.
+
+Extra keys sent to tools that reject unknown arguments return
+`message: "unexpected argument"` with `field: null`; the rejected key name
+and value are not echoed.
 
 When the underlying `ValueError` does not match the whitelist, the
 `error.data` key is omitted and the response is byte-for-byte identical to
