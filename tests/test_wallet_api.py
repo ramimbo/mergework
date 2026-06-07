@@ -764,6 +764,10 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     masked_type_response = client.get(f"/wallets/{address}?type=%C2%85test_funding&type=all")
     repeated_type_response = client.get(f"/wallets/{address}?type=test_funding&type=all")
     repeated_tx_type_response = client.get(f"/wallets/{address}?tx_type=test_funding&tx_type=all")
+    transfer_control_response = client.get("/transfer?from_address=%C2%85mrwk1")
+    repeated_transfer_response = client.get(
+        f"/transfer?from_address={address}&from_address=mrwk10000000000000000000000000000000000000000"
+    )
     max_length_search_response = client.get("/wallets", params={"q": "a" * 500})
     oversized_search_response = client.get("/wallets", params={"q": "a" * 501})
 
@@ -788,6 +792,14 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     assert (
         repeated_tx_type_response.json()["detail"]
         == "tx_type is not supported on wallet pages; use type"
+    )
+    assert transfer_control_response.status_code == 400
+    assert transfer_control_response.json()["detail"] == (
+        "from_address must not contain control characters"
+    )
+    assert repeated_transfer_response.status_code == 400
+    assert (
+        repeated_transfer_response.json()["detail"] == "from_address must be provided at most once"
     )
     assert max_length_search_response.status_code == 200
     assert oversized_search_response.status_code == 400

@@ -455,6 +455,8 @@ def register_public_routes(
         request: Request,
         from_address: str | None = Query(None),
     ) -> HTMLResponse:
+        reject_control_char_query_param(request, "from_address")
+        reject_repeated_query_param(request, "from_address")
         return templates.TemplateResponse(
             request, "transfer.html", {"from_address": from_address or ""}
         )
