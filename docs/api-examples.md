@@ -11,10 +11,10 @@ The legacy-compatible hosts remain available for existing clients:
 `https://api.mrwk.ltclab.site` and `https://mcp.mrwk.ltclab.site`.
 
 Machine-readable REST docs are available at `$API_HOST/openapi.json`,
-`$API_HOST/api/docs`, and `$API_HOST/api/redoc`. Public JSON POST endpoints
-publish request and response schemas for attempt reservations, wallet actions,
-transfers, and treasury challenges so clients can discover payload and result
-fields without reading source code.
+`$API_HOST/api/docs`, and `$API_HOST/api/redoc`. Public JSON GET and POST
+endpoints publish schemas for bounty discovery, attempt reservations, wallet
+actions, transfers, and treasury challenges so clients can discover payload and
+result fields without reading source code.
 
 ## Status And Bounties
 
