@@ -2446,12 +2446,12 @@ def test_host_specific_homepages(sqlite_url: str) -> None:
 
     assert "LTC Lab" in lab
     assert "MRWK from LTC Lab" in lab
-    assert "https://api.mrwk.online" in lab
-    assert "https://mcp.mrwk.online" in lab
+    assert "https://api.mrwk.ltclab.site" in lab
+    assert "https://mcp.mrwk.ltclab.site" in lab
     assert "Open-source work, recorded as MRWK" in mrwk
     assert "MRWK from LTC Lab" in mrwk
-    assert "https://api.mrwk.online" in mrwk
-    assert "https://mcp.mrwk.online" in mrwk
+    assert "https://api.mrwk.ltclab.site" in mrwk
+    assert "https://mcp.mrwk.ltclab.site" in mrwk
     assert "Open-source work, recorded as MRWK" in legacy_mrwk
 
 
@@ -2532,7 +2532,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
         "latest_submission_url": "https://github.com/ramimbo/mergework/pull/3",
         "latest_proof_hash": proof.hash,
         "latest_proof_url": f"/proofs/{proof.hash}",
-        "latest_proof_public_url": f"https://mrwk.online/proofs/{proof.hash}",
+        "latest_proof_public_url": f"https://mrwk.ltclab.site/proofs/{proof.hash}",
     }
     assert accepted_work_api["summary"] == account_api["accepted_work"]
     accepted_work = accepted_work_api["accepted_work"]
@@ -2541,10 +2541,10 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert accepted_work[0] | {"created_at": "<checked>"} == {
         "ledger_sequence": 3,
         "ledger_url": "/ledger/3",
-        "ledger_public_url": "https://mrwk.online/ledger/3",
+        "ledger_public_url": "https://mrwk.ltclab.site/ledger/3",
         "proof_hash": proof.hash,
         "proof_url": f"/proofs/{proof.hash}",
-        "proof_public_url": f"https://mrwk.online/proofs/{proof.hash}",
+        "proof_public_url": f"https://mrwk.ltclab.site/proofs/{proof.hash}",
         "amount_mrwk": "25",
         "submission_url": "https://github.com/ramimbo/mergework/pull/3",
         "issue_url": "https://github.com/ramimbo/mergework/issues/2",
@@ -2552,7 +2552,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
         "issue_number": 2,
         "bounty_id": bounty.id,
         "bounty_url": f"/bounties/{bounty.id}",
-        "bounty_public_url": f"https://mrwk.online/bounties/{bounty.id}",
+        "bounty_public_url": f"https://mrwk.ltclab.site/bounties/{bounty.id}",
         "accepted_by": "maintainer",
         "created_at": "<checked>",
     }

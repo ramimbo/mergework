@@ -373,12 +373,12 @@ def test_account_and_wallet_serializers_preserve_public_shapes(sqlite_url: str) 
     assert summary["accepted_awards"] == 1
     assert summary["accepted_mrwk"] == "40"
     assert summary["latest_submission_url"] == "https://github.com/ramimbo/mergework/pull/320"
-    assert summary["latest_proof_public_url"].startswith("https://mrwk.online/proofs/")
+    assert summary["latest_proof_public_url"].startswith("https://mrwk.ltclab.site/proofs/")
     assert accepted_work[0]["issue_url"] == "https://github.com/ramimbo/mergework/issues/320"
     assert accepted_work[0]["amount_mrwk"] == "40"
-    assert accepted_work[0]["ledger_public_url"].startswith("https://mrwk.online/ledger/")
-    assert accepted_work[0]["proof_public_url"].startswith("https://mrwk.online/proofs/")
-    assert accepted_work[0]["bounty_public_url"].startswith("https://mrwk.online/bounties/")
+    assert accepted_work[0]["ledger_public_url"].startswith("https://mrwk.ltclab.site/ledger/")
+    assert accepted_work[0]["proof_public_url"].startswith("https://mrwk.ltclab.site/proofs/")
+    assert accepted_work[0]["bounty_public_url"].startswith("https://mrwk.ltclab.site/bounties/")
     assert wallet_data["label"] == "Serializer wallet"
     assert wallet_data["balance_mrwk"] == "0"
     assert wallet_data["next_nonce"] == 1

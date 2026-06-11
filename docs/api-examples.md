@@ -574,7 +574,7 @@ move funds directly:
     "latest_submission_url": "https://github.com/ramimbo/mergework/pull/183",
     "latest_proof_hash": "a29b9cf54f2ea4734d58e9371b20234f85936e95bd8c45687f0644ad6a9e6871",
     "latest_proof_url": "/proofs/a29b9cf54f2ea4734d58e9371b20234f85936e95bd8c45687f0644ad6a9e6871",
-    "latest_proof_public_url": "https://mrwk.online/proofs/a29b9cf54f2ea4734d58e9371b20234f85936e95bd8c45687f0644ad6a9e6871"
+    "latest_proof_public_url": "https://mrwk.ltclab.site/proofs/a29b9cf54f2ea4734d58e9371b20234f85936e95bd8c45687f0644ad6a9e6871"
   }
 }
 ```
@@ -627,8 +627,9 @@ submission, source issue, internal bounty id and public bounty URL, and
 maintainer acceptance details without scraping HTML:
 
 Relative URL fields are preserved for existing clients. The `*_public_url`
-companions use `https://mrwk.online` so proof-backed accepted-work evidence can
-be pasted directly into GitHub comments, reports, or reconciliation logs.
+companions use `MERGEWORK_PUBLIC_BASE_URL`, which defaults to
+`https://mrwk.ltclab.site`, so proof-backed accepted-work evidence can be
+pasted directly into GitHub comments, reports, or reconciliation logs.
 
 ```json
 {
@@ -640,16 +641,16 @@ be pasted directly into GitHub comments, reports, or reconciliation logs.
     "latest_submission_url": "https://github.com/ramimbo/mergework/issues/407#issuecomment-4545035155",
     "latest_proof_hash": "cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
     "latest_proof_url": "/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
-    "latest_proof_public_url": "https://mrwk.online/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80"
+    "latest_proof_public_url": "https://mrwk.ltclab.site/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80"
   },
   "accepted_work": [
     {
       "ledger_sequence": 682,
       "ledger_url": "/ledger/682",
-      "ledger_public_url": "https://mrwk.online/ledger/682",
+      "ledger_public_url": "https://mrwk.ltclab.site/ledger/682",
       "proof_hash": "cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
       "proof_url": "/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
-      "proof_public_url": "https://mrwk.online/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
+      "proof_public_url": "https://mrwk.ltclab.site/proofs/cb7707861ca88447db67aa707d06ca51f4d6a1b382cbba33305b251f88fd1e80",
       "amount_mrwk": "50",
       "submission_url": "https://github.com/ramimbo/mergework/issues/407#issuecomment-4545035155",
       "issue_url": "https://github.com/ramimbo/mergework/issues/407",
@@ -657,7 +658,7 @@ be pasted directly into GitHub comments, reports, or reconciliation logs.
       "issue_number": 407,
       "bounty_id": 67,
       "bounty_url": "/bounties/67",
-      "bounty_public_url": "https://mrwk.online/bounties/67",
+      "bounty_public_url": "https://mrwk.ltclab.site/bounties/67",
       "accepted_by": "ramimbo",
       "created_at": "2026-05-26T15:30:01.346962"
     }

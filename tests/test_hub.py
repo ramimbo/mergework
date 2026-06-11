@@ -37,9 +37,9 @@ def test_ltc_lab_context_lists_projects_without_shared_mutation() -> None:
         "MergeWork MCP",
     ]
     assert {project["status"] for project in context["projects"]} == {"live"}
-    assert "https://mrwk.online" in {project["href"] for project in context["projects"]}
-    assert "https://api.mrwk.online" in {project["href"] for project in context["projects"]}
-    assert "https://mcp.mrwk.online" in {project["href"] for project in context["projects"]}
+    assert "https://mrwk.ltclab.site" in {project["href"] for project in context["projects"]}
+    assert "https://api.mrwk.ltclab.site" in {project["href"] for project in context["projects"]}
+    assert "https://mcp.mrwk.ltclab.site" in {project["href"] for project in context["projects"]}
 
     context["projects"][0]["status"] = "changed"
 

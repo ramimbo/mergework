@@ -7,19 +7,19 @@ LTC_LAB_PROJECTS = (
     {
         "name": "MergeWork",
         "tagline": "MRWK from LTC Lab",
-        "href": "https://mrwk.online",
+        "href": "https://mrwk.ltclab.site",
         "status": "live",
     },
     {
         "name": "MergeWork API",
         "tagline": "Public MRWK status, bounty, ledger, and proof endpoints",
-        "href": "https://api.mrwk.online",
+        "href": "https://api.mrwk.ltclab.site",
         "status": "live",
     },
     {
         "name": "MergeWork MCP",
         "tagline": "Tool endpoint for bounty and ledger queries",
-        "href": "https://mcp.mrwk.online",
+        "href": "https://mcp.mrwk.ltclab.site",
         "status": "live",
     },
 )

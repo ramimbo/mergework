@@ -20,8 +20,8 @@ def test_readme_lists_live_and_legacy_urls() -> None:
     assert "https://mrwk.online" in readme
     assert "https://api.mrwk.online" in readme
     assert "https://mcp.mrwk.online" in readme
-    assert "https://mrwk.online/activity" in readme
-    assert "Legacy-compatible endpoints" in readme
+    assert "https://mrwk.ltclab.site/activity" in readme
+    assert "Historical host aliases" in readme
     assert "https://mrwk.ltclab.site" in readme
     assert "https://api.mrwk.ltclab.site" in readme
     assert "https://mcp.mrwk.ltclab.site" in readme
@@ -36,11 +36,11 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
     assert "source of truth for MRWK bounty payments" in paid
     assert "not manually updated for" in paid
     assert "every payout" in paid
-    assert "https://mrwk.online/activity" in paid
-    assert "https://api.mrwk.online/api/v1/activity" in paid
-    assert "Legacy-compatible endpoints remain available" in paid
     assert "https://mrwk.ltclab.site/activity" in paid
     assert "https://api.mrwk.ltclab.site/api/v1/activity" in paid
+    assert "Historical host aliases" in paid
+    assert "https://mrwk.online/activity" in paid
+    assert "https://api.mrwk.online/api/v1/activity" in paid
     assert "GET /api/v1/bounties/{id}" in paid
     assert "GET /api/v1/proofs/{proof_hash}" in paid
     assert "https://github.com/ramimbo/mergework/discussions/16" in paid
@@ -568,8 +568,8 @@ def test_api_examples_document_accepted_work_bounty_context() -> None:
     assert "/api/v1/accounts/github:carpedkm/accepted-work" in examples
     assert '"bounty_id": 67' in examples
     assert '"bounty_url": "/bounties/67"' in examples
-    assert '"bounty_public_url": "https://mrwk.online/bounties/67"' in examples
-    assert '"latest_proof_public_url": "https://mrwk.online/proofs/' in examples
-    assert '"ledger_public_url": "https://mrwk.online/ledger/682"' in examples
+    assert '"bounty_public_url": "https://mrwk.ltclab.site/bounties/67"' in examples
+    assert '"latest_proof_public_url": "https://mrwk.ltclab.site/proofs/' in examples
+    assert '"ledger_public_url": "https://mrwk.ltclab.site/ledger/682"' in examples
     assert "internal bounty id and public bounty URL" in examples
     assert "Relative URL fields are preserved for existing clients" in examples
