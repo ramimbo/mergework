@@ -475,11 +475,42 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert ledger_schema["required"] == ["sequence"]
     assert ledger_schema["additionalProperties"] is False
     assert ledger_schema["properties"]["sequence"]["minimum"] == 1
+    ledger_output_schema = ledger_tool["outputSchema"]
+    assert ledger_output_schema["description"] == (
+        "Serialized public ledger entry returned in structuredContent."
+    )
+    assert ledger_output_schema["required"] == [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ]
+    assert ledger_output_schema["properties"]["proof_hash"]["type"] == ["string", "null"]
     proof_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_proof")
     proof_schema = proof_tool["inputSchema"]
     assert proof_schema["required"] == ["hash"]
     assert proof_schema["additionalProperties"] is False
     assert proof_schema["properties"]["hash"]["pattern"] == "^[0-9a-fA-F]{64}$"
+    proof_output_schema = proof_tool["outputSchema"]
+    assert proof_output_schema["description"] == (
+        "Public proof metadata plus the stored proof payload."
+    )
+    assert proof_output_schema["required"] == [
+        "hash",
+        "kind",
+        "ledger_sequence",
+        "bounty_id",
+        "submission_id",
+        "created_at",
+        "proof",
+    ]
+    assert proof_output_schema["properties"]["proof"]["type"] == "object"
 
     balance = client.post(
         "/mcp",
@@ -497,6 +528,71 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "balance_mrwk": "100000000",
         "balance_microunits": GENESIS_SUPPLY_MICRO,
     }
+
+
+def test_mcp_proof_and_ledger_output_schemas_match_structured_content(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=946,
+            issue_url="https://github.com/ramimbo/mergework/issues/946",
+            title="MCP structured output",
+            reward_mrwk="150",
+            acceptance="Accepted MCP output schema work.",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/946",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+        proof_hash = proof.hash
+        ledger_sequence = proof.ledger_sequence
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()[
+        "result"
+    ]["tools"]
+    ledger_schema = next(tool for tool in tools if tool["name"] == "get_ledger_entry")[
+        "outputSchema"
+    ]
+    proof_schema = next(tool for tool in tools if tool["name"] == "get_proof")["outputSchema"]
+
+    ledger_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_ledger_entry", "arguments": {"sequence": ledger_sequence}},
+        },
+    ).json()
+    ledger_payload = ledger_result["result"]["structuredContent"]
+    assert ledger_payload == json.loads(ledger_result["result"]["content"][0]["text"])
+    assert set(ledger_schema["required"]) <= ledger_payload.keys()
+    assert ledger_payload["proof_hash"] == proof_hash
+    assert isinstance(ledger_payload["sequence"], int)
+
+    proof_result = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "get_proof", "arguments": {"hash": proof_hash}},
+        },
+    ).json()
+    proof_payload = proof_result["result"]["structuredContent"]
+    assert proof_payload == json.loads(proof_result["result"]["content"][0]["text"])
+    assert set(proof_schema["required"]) <= proof_payload.keys()
+    assert proof_payload["hash"] == proof_hash
+    assert proof_payload["ledger_sequence"] == ledger_sequence
+    assert proof_payload["proof"]["issue_number"] == 946
 
 
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
