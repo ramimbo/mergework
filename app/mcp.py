@@ -77,6 +77,61 @@ MCP_BOUNTY_SUMMARY_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": True,
 }
 
+
+MCP_LEDGER_ENTRY_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Serialized public ledger entry returned in structuredContent.",
+    "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "type": {"type": "string"},
+        "from": {"type": ["string", "null"]},
+        "to": {"type": ["string", "null"]},
+        "amount_mrwk": {"type": "string"},
+        "reference": {"type": "string"},
+        "previous_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "entry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "proof_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ],
+    "additionalProperties": False,
+}
+
+MCP_PROOF_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Public proof metadata plus the stored proof payload.",
+    "properties": {
+        "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "kind": {"type": "string"},
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "bounty_id": {"type": ["integer", "null"], "minimum": 1},
+        "submission_id": {"type": ["integer", "null"], "minimum": 1},
+        "created_at": {"type": "string"},
+        "proof": {"type": "object"},
+    },
+    "required": [
+        "hash",
+        "kind",
+        "ledger_sequence",
+        "bounty_id",
+        "submission_id",
+        "created_at",
+        "proof",
+    ],
+    "additionalProperties": False,
+}
+
 MCP_BOUNTY_ATTEMPT_OUTPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -375,6 +430,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["sequence"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_LEDGER_ENTRY_OUTPUT_SCHEMA,
     },
     {
         "name": "get_proof",
@@ -393,6 +449,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["hash"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_PROOF_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_work_proof",
