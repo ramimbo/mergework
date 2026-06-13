@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -54,6 +56,79 @@ def _assert_invalid_tool_arguments_envelope(
         assert "data" not in error
         return
     assert error["data"] == expected_data
+
+
+def _schema_condition_matches(condition: dict[str, Any], arguments: dict[str, Any]) -> bool:
+    if "required" in condition:
+        return all(field in arguments for field in condition["required"])
+    if "anyOf" in condition:
+        return any(_schema_condition_matches(option, arguments) for option in condition["anyOf"])
+    return False
+
+
+def _schema_constraint_accepts(constraint: dict[str, Any], arguments: dict[str, Any]) -> bool:
+    if "required" in constraint and not all(field in arguments for field in constraint["required"]):
+        return False
+    return not ("not" in constraint and _schema_condition_matches(constraint["not"], arguments))
+
+
+def _value_matches_schema(schema: dict[str, Any], value: Any) -> bool:
+    expected_type = schema.get("type")
+    if expected_type == "integer":
+        if isinstance(value, bool) or not isinstance(value, int):
+            return False
+        if "minimum" in schema and value < schema["minimum"]:
+            return False
+        if "maximum" in schema and value > schema["maximum"]:
+            return False
+    elif expected_type == "boolean":
+        if not isinstance(value, bool):
+            return False
+    elif expected_type == "string":
+        if not isinstance(value, str):
+            return False
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            return False
+        if "maxLength" in schema and len(value) > schema["maxLength"]:
+            return False
+        if "pattern" in schema and re.fullmatch(schema["pattern"], value) is None:
+            return False
+
+    return not ("enum" in schema and value not in schema["enum"])
+
+
+def _mcp_input_schema_accepts(schema: dict[str, Any], arguments: dict[str, Any]) -> bool:
+    assert schema["type"] == "object"
+    properties = schema.get("properties", {})
+    if schema.get("additionalProperties") is False:
+        unexpected = set(arguments) - set(properties)
+        if unexpected:
+            return False
+    for field in schema.get("required", []):
+        if field not in arguments:
+            return False
+    for field, dependent_fields in schema.get("dependentRequired", {}).items():
+        if field in arguments and not all(dependent in arguments for dependent in dependent_fields):
+            return False
+    if "oneOf" in schema:
+        matching_options = sum(
+            1 for option in schema["oneOf"] if _schema_condition_matches(option, arguments)
+        )
+        if matching_options != 1:
+            return False
+    for constraint in schema.get("allOf", []):
+        if "if" in constraint:
+            if _schema_condition_matches(
+                constraint["if"], arguments
+            ) and not _schema_constraint_accepts(constraint.get("then", {}), arguments):
+                return False
+            continue
+        if not _schema_constraint_accepts(constraint, arguments):
+            return False
+    return all(
+        field not in properties or _value_matches_schema(properties[field], value)
+        for field, value in arguments.items()
+    )
 
 
 def test_health_status_and_bounty_api(sqlite_url: str) -> None:
@@ -497,6 +572,77 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         "balance_mrwk": "100000000",
         "balance_microunits": GENESIS_SUPPLY_MICRO,
     }
+
+
+def test_mcp_input_schema_runtime_conformance_matrix(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=946,
+            issue_url="https://github.com/ramimbo/mergework/issues/946",
+            title="MCP conformance bounty",
+            reward_mrwk="150",
+            acceptance="Focused MCP schema/runtime conformance work.",
+        )
+        bounty_id = bounty.id
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).json()
+    input_schemas = {
+        tool["name"]: tool["inputSchema"]
+        for tool in tools["result"]["tools"]
+        if "inputSchema" in tool
+    }
+
+    matrix: list[tuple[str, dict[str, Any], bool]] = [
+        ("list_bounties", {}, True),
+        ("list_bounties", {"limit": 0}, False),
+        ("get_bounty", {"id": bounty_id}, True),
+        ("get_bounty", {"id": bounty_id, "bounty_id": bounty_id}, False),
+        ("list_bounty_attempts", {"bounty_id": bounty_id, "include_expired": False}, True),
+        ("list_bounty_attempts", {"bounty_id": bounty_id, "include_expired": "false"}, False),
+        ("get_balance", {"account": "treasury:mrwk"}, True),
+        ("get_balance", {"account": ""}, False),
+        ("register_wallet", {"public_key_hex": "22" * 32, "label": "Schema matrix wallet"}, True),
+        ("register_wallet", {"public_key_hex": "not-hex"}, False),
+        ("get_wallet", {"address": "mrwk1" + "0" * 40}, True),
+        ("get_wallet", {"address": "not-a-wallet"}, False),
+        ("get_ledger_entry", {"sequence": 1}, True),
+        ("get_ledger_entry", {"sequence": 0}, False),
+        ("get_proof", {"hash": "0" * 64}, True),
+        ("get_proof", {"hash": "not-a-proof-hash"}, False),
+        (
+            "submit_work_proof",
+            {"issue_number": 946, "repo": "ramimbo/mergework", "format": "json"},
+            True,
+        ),
+        ("submit_work_proof", {"format": "xml"}, False),
+    ]
+
+    for request_id, (tool_name, arguments, schema_valid) in enumerate(matrix, start=20):
+        schema = input_schemas[tool_name]
+        assert _mcp_input_schema_accepts(schema, arguments) is schema_valid
+
+        response = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "tools/call",
+                "params": {"name": tool_name, "arguments": arguments},
+            },
+        ).json()
+
+        if schema_valid:
+            assert response["jsonrpc"] == "2.0"
+            assert response["id"] == request_id
+            assert "result" in response
+            assert "error" not in response
+        else:
+            _assert_invalid_tool_arguments_envelope(response, request_id=request_id)
 
 
 def test_mcp_initialize_returns_server_capabilities(sqlite_url: str) -> None:
