@@ -257,6 +257,48 @@ def test_review_bounty_candidates_rejects_invalid_sufficient_reviews(
     assert captured.out == ""
 
 
+def test_review_bounty_candidates_accepts_minimum_sufficient_reviews(
+    tmp_path,
+    capsys,
+) -> None:
+    fixture = {
+        "pull_requests": [
+            {
+                "number": 10,
+                "title": "Ready for review",
+                "author": {"login": "alice"},
+                "headRefOid": "h10",
+                "mergeStateStatus": "CLEAN",
+                "labels": [],
+                "statusCheckRollup": _quality_check(),
+                "reviews": [],
+            }
+        ]
+    }
+    input_path = tmp_path / "candidates.json"
+    input_path.write_text(json.dumps(fixture), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--input",
+            str(input_path),
+            "--reviewer",
+            "reviewer",
+            "--sufficient-reviews",
+            "1",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    output = json.loads(captured.out)
+    assert output["summary"]["pull_requests"] == 1
+    assert output["pull_requests"][0]["state"] == "candidate_for_fresh_review"
+
+
 def test_review_bounty_candidate_reports_are_pasteable() -> None:
     report = analyze_candidates(
         {
