@@ -279,9 +279,7 @@ def test_activity_api_filters_by_exact_account(sqlite_url: str) -> None:
     assert [row["proof_hash"] for row in scoped["recent"]] == [alice_proof.hash]
     assert [row["account_url"] for row in scoped["recent"]] == ["/accounts/github:alice"]
     assert [row["proposal_id"] for row in scoped["pending_payouts"]] == [proposal_id]
-    assert [row["account_url"] for row in scoped["pending_payouts"]] == [
-        "/accounts/github:alice"
-    ]
+    assert [row["account_url"] for row in scoped["pending_payouts"]] == ["/accounts/github:alice"]
 
     assert scoped_with_query["account"] == "github:alice"
     assert scoped_with_query["query"] == "pull/166"
