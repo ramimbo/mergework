@@ -39,6 +39,8 @@ from app.status import (
 )
 
 WALLET_SEARCH_QUERY_MAX_LENGTH = 500
+TRANSFER_PREFILL_ADDRESS_FIELDS = ("from_address", "to_address")
+TRANSFER_SENSITIVE_QUERY_FIELDS = ("private_key_hex", "signature_hex", "nonce")
 
 
 def _bounty_filter_params(
@@ -325,6 +327,22 @@ def wallet_page_context(
     }
 
 
+def transfer_page_context(request: Request) -> dict[str, Any]:
+    reject_unsupported_query_params(
+        request,
+        TRANSFER_SENSITIVE_QUERY_FIELDS,
+        context="transfer prefill",
+    )
+    prefill = {name: "" for name in TRANSFER_PREFILL_ADDRESS_FIELDS}
+    for name in TRANSFER_PREFILL_ADDRESS_FIELDS:
+        reject_repeated_query_param(request, name)
+        reject_control_char_query_param(request, name)
+        value = request.query_params.get(name)
+        if value:
+            prefill[name] = normalized_wallet_address(value)
+    return {"transfer_prefill": prefill}
+
+
 def ledger_entry_page_context(
     sequence: str, api_ledger_entry: Callable[[str], dict[str, Any]]
 ) -> dict[str, Any]:
@@ -452,7 +470,7 @@ def register_public_routes(
 
     @app.get("/transfer", response_class=HTMLResponse)
     def transfer_page(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "transfer.html")
+        return templates.TemplateResponse(request, "transfer.html", transfer_page_context(request))
 
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:

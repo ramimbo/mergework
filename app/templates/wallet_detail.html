@@ -27,10 +27,11 @@
     <dd><a href="/accounts/{{ wallet.address }}">ledger account</a></dd>
   </dl>
   <div class="actions">
-    <a href="/transfer">Send MRWK</a>
+    <a href="/transfer?from_address={{ wallet.address }}">Send MRWK</a>
+    <a href="/transfer?to_address={{ wallet.address }}">Receive MRWK</a>
     <a href="/me">Link GitHub</a>
   </div>
-  <p class="notice">To claim GitHub bounty balance, sign in and link this wallet from your contributor account.</p>
+  <p class="notice">Transfer links prefill this wallet as sender or recipient. To claim GitHub bounty balance, sign in and link this wallet from your contributor account.</p>
 </section>
 
 <section>
