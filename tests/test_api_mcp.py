@@ -399,6 +399,32 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
         },
         {"if": {"required": ["bounty_id"]}, "then": {"not": {"required": ["repo"]}}},
     ]
+    submit_output_schema = submit_tool["outputSchema"]
+    assert "Machine-readable bounty submission guidance" in submit_output_schema["description"]
+    assert submit_output_schema["additionalProperties"] is True
+    assert submit_output_schema["properties"]["bounty_id"]["type"] == ["integer", "null"]
+    assert submit_output_schema["properties"]["can_submit"]["type"] == ["boolean", "null"]
+    assert submit_output_schema["properties"]["submission_requirements"]["type"] == "object"
+    assert submit_output_schema["required"] == [
+        "bounty_id",
+        "issue_number",
+        "status",
+        "availability",
+        "can_submit",
+        "availability_warnings",
+        "awards_remaining",
+        "max_awards",
+        "awards_paid",
+        "reward_mrwk",
+        "available_mrwk",
+        "repository",
+        "issue_url",
+        "title",
+        "acceptance",
+        "submission_format",
+        "submission_requirements",
+        "safety_rules",
+    ]
     bounty_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_bounty")
     assert "accepted awards" in bounty_tool["description"]
     bounty_schema = bounty_tool["inputSchema"]
@@ -2127,6 +2153,11 @@ def test_mcp_submit_work_proof_returns_structured_bounty_guidance(sqlite_url: st
 
     structured = result["structuredContent"]
     assert json.loads(result["content"][0]["text"]) == structured
+    tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()
+    submit_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "submit_work_proof"
+    )
+    assert set(submit_tool["outputSchema"]["required"]).issubset(structured)
     assert structured["bounty_id"] == bounty_id
     assert structured["issue_number"] == 315
     assert structured["status"] == "open"
