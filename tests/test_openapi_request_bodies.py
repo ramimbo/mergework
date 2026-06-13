@@ -69,11 +69,27 @@ def test_public_post_openapi_request_bodies_expose_expected_fields(sqlite_url: s
     openapi = client.get("/openapi.json").json()
 
     expected_fields = {
+        "/api/v1/bounties": {
+            "repo",
+            "issue_number",
+            "issue_url",
+            "title",
+            "reward_mrwk",
+            "max_awards",
+            "acceptance",
+        },
         "/api/v1/bounties/{bounty_id}/attempts": {
             "submitter_account",
             "source_url",
             "ttl_seconds",
         },
+        "/api/v1/bounties/{bounty_id}/pay": {
+            "to_account",
+            "submission_url",
+            "accepted_by",
+            "note",
+        },
+        "/api/v1/bounties/{bounty_id}/close": {"closed_by", "reference"},
         "/api/v1/bounty-attempts/{attempt_id}/release": {"submitter_account"},
         "/api/v1/wallets/register": {"public_key_hex", "label"},
         "/api/v1/wallets/link-github": {"address", "nonce", "signature_hex"},
@@ -100,6 +116,19 @@ def test_public_post_openapi_request_bodies_mark_required_fields(sqlite_url: str
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()
 
+    assert set(_post_schema(openapi, "/api/v1/bounties")["required"]) == {
+        "repo",
+        "issue_number",
+        "issue_url",
+        "title",
+        "reward_mrwk",
+        "acceptance",
+    }
+    assert set(_post_schema(openapi, "/api/v1/bounties/{bounty_id}/pay")["required"]) == {
+        "to_account",
+        "submission_url",
+    }
+    assert "required" not in _post_schema(openapi, "/api/v1/bounties/{bounty_id}/close")
     assert set(_post_schema(openapi, "/api/v1/wallets/register")["required"]) == {"public_key_hex"}
     assert set(_post_schema(openapi, "/api/v1/wallets/link-github")["required"]) == {
         "address",
@@ -161,6 +190,20 @@ def test_public_post_openapi_request_bodies_publish_stable_constraints(
     assert transfer_props["from_address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
     assert transfer_props["to_address"]["pattern"] == "^mrwk1[0-9a-f]{40}$"
     assert transfer_props["memo"]["maxLength"] == 240
+
+    create_bounty_props = _post_schema(openapi, "/api/v1/bounties")["properties"]
+    assert create_bounty_props["issue_number"]["anyOf"][0]["minimum"] == 1
+    assert create_bounty_props["reward_mrwk"]["pattern"] == r"^(?=.*[1-9])\d+(?:\.\d{1,6})?$"
+    assert create_bounty_props["max_awards"]["anyOf"][0] == {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000,
+    }
+    assert create_bounty_props["max_awards"]["default"] == 1
+
+    pay_props = _post_schema(openapi, "/api/v1/bounties/{bounty_id}/pay")["properties"]
+    assert pay_props["submission_url"]["format"] == "uri"
+    assert pay_props["note"]["maxLength"] == 240
 
 
 def test_public_post_openapi_request_bodies_match_runtime_amount_and_ttl_bounds(
@@ -328,6 +371,42 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
 def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
     openapi = client.get("/openapi.json").json()
+
+    for path in (
+        "/api/v1/bounties",
+        "/api/v1/bounties/{bounty_id}/pay",
+        "/api/v1/bounties/{bounty_id}/close",
+    ):
+        bounty_admin_schema = _post_response_schema(openapi, path)
+        _assert_properties(
+            bounty_admin_schema,
+            {
+                "id",
+                "type",
+                "action",
+                "status",
+                "payload_hash",
+                "payload",
+                "proposed_by",
+                "executes_after",
+            },
+        )
+
+    already_paid_schema = _post_response_schema(openapi, "/api/v1/bounties/{bounty_id}/pay", "409")
+    _assert_properties(
+        already_paid_schema,
+        {
+            "status",
+            "bounty_id",
+            "to_account",
+            "submission_id",
+            "submission_url",
+            "ledger_sequence",
+            "ledger_url",
+            "proof_hash",
+            "proof_url",
+        },
+    )
 
     proposal_schema = _post_response_schema(openapi, "/api/v1/treasury/proposals")
     _assert_properties(
