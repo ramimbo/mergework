@@ -119,6 +119,57 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MCP_WORK_PROOF_GUIDANCE_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": (
+        "Machine-readable bounty submission guidance returned by submit_work_proof "
+        'when called with format: "json".'
+    ),
+    "properties": {
+        "bounty_id": {"type": ["integer", "null"], "minimum": 1},
+        "issue_number": {"type": ["integer", "null"], "minimum": 1},
+        "status": {"type": "string"},
+        "availability": {"type": "string"},
+        "can_submit": {"type": ["boolean", "null"]},
+        "availability_warnings": {"type": "array", "items": {"type": "string"}},
+        "awards_remaining": {"type": ["integer", "null"], "minimum": 0},
+        "effective_awards_remaining": {"type": ["integer", "null"], "minimum": 0},
+        "max_awards": {"type": ["integer", "null"], "minimum": 0},
+        "awards_paid": {"type": ["integer", "null"], "minimum": 0},
+        "reward_mrwk": {"type": ["string", "null"]},
+        "available_mrwk": {"type": ["string", "null"]},
+        "effective_available_mrwk": {"type": ["string", "null"]},
+        "repository": {"type": ["string", "null"]},
+        "issue_url": {"type": ["string", "null"]},
+        "title": {"type": ["string", "null"]},
+        "acceptance": {"type": ["string", "null"]},
+        "submission_format": {"type": "string"},
+        "submission_requirements": {"type": "object"},
+        "safety_rules": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "bounty_id",
+        "issue_number",
+        "status",
+        "availability",
+        "can_submit",
+        "availability_warnings",
+        "awards_remaining",
+        "max_awards",
+        "awards_paid",
+        "reward_mrwk",
+        "available_mrwk",
+        "repository",
+        "issue_url",
+        "title",
+        "acceptance",
+        "submission_format",
+        "submission_requirements",
+        "safety_rules",
+    ],
+    "additionalProperties": True,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -441,6 +492,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 {"if": {"required": ["bounty_id"]}, "then": {"not": {"required": ["repo"]}}},
             ],
         },
+        "outputSchema": MCP_WORK_PROOF_GUIDANCE_OUTPUT_SCHEMA,
     },
 ]
 
