@@ -9,8 +9,8 @@
 
 <section class="panel wallet-tool" data-transfer-tool>
   <form data-action="submit-transfer">
-    <label>From address <input name="from_address" placeholder="mrwk1..." required></label>
-    <label>To address <input name="to_address" placeholder="mrwk1..." required></label>
+    <label>From address <input name="from_address" placeholder="mrwk1..." value="{{ transfer_prefill.from_address }}" required></label>
+    <label>To address <input name="to_address" placeholder="mrwk1..." value="{{ transfer_prefill.to_address }}" required></label>
     <label>Amount MRWK <input name="amount_mrwk" inputmode="decimal" placeholder="1.5" required></label>
     <label>Memo <input name="memo" maxlength="240" placeholder="optional"></label>
     <label>Private key <textarea name="private_key_hex" rows="5" autocomplete="off" autocapitalize="none" spellcheck="false" required></textarea></label>

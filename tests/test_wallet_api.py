@@ -691,6 +691,8 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     funded_missing_type = client.get(f"/wallets/{funded_address}?type=bounty_payment").text
     funded_unknown_type = client.get(f"/wallets/{funded_address}?type=not_a_real_type")
     transfer = client.get("/transfer").text
+    transfer_from_prefill = client.get(f"/transfer?from_address={address}").text
+    transfer_to_prefill = client.get(f"/transfer?to_address={funded_address}").text
     me = client.get("/me").text
 
     assert "Generate wallet" in wallets
@@ -719,6 +721,9 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "/accounts/github:" not in funded_row
     assert "No registered wallets match this search." in no_wallet_match
     assert "To claim GitHub bounty balance" in detail
+    assert f'href="/transfer?from_address={address}"' in detail
+    assert f'href="/transfer?to_address={address}"' in detail
+    assert "Transfer links prefill this wallet as sender or recipient" in detail
     assert "No activity yet" in detail
     assert "No activity yet" not in funded_detail
     assert "Filter wallet transactions" in funded_detail
@@ -741,7 +746,43 @@ def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) ->
     assert "Signed transfer" in transfer
     assert "both wallets are registered" in transfer
     assert "/static/wallet.js" in transfer
+    assert (
+        f'name="from_address" placeholder="mrwk1..." value="{address}" required'
+        in transfer_from_prefill
+    )
+    assert (
+        f'name="to_address" placeholder="mrwk1..." value="{funded_address}" required'
+        in transfer_to_prefill
+    )
     assert "Link a wallet" in me
+
+
+def test_transfer_page_prefill_rejects_ambiguous_or_sensitive_query_params(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    _, public_hex, address = _keypair()
+    _, other_public_hex, other_address = _keypair()
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    _register_wallet(client, public_hex, "Main smoke wallet")
+    _register_wallet(client, other_public_hex, "Other smoke wallet")
+
+    repeated_from = client.get(f"/transfer?from_address={address}&from_address={other_address}")
+    control_to = client.get(f"/transfer?to_address=%C2%85{address}")
+    private_key = client.get("/transfer?private_key_hex=abc")
+    signature = client.get("/transfer?signature_hex=abc")
+    nonce = client.get("/transfer?nonce=1")
+
+    assert repeated_from.status_code == 400
+    assert repeated_from.json()["detail"] == "from_address must be provided at most once"
+    assert control_to.status_code == 400
+    assert control_to.json()["detail"] == "to_address must not contain control characters"
+    assert private_key.status_code == 400
+    assert private_key.json()["detail"] == "private_key_hex is not supported on transfer prefill"
+    assert signature.status_code == 400
+    assert signature.json()["detail"] == "signature_hex is not supported on transfer prefill"
+    assert nonce.status_code == 400
+    assert nonce.json()["detail"] == "nonce is not supported on transfer prefill"
 
 
 def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
