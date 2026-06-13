@@ -220,21 +220,6 @@ TREASURY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
-PAYOUT_PROOF_RESPONSE_SCHEMA = _object_schema(
-    {
-        "status": {"type": "string"},
-        "bounty_id": {"type": "integer", "minimum": 1},
-        "to_account": {"type": "string", "nullable": True},
-        "submission_id": {"type": "integer", "minimum": 1, "nullable": True},
-        "submission_url": {"type": "string", "nullable": True},
-        "ledger_sequence": {"type": "integer", "minimum": 1},
-        "ledger_url": {"type": "string"},
-        "proof_hash": {**LOWERCASE_HEX_64_SCHEMA, "nullable": True},
-        "proof_url": {"type": "string", "nullable": True},
-    },
-    description="Existing proof-backed payout response returned for duplicate pay requests.",
-)
-
 MCP_JSONRPC_ID_SCHEMA = {
     "description": "JSON-RPC request id returned unchanged in the response.",
     "nullable": True,
@@ -506,128 +491,30 @@ TREASURY_CHALLENGE_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "challenge_type": {"type": "string", "description": "Challenge category."},
-                "reason": {"type": "string", "description": "Public challenge reason."},
+                "challenge_type": {
+                    "type": "string",
+                    "description": "Challenge category accepted by treasury validation.",
+                    "enum": [
+                        "bounty_not_open",
+                        "duplicate_bounty",
+                        "epoch_cap_exceeded",
+                        "insufficient_reserve",
+                        "submission_already_paid",
+                        "subjective_note",
+                    ],
+                    "maxLength": 80,
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Public challenge reason, trimmed by the API.",
+                    "maxLength": 1000,
+                },
             },
             required=["challenge_type", "reason"],
         ),
     ),
     "responses": {
         "200": _json_response(TREASURY_CHALLENGE_RESPONSE_SCHEMA),
-    },
-}
-
-BOUNTY_CREATE_BODY = {
-    "requestBody": _request_body(
-        _object_schema(
-            {
-                "repo": {
-                    "type": "string",
-                    "description": "GitHub repository in owner/name form.",
-                    "maxLength": 500,
-                },
-                "issue_number": {
-                    **INTEGER_OR_STRING_SCHEMA,
-                    "description": "Positive GitHub issue number for the bounty.",
-                },
-                "issue_url": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "Public GitHub issue URL matching repo and issue_number.",
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Public bounty title.",
-                    "maxLength": 500,
-                },
-                "reward_mrwk": MRWK_AMOUNT_SCHEMA,
-                "max_awards": {
-                    "anyOf": [
-                        {"type": "integer", "minimum": 1, "maximum": 1000},
-                        {
-                            "type": "string",
-                            "description": "Positive integer award count encoded as a string.",
-                            "pattern": r"^(?:[1-9][0-9]{0,2}|1000)$",
-                        },
-                    ],
-                    "default": 1,
-                    "description": "Maximum accepted awards reserved by this bounty.",
-                },
-                "acceptance": {
-                    "type": "string",
-                    "description": "Public acceptance criteria for award decisions.",
-                    "maxLength": 500,
-                },
-            },
-            required=["repo", "issue_number", "issue_url", "title", "reward_mrwk", "acceptance"],
-            description="Admin payload that creates a pending create_bounty treasury proposal.",
-        ),
-    ),
-    "responses": {
-        "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
-    },
-}
-
-BOUNTY_PAY_BODY = {
-    "requestBody": _request_body(
-        _object_schema(
-            {
-                "to_account": {
-                    "type": "string",
-                    "description": "Accepted contributor account, such as github:<login>.",
-                    "maxLength": 500,
-                },
-                "submission_url": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "Public PR, issue, report, or evidence URL being paid.",
-                },
-                "accepted_by": {
-                    "type": "string",
-                    "description": "Optional maintainer/account name recorded on the proposal.",
-                    "maxLength": 500,
-                },
-                "note": {
-                    "type": "string",
-                    "description": (
-                        "Optional public payout note, trimmed and capped at 240 characters."
-                    ),
-                    "maxLength": 240,
-                },
-            },
-            required=["to_account", "submission_url"],
-            description="Admin payload that creates a pending pay_bounty treasury proposal.",
-        ),
-    ),
-    "responses": {
-        "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
-        "409": _json_response(
-            PAYOUT_PROOF_RESPONSE_SCHEMA,
-            description="Submission already has a proof-backed bounty payment.",
-        ),
-    },
-}
-
-BOUNTY_CLOSE_BODY = {
-    "requestBody": _request_body(
-        _object_schema(
-            {
-                "closed_by": {
-                    "type": "string",
-                    "description": "Optional maintainer/account name recorded on the proposal.",
-                    "maxLength": 500,
-                },
-                "reference": {
-                    "type": "string",
-                    "description": "Optional public close reference or reason.",
-                    "maxLength": 500,
-                },
-            },
-            description="Admin payload that creates a pending close_bounty treasury proposal.",
-        ),
-    ),
-    "responses": {
-        "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
     },
 }
 
