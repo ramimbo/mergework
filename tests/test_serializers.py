@@ -283,41 +283,49 @@ def test_bounties_to_dict_exposes_preloaded_finalization_evidence(sqlite_url: st
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
-        proposal = propose_treasury_action(
-            session,
-            action="create_bounty",
-            payload={
-                "repo": "ramimbo/mergework",
-                "issue_number": 324,
-                "issue_url": "https://github.com/ramimbo/mergework/issues/324",
-                "title": "Finalization evidence serializer",
-                "reward_mrwk": "25",
-                "max_awards": 1,
-                "acceptance": "Serializer should expose stored finalization evidence.",
-            },
-            proposed_by="maintainer",
-        )
-        proposal_id = proposal.id
-        proposal.executes_after = utc_now() - timedelta(seconds=1)
-        session.flush()
-        executed = execute_treasury_proposal(
-            session, proposal_id=proposal_id, executed_by="maintainer"
-        )
-        bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
-        record_proposal_result_field(
-            session,
-            proposal_id=proposal_id,
-            field="github_issue_finalization",
-            value={
-                "status": "updated",
-                "label": "mrwk:bounty",
-                "bounty_url": "https://api.mrwk.online/bounties/324",
-                "comment_url": ("https://github.com/ramimbo/mergework/issues/324#issuecomment-1"),
-                "issue_body_status": "updated",
-            },
-        )
-        bounty = session.get(Bounty, bounty_id)
-        assert bounty is not None
+
+        def execute_create_bounty(issue_number: int) -> tuple[int, Bounty]:
+            proposal = propose_treasury_action(
+                session,
+                action="create_bounty",
+                payload={
+                    "repo": "ramimbo/mergework",
+                    "issue_number": issue_number,
+                    "issue_url": f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                    "title": f"Finalization evidence serializer {issue_number}",
+                    "reward_mrwk": "25",
+                    "max_awards": 1,
+                    "acceptance": "Serializer should expose stored finalization evidence.",
+                },
+                proposed_by="maintainer",
+            )
+            proposal_id = proposal.id
+            proposal.executes_after = utc_now() - timedelta(seconds=1)
+            session.flush()
+            executed = execute_treasury_proposal(
+                session, proposal_id=proposal_id, executed_by="maintainer"
+            )
+            bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
+            record_proposal_result_field(
+                session,
+                proposal_id=proposal_id,
+                field="github_issue_finalization",
+                value={
+                    "status": "updated",
+                    "label": "mrwk:bounty",
+                    "bounty_url": f"https://api.mrwk.online/bounties/{issue_number}",
+                    "comment_url": (
+                        f"https://github.com/ramimbo/mergework/issues/{issue_number}#issuecomment-1"
+                    ),
+                    "issue_body_status": "updated",
+                },
+            )
+            bounty = session.get(Bounty, bounty_id)
+            assert bounty is not None
+            return proposal_id, bounty
+
+        proposal_id, bounty = execute_create_bounty(324)
+        other_proposal_id, other_bounty = execute_create_bounty(325)
         treasury_selects: list[str] = []
 
         def count_treasury_selects(
@@ -337,17 +345,29 @@ def test_bounties_to_dict_exposes_preloaded_finalization_evidence(sqlite_url: st
         bind = session.get_bind()
         event.listen(bind, "before_cursor_execute", count_treasury_selects)
         try:
-            serialized = bounties_to_dict([bounty], session=session)
+            serialized = bounties_to_dict([bounty, other_bounty], session=session)
         finally:
             event.remove(bind, "before_cursor_execute", count_treasury_selects)
 
-    assert serialized[0]["finalization_evidence"] == {
+    by_issue_number = {row["issue_number"]: row for row in serialized}
+    assert by_issue_number[324]["finalization_evidence"] == {
         "create_bounty_proposal_id": proposal_id,
         "create_bounty_proposal_url": f"/api/v1/treasury/proposals/{proposal_id}",
         "status": "updated",
         "public_bounty_url": "https://api.mrwk.online/bounties/324",
         "claims_open_comment_url": (
             "https://github.com/ramimbo/mergework/issues/324#issuecomment-1"
+        ),
+        "label": "mrwk:bounty",
+        "issue_body_status": "updated",
+    }
+    assert by_issue_number[325]["finalization_evidence"] == {
+        "create_bounty_proposal_id": other_proposal_id,
+        "create_bounty_proposal_url": f"/api/v1/treasury/proposals/{other_proposal_id}",
+        "status": "updated",
+        "public_bounty_url": "https://api.mrwk.online/bounties/325",
+        "claims_open_comment_url": (
+            "https://github.com/ramimbo/mergework/issues/325#issuecomment-1"
         ),
         "label": "mrwk:bounty",
         "issue_body_status": "updated",
