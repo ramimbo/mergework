@@ -785,6 +785,22 @@ def test_transfer_page_prefill_rejects_ambiguous_or_sensitive_query_params(
     assert nonce.json()["detail"] == "nonce is not supported on transfer prefill"
 
 
+def test_transfer_page_prefill_rejects_invalid_wallet_addresses(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    invalid_from = client.get("/transfer?from_address=invalid")
+    invalid_to = client.get("/transfer?to_address=not-a-wallet")
+    whitespace_from = client.get("/transfer?from_address=%20%20%20")
+
+    assert invalid_from.status_code == 400
+    assert "invalid MRWK wallet address" in invalid_from.json()["detail"]
+    assert invalid_to.status_code == 400
+    assert "invalid MRWK wallet address" in invalid_to.json()["detail"]
+    assert whitespace_from.status_code == 400
+    assert "invalid MRWK wallet address" in whitespace_from.json()["detail"]
+
+
 def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()
