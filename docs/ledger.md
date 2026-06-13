@@ -89,14 +89,34 @@ integer microunits, deterministically sorted account balances in integer
 microunits, credited/debited/net supply totals, hash-chain verification, and
 fixed-supply conservation verification.
 
+Phase 2B adds local, read-only Merkle proof tooling for those snapshot account
+balances:
+
+```bash
+python scripts/export_ledger_snapshot_merkle.py > ledger-snapshot-root.json
+python scripts/export_ledger_snapshot_merkle.py --account github:alice > ledger-snapshot-proof.json
+```
+
+The Merkle root object is deterministic for the same committed ledger state and
+is bound to the snapshot ledger anchor: latest ledger sequence and latest entry
+hash. It does not include nondeterministic export metadata such as
+`generated_at`, `source.mode`, or `source.host`.
+
+Each account leaf uses a versioned canonical JSON shape with `leaf_index`,
+`account`, and integer `balance_microunits`. Internal node and root hash inputs
+are domain-separated canonical JSON objects, avoiding ambiguous raw string
+concatenation. Account proofs include the leaf, tree size, sibling path, and root
+object, and local verification rejects tampered accounts, balances, indexes,
+sibling hashes or directions, tree size, root hash, or ledger anchor.
+
 Snapshot `proposal_validation` is intentionally `partial`: the exporter verifies
 committed ledger entries, the hash chain, and fixed-supply conservation, but it
 does not replay every historical treasury proposal, challenge, or governance
 rule. Pending treasury proposals are not committed ledger state.
 
-This snapshot is read-only infrastructure. It is not a bridge, exchange,
-off-ramp, custody path, relayer, redemption mechanism, price signal, or live
-external-value claim.
+This snapshot and Merkle proof tooling are read-only infrastructure. They are
+not a bridge, exchange, off-ramp, custody path, relayer, redemption mechanism,
+price signal, or live external-value claim.
 
 ## Wallets and Sending
 
