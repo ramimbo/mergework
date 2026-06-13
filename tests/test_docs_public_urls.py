@@ -575,6 +575,18 @@ def test_api_examples_document_activity_response_shape() -> None:
     assert "/api/v1/proofs/<proof_hash>" in examples
 
 
+def test_api_examples_document_bounty_finalization_evidence() -> None:
+    examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
+
+    assert '"finalization_evidence": {' in examples
+    assert '"create_bounty_proposal_url": "/api/v1/treasury/proposals/42"' in examples
+    assert (
+        '"claims_open_comment_url": "https://github.com/ramimbo/mergework/issues/164#issuecomment-1"'
+        in examples
+    )
+    assert "it is evidence that claims opened, not a" in examples
+
+
 def test_api_examples_document_accepted_work_bounty_context() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 

@@ -83,15 +83,18 @@ def _bounty_attempt_warnings_for_count(
     *,
     session: Session | None = None,
     pending_proposals: tuple[list[dict[str, Any]], dict[str, Any] | None] | None = None,
+    finalization_evidence: dict[str, Any] | None = None,
 ) -> list[str]:
     from app.serializers import bounty_to_dict
 
     warnings: list[str] = []
+    lookup_session = None if pending_proposals is not None else session
     bounty_data = bounty_to_dict(
         bounty,
-        session=session,
+        session=lookup_session,
         pending_proposals=pending_proposals,
         attempt_summary={},
+        finalization_evidence=finalization_evidence if finalization_evidence is not None else {},
     )
     awards_remaining = int(bounty_data["effective_awards_remaining"])
     if bounty_data["status"] != "open":
@@ -148,6 +151,7 @@ def bounty_attempt_summary_from_count(
     *,
     session: Session | None = None,
     pending_proposals: tuple[list[dict[str, Any]], dict[str, Any] | None] | None = None,
+    finalization_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "active_attempt_count": active_count,
@@ -156,6 +160,7 @@ def bounty_attempt_summary_from_count(
             active_count,
             session=session,
             pending_proposals=pending_proposals,
+            finalization_evidence=finalization_evidence,
         ),
         "attempt_endpoint": f"/api/v1/bounties/{bounty.id}/attempts",
     }
@@ -167,6 +172,7 @@ def bounty_attempt_summary(
     now: datetime | None = None,
     *,
     pending_proposals: tuple[list[dict[str, Any]], dict[str, Any] | None] | None = None,
+    finalization_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = _as_utc(now or _utc_now())
     return bounty_attempt_summary_from_count(
@@ -174,6 +180,7 @@ def bounty_attempt_summary(
         active_bounty_attempt_count(session, bounty.id, now),
         session=session,
         pending_proposals=pending_proposals,
+        finalization_evidence=finalization_evidence,
     )
 
 

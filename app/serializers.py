@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -25,6 +25,7 @@ from app.submission_requirements import (
 )
 
 PendingBountyProposals = tuple[list[dict[str, Any]], dict[str, Any] | None]
+FinalizationEvidenceByBountyId = dict[int, dict[str, Any]]
 MRWK_MICROUNITS = Decimal(1_000_000)
 
 
@@ -40,6 +41,7 @@ def bounty_to_dict(
     session: Session | None = None,
     pending_proposals: PendingBountyProposals | None = None,
     attempt_summary: dict[str, Any] | None = None,
+    finalization_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Serialize a bounty row for public API and page consumers."""
     awards_remaining = max(0, bounty.max_awards - bounty.awards_paid)
@@ -52,6 +54,8 @@ def bounty_to_dict(
         pending_payouts, pending_close = pending_proposals
     elif session is not None:
         pending_payouts, pending_close = _pending_bounty_proposals(session, bounty.id)
+    if finalization_evidence is None and session is not None:
+        finalization_evidence = _bounty_finalization_evidence(session, bounty)
     effective_awards_remaining = _effective_awards_remaining(
         awards_remaining, pending_payouts, pending_close
     )
@@ -68,6 +72,7 @@ def bounty_to_dict(
             session,
             bounty,
             pending_proposals=(pending_payouts, pending_close),
+            finalization_evidence=finalization_evidence,
         )
     payload = {
         "id": bounty.id,
@@ -110,6 +115,8 @@ def bounty_to_dict(
     }
     if attempt_summary is not None:
         payload.update(attempt_summary)
+    if finalization_evidence is not None:
+        payload["finalization_evidence"] = finalization_evidence
     return payload
 
 
@@ -120,10 +127,10 @@ def bounties_to_dict(
     if session is None or not bounties:
         return [bounty_to_dict(bounty) for bounty in bounties]
 
+    bounty_ids = [bounty.id for bounty in bounties]
     pending_by_bounty = _pending_bounty_proposals_by_bounty_id(session)
-    attempt_counts = active_bounty_attempt_counts(
-        session, [bounty.id for bounty in bounties], datetime.now(UTC)
-    )
+    finalization_by_bounty = _create_bounty_finalization_evidence_by_bounty_id(session, bounty_ids)
+    attempt_counts = active_bounty_attempt_counts(session, bounty_ids, datetime.now(UTC))
     payloads: list[dict[str, Any]] = []
     for bounty in bounties:
         pending_proposals = pending_by_bounty.get(bounty.id, ([], None))
@@ -131,10 +138,12 @@ def bounties_to_dict(
             bounty_to_dict(
                 bounty,
                 pending_proposals=pending_proposals,
+                finalization_evidence=finalization_by_bounty.get(bounty.id),
                 attempt_summary=bounty_attempt_summary_from_count(
                     bounty,
                     attempt_counts.get(bounty.id, 0),
                     pending_proposals=pending_proposals,
+                    finalization_evidence=finalization_by_bounty.get(bounty.id),
                 ),
             )
         )
@@ -229,6 +238,118 @@ def _proposal_payload(proposal: TreasuryProposal) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _proposal_result(proposal: TreasuryProposal) -> dict[str, Any] | None:
+    try:
+        result = json.loads(proposal.result_json)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return result if isinstance(result, dict) else None
+
+
+def _public_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    clean = value.strip()
+    return clean or None
+
+
+def _result_bounty_id(result: dict[str, Any]) -> int | None:
+    bounty = result.get("bounty")
+    if not isinstance(bounty, dict):
+        return None
+    value = bounty.get("id")
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    try:
+        bounty_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return bounty_id if bounty_id > 0 else None
+
+
+def _finalization_evidence_from_result(
+    proposal: TreasuryProposal, result: dict[str, Any]
+) -> dict[str, Any] | None:
+    finalization = result.get("github_issue_finalization")
+    if not isinstance(finalization, dict):
+        return None
+    bounty_url = _public_string(finalization.get("bounty_url"))
+    comment_url = _public_string(finalization.get("comment_url"))
+    if bounty_url is None and comment_url is None:
+        return None
+    evidence: dict[str, Any] = {
+        "create_bounty_proposal_id": proposal.id,
+        "create_bounty_proposal_url": f"/api/v1/treasury/proposals/{proposal.id}",
+    }
+    status = _public_string(finalization.get("status"))
+    if status is not None:
+        evidence["status"] = status
+    if bounty_url is not None:
+        evidence["public_bounty_url"] = bounty_url
+    if comment_url is not None:
+        evidence["claims_open_comment_url"] = comment_url
+    label = _public_string(finalization.get("label"))
+    if label is not None:
+        evidence["label"] = label
+    issue_body_status = _public_string(finalization.get("issue_body_status"))
+    if issue_body_status is not None:
+        evidence["issue_body_status"] = issue_body_status
+    return evidence
+
+
+def _bounty_finalization_evidence(session: Session, bounty: Bounty) -> dict[str, Any] | None:
+    proposal = session.scalar(
+        select(TreasuryProposal)
+        .where(
+            TreasuryProposal.status == "executed",
+            TreasuryProposal.action == "create_bounty",
+            _result_bounty_id_filter(bounty.id),
+        )
+        .order_by(TreasuryProposal.id.asc())
+        .limit(1)
+    )
+    if proposal is None:
+        return None
+    result = _proposal_result(proposal)
+    if result is None or _result_bounty_id(result) != bounty.id:
+        return None
+    return _finalization_evidence_from_result(proposal, result)
+
+
+def _create_bounty_finalization_evidence_by_bounty_id(
+    session: Session,
+    bounty_ids: Collection[int],
+) -> FinalizationEvidenceByBountyId:
+    target_bounty_ids = {bounty_id for bounty_id in bounty_ids if bounty_id > 0}
+    if not target_bounty_ids:
+        return {}
+    proposals = session.scalars(
+        select(TreasuryProposal)
+        .where(
+            TreasuryProposal.status == "executed",
+            TreasuryProposal.action == "create_bounty",
+            or_(*[_result_bounty_id_filter(bounty_id) for bounty_id in sorted(target_bounty_ids)]),
+        )
+        .order_by(TreasuryProposal.id.asc())
+    ).all()
+    evidence_by_bounty: FinalizationEvidenceByBountyId = {}
+    for proposal in proposals:
+        result = _proposal_result(proposal)
+        if result is None:
+            continue
+        bounty_id = _result_bounty_id(result)
+        if (
+            bounty_id is None
+            or bounty_id not in target_bounty_ids
+            or bounty_id in evidence_by_bounty
+        ):
+            continue
+        evidence = _finalization_evidence_from_result(proposal, result)
+        if evidence is not None:
+            evidence_by_bounty[bounty_id] = evidence
+    return evidence_by_bounty
+
+
 def _proposal_bounty_id(payload: dict[str, Any]) -> int | None:
     try:
         return int(payload["bounty_id"])
@@ -288,6 +409,15 @@ def _payload_bounty_id_filter(bounty_id: int) -> ColumnElement[bool]:
     return or_(
         TreasuryProposal.payload_json.contains(f"{marker},"),
         TreasuryProposal.payload_json.contains(f"{marker}}}"),
+    )
+
+
+def _result_bounty_id_filter(bounty_id: int) -> ColumnElement[bool]:
+    """Narrow executed create-bounty scans for canonical JSON result rows."""
+    marker = f'"id":{bounty_id}'
+    return or_(
+        TreasuryProposal.result_json.contains(f"{marker},"),
+        TreasuryProposal.result_json.contains(f"{marker}}}"),
     )
 
 
