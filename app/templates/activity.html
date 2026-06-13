@@ -41,7 +41,7 @@
       <div class="ledger-entry-card">
         <div class="ledger-card-head">
           <div class="ledger-card-title">
-            <a class="ledger-entry-link" href="/accounts/{{ contributor.account }}">{{ contributor.account }}</a>
+            <a class="ledger-entry-link" href="{{ contributor.account_url }}">{{ contributor.account }}</a>
             <span class="ledger-scan-note">{{ contributor.accepted_awards }} accepted</span>
           </div>
           <strong class="ledger-amount">{{ contributor.accepted_mrwk }} MRWK</strong>
@@ -93,7 +93,7 @@
         <dl class="ledger-card-grid">
           <div class="ledger-field ledger-field--to">
             <dt>Contributor</dt>
-            <dd><a href="/accounts/{{ row.account }}">{{ row.account }}</a></dd>
+            <dd><a href="{{ row.account_url }}">{{ row.account }}</a></dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Bounty</dt>
@@ -148,7 +148,7 @@
         <dl class="ledger-card-grid">
           <div class="ledger-field ledger-field--to">
             <dt>Contributor</dt>
-            <dd><a href="/accounts/{{ row.account }}">{{ row.account }}</a></dd>
+            <dd><a href="{{ row.account_url }}">{{ row.account }}</a></dd>
           </div>
           <div class="ledger-field ledger-field--reference reference-cell">
             <dt>Bounty</dt>
