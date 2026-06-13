@@ -370,7 +370,10 @@ The shape is:
   `repo can only be used with issue_number`. Some upstream messages are
   emitted as `"<field> <field-less phrase>"` (for example
   `issue_number matches multiple bounties`); the classifier treats those
-  as field-less and drops the leading field token from the response.
+  as field-less and drops the leading field token from the response. Internal
+  selector conflicts such as `use id or bounty_id, not multiple internal id
+  fields` are also surfaced as field-less phrases so agents can retry with one
+  selector.
 - `message` — a static, whitelisted safe phrase. Caller input is never
   echoed, so the payload is safe to surface to LLM prompts or logs.
 

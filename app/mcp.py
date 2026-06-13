@@ -516,6 +516,9 @@ _KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
     "unknown tool": "unknown tool",
     "matches multiple bounties": "matches multiple bounties",
     "repo can only be used with issue_number": ("repo can only be used with issue_number"),
+    "use id or bounty_id, not multiple internal id fields": (
+        "use id or bounty_id, not multiple internal id fields"
+    ),
 }
 
 
