@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -127,11 +127,10 @@ def bounties_to_dict(
     if session is None or not bounties:
         return [bounty_to_dict(bounty) for bounty in bounties]
 
+    bounty_ids = [bounty.id for bounty in bounties]
     pending_by_bounty = _pending_bounty_proposals_by_bounty_id(session)
-    finalization_by_bounty = _create_bounty_finalization_evidence_by_bounty_id(session)
-    attempt_counts = active_bounty_attempt_counts(
-        session, [bounty.id for bounty in bounties], datetime.now(UTC)
-    )
+    finalization_by_bounty = _create_bounty_finalization_evidence_by_bounty_id(session, bounty_ids)
+    attempt_counts = active_bounty_attempt_counts(session, bounty_ids, datetime.now(UTC))
     payloads: list[dict[str, Any]] = []
     for bounty in bounties:
         pending_proposals = pending_by_bounty.get(bounty.id, ([], None))
@@ -319,12 +318,17 @@ def _bounty_finalization_evidence(session: Session, bounty: Bounty) -> dict[str,
 
 def _create_bounty_finalization_evidence_by_bounty_id(
     session: Session,
+    bounty_ids: Collection[int],
 ) -> FinalizationEvidenceByBountyId:
+    target_bounty_ids = {bounty_id for bounty_id in bounty_ids if bounty_id > 0}
+    if not target_bounty_ids:
+        return {}
     proposals = session.scalars(
         select(TreasuryProposal)
         .where(
             TreasuryProposal.status == "executed",
             TreasuryProposal.action == "create_bounty",
+            or_(*[_result_bounty_id_filter(bounty_id) for bounty_id in sorted(target_bounty_ids)]),
         )
         .order_by(TreasuryProposal.id.asc())
     ).all()
@@ -334,7 +338,11 @@ def _create_bounty_finalization_evidence_by_bounty_id(
         if result is None:
             continue
         bounty_id = _result_bounty_id(result)
-        if bounty_id is None or bounty_id in evidence_by_bounty:
+        if (
+            bounty_id is None
+            or bounty_id not in target_bounty_ids
+            or bounty_id in evidence_by_bounty
+        ):
             continue
         evidence = _finalization_evidence_from_result(proposal, result)
         if evidence is not None:

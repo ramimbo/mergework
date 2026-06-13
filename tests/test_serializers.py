@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 from sqlalchemy import event
 
+from app import serializers as serializer_module
 from app.db import create_schema, session_scope
 from app.ledger.service import create_bounty, ensure_genesis, pay_bounty, register_wallet
 from app.models import Bounty, Proof, WalletTransfer, utc_now
@@ -352,6 +353,70 @@ def test_bounties_to_dict_exposes_preloaded_finalization_evidence(sqlite_url: st
         "issue_body_status": "updated",
     }
     assert len(treasury_selects) == 2
+
+
+def test_bounties_to_dict_limits_finalization_preload_to_serialized_bounties(
+    sqlite_url: str, monkeypatch
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+        def execute_create_bounty(issue_number: int) -> tuple[int, int]:
+            proposal = propose_treasury_action(
+                session,
+                action="create_bounty",
+                payload={
+                    "repo": "ramimbo/mergework",
+                    "issue_number": issue_number,
+                    "issue_url": f"https://github.com/ramimbo/mergework/issues/{issue_number}",
+                    "title": f"Finalization preload {issue_number}",
+                    "reward_mrwk": "25",
+                    "max_awards": 1,
+                    "acceptance": "Serializer should only inspect serialized bounties.",
+                },
+                proposed_by="maintainer",
+            )
+            proposal_id = proposal.id
+            proposal.executes_after = utc_now() - timedelta(seconds=1)
+            session.flush()
+            executed = execute_treasury_proposal(
+                session, proposal_id=proposal_id, executed_by="maintainer"
+            )
+            bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
+            record_proposal_result_field(
+                session,
+                proposal_id=proposal_id,
+                field="github_issue_finalization",
+                value={
+                    "status": "updated",
+                    "bounty_url": f"https://api.mrwk.online/bounties/{issue_number}",
+                    "comment_url": (
+                        f"https://github.com/ramimbo/mergework/issues/{issue_number}#issuecomment-1"
+                    ),
+                },
+            )
+            return proposal_id, bounty_id
+
+        target_proposal_id, target_bounty_id = execute_create_bounty(341)
+        unrelated_proposal_id, _ = execute_create_bounty(342)
+        target_bounty = session.get(Bounty, target_bounty_id)
+        assert target_bounty is not None
+
+        inspected_proposal_ids: list[int] = []
+        original_proposal_result = serializer_module._proposal_result
+
+        def track_proposal_result(proposal):
+            inspected_proposal_ids.append(proposal.id)
+            return original_proposal_result(proposal)
+
+        monkeypatch.setattr(serializer_module, "_proposal_result", track_proposal_result)
+
+        serialized = bounties_to_dict([target_bounty], session=session)
+
+    assert inspected_proposal_ids == [target_proposal_id]
+    assert unrelated_proposal_id not in inspected_proposal_ids
+    assert serialized[0]["finalization_evidence"]["create_bounty_proposal_id"] == target_proposal_id
 
 
 def test_bounty_to_dict_narrows_single_pending_proposal_lookup(sqlite_url: str) -> None:
