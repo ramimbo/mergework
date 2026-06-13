@@ -3305,10 +3305,12 @@ def test_mcp_field_error_data_attaches_repo_requires_issue_number(sqlite_url: st
     )
 
 
-def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str) -> None:
-    """A ``ValueError`` whose message is not on the whitelist must fall
-    back to the legacy envelope *without* an ``error.data`` key, so the
-    additive contract is opt-in and bounded.
+def test_mcp_field_error_data_attaches_internal_id_alias_conflict(
+    sqlite_url: str,
+) -> None:
+    """Mixing the two internal bounty id aliases is a static selector
+    error, so agents should get safe ``error.data`` instead of parsing the
+    legacy generic envelope.
     """
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -3325,11 +3327,6 @@ def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str)
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
-    # Supplying both ``id`` and ``bounty_id`` (the two internal id aliases for
-    # ``get_bounty``) raises ``ValueError("use id or bounty_id, not multiple
-    # internal id fields")``. The first word ("use") is not in the tool-field
-    # whitelist, so the classifier must return ``None`` and the response must
-    # keep the legacy envelope with no ``error.data``.
     response = client.post(
         "/mcp",
         json={
@@ -3343,7 +3340,18 @@ def test_mcp_field_error_data_omitted_for_unmatched_value_error(sqlite_url: str)
         },
     )
 
-    _assert_invalid_tool_arguments_envelope(response.json(), request_id=7, expected_data=None)
+    body = response.text
+    assert str(bounty.id) not in body
+    _assert_invalid_tool_arguments_envelope(
+        response.json(),
+        request_id=7,
+        expected_data={
+            "code": "invalid_argument",
+            "tool": "get_bounty",
+            "field": None,
+            "message": "use id or bounty_id, not multiple internal id fields",
+        },
+    )
 
 
 def test_mcp_field_error_data_does_not_echo_caller_input(sqlite_url: str) -> None:
