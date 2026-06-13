@@ -92,6 +92,7 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     assert payload["pending_payouts"] == []
     assert payload["contributors"][0] == {
         "account": "github:alice",
+        "account_url": "/accounts/github:alice",
         "accepted_awards": 2,
         "accepted_mrwk": "50",
         "latest_submission_url": "https://github.com/ramimbo/mergework/issues/10#issuecomment-1",
@@ -102,6 +103,7 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
         "latest_proof_url": f"/proofs/{second_proof.hash}",
     }
     assert payload["contributors"][1]["account"] == "mrwk1abc"
+    assert payload["contributors"][1]["account_url"] == "/accounts/mrwk1abc"
     assert payload["contributors"][1]["accepted_mrwk"] == "40"
     assert payload["contributors"][1]["latest_proof_hash"] == wallet_proof.hash
     assert [row["proof_hash"] for row in payload["recent"]] == [
@@ -116,6 +118,7 @@ def test_activity_api_summarizes_proof_backed_bounty_payments(sqlite_url: str) -
     assert payload["recent"][0]["bounty_issue_number"] == 11
     assert payload["recent"][0]["bounty_id"] == second_bounty.id
     assert payload["recent"][0]["bounty_url"] == f"/bounties/{second_bounty.id}"
+    assert payload["recent"][0]["account_url"] == "/accounts/mrwk1abc"
     assert payload["recent"][0]["created_at"].endswith("Z")
     assert all("unproved" not in row["submission_url"] for row in payload["recent"])
 
@@ -272,8 +275,11 @@ def test_activity_api_filters_by_exact_account(sqlite_url: str) -> None:
         "pending_mrwk": "75",
     }
     assert [row["account"] for row in scoped["contributors"]] == ["github:alice"]
+    assert [row["account_url"] for row in scoped["contributors"]] == ["/accounts/github:alice"]
     assert [row["proof_hash"] for row in scoped["recent"]] == [alice_proof.hash]
+    assert [row["account_url"] for row in scoped["recent"]] == ["/accounts/github:alice"]
     assert [row["proposal_id"] for row in scoped["pending_payouts"]] == [proposal_id]
+    assert [row["account_url"] for row in scoped["pending_payouts"]] == ["/accounts/github:alice"]
 
     assert scoped_with_query["account"] == "github:alice"
     assert scoped_with_query["query"] == "pull/166"
@@ -421,6 +427,7 @@ def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
             "proposal_url": f"/api/v1/treasury/proposals/{proposal_id}",
             "status": "pending",
             "account": "github:alice",
+            "account_url": "/accounts/github:alice",
             "amount_mrwk": "75",
             "submission_url": "https://github.com/ramimbo/mergework/pull/167",
             "bounty_repo": "ramimbo/mergework",

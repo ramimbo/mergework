@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -448,6 +449,10 @@ def _bounty_detail_url(bounty_id: int | None) -> str | None:
     return f"/bounties/{bounty_id}" if bounty_id is not None else None
 
 
+def account_detail_url(account: str | None) -> str | None:
+    return f"/accounts/{quote(account, safe=':')}" if account else None
+
+
 def _public_page_url(path: str | None, public_base_url: str | None = None) -> str | None:
     if path is None:
         return None
@@ -478,6 +483,7 @@ def _activity_row(entry: LedgerEntry, proof: Proof) -> dict[str, Any] | None:
     return {
         "ledger_sequence": entry.sequence,
         "account": entry.to_account,
+        "account_url": account_detail_url(entry.to_account),
         "amount_mrwk": format_mrwk(entry.amount_microunits),
         "amount_microunits": entry.amount_microunits,
         "submission_url": submission_url,
@@ -536,6 +542,7 @@ def _pending_activity_row(
         "proposal_url": f"/api/v1/treasury/proposals/{proposal.id}",
         "status": proposal.status,
         "account": payload.get("to_account"),
+        "account_url": account_detail_url(payload.get("to_account")),
         "amount_mrwk": format_mrwk(amount_microunits) if bounty else None,
         "amount_microunits": amount_microunits,
         "submission_url": payload.get("submission_url"),
@@ -655,6 +662,7 @@ def activity_to_dict(
             contributor_account,
             {
                 "account": contributor_account,
+                "account_url": account_detail_url(contributor_account),
                 "accepted_awards": 0,
                 "accepted_microunits": 0,
                 "accepted_mrwk": "0",
