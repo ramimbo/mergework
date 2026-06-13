@@ -112,7 +112,7 @@ def test_bounty_api_exposes_create_bounty_finalization_evidence(sqlite_url: str)
     assert listed["finalization_evidence"] == expected
 
 
-def test_bounty_api_omits_finalization_evidence_when_not_recorded(sqlite_url: str) -> None:
+def test_bounty_api_omits_finalization_evidence_without_public_urls(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
@@ -136,6 +136,16 @@ def test_bounty_api_omits_finalization_evidence_when_not_recorded(sqlite_url: st
             session, proposal_id=proposal.id, executed_by="maintainer"
         )
         bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
+        record_proposal_result_field(
+            session,
+            proposal_id=proposal.id,
+            field="github_issue_finalization",
+            value={
+                "status": "updated",
+                "label": "mrwk:bounty",
+                "issue_body_status": "updated",
+            },
+        )
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 

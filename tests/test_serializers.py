@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from sqlalchemy import event
 
 from app import serializers as serializer_module
+from app.bounty_attempts import bounty_attempt_warnings
 from app.db import create_schema, session_scope
 from app.ledger.service import create_bounty, ensure_genesis, pay_bounty, register_wallet
 from app.models import Bounty, Proof, WalletTransfer, utc_now
@@ -373,6 +374,35 @@ def test_bounties_to_dict_exposes_preloaded_finalization_evidence(sqlite_url: st
         "issue_body_status": "updated",
     }
     assert len(treasury_selects) == 2
+
+
+def test_bounty_attempt_warnings_skip_finalization_evidence_lookup(
+    sqlite_url: str, monkeypatch
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=326,
+            issue_url="https://github.com/ramimbo/mergework/issues/326",
+            title="Attempt warnings serializer",
+            reward_mrwk="25",
+            acceptance="Attempt warnings should not load unused finalization evidence.",
+        )
+
+        def fail_finalization_lookup(*args, **kwargs):
+            del args, kwargs
+            raise AssertionError("attempt warnings should not load finalization evidence")
+
+        monkeypatch.setattr(
+            serializer_module, "_bounty_finalization_evidence", fail_finalization_lookup
+        )
+
+        warnings = bounty_attempt_warnings(session, bounty, utc_now())
+
+    assert warnings == []
 
 
 def test_bounties_to_dict_limits_finalization_preload_to_serialized_bounties(
