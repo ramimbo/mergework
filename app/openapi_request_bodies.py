@@ -491,8 +491,24 @@ TREASURY_CHALLENGE_BODY = {
     "requestBody": _request_body(
         _object_schema(
             {
-                "challenge_type": {"type": "string", "description": "Challenge category."},
-                "reason": {"type": "string", "description": "Public challenge reason."},
+                "challenge_type": {
+                    "type": "string",
+                    "description": "Challenge category accepted by treasury validation.",
+                    "enum": [
+                        "bounty_not_open",
+                        "duplicate_bounty",
+                        "epoch_cap_exceeded",
+                        "insufficient_reserve",
+                        "submission_already_paid",
+                        "subjective_note",
+                    ],
+                    "maxLength": 80,
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Public challenge reason, trimmed by the API.",
+                    "maxLength": 1000,
+                },
             },
             required=["challenge_type", "reason"],
         ),
