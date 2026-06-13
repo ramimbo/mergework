@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -12,7 +12,7 @@ from app.accounts import normalized_account
 from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
-from app.serializers import activity_to_dict
+from app.serializers import account_detail_url, activity_to_dict
 
 
 def activity_context(
@@ -24,12 +24,8 @@ def activity_context(
     context = activity_to_dict(session, query, account=normalized)
     context["api_activity_url"] = _activity_api_url(context["query"], context.get("account"))
     context["clear_activity_url"] = _activity_page_url(context.get("account"))
-    context["account_page_url"] = _account_page_url(context.get("account"))
+    context["account_page_url"] = account_detail_url(context.get("account"))
     return context
-
-
-def _account_page_url(account: str | None) -> str | None:
-    return f"/accounts/{quote(account, safe=':')}" if account else None
 
 
 def _activity_api_url(query: str, account: str | None) -> str:
