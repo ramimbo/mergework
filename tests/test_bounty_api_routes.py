@@ -116,16 +116,26 @@ def test_bounty_api_omits_finalization_evidence_when_not_recorded(sqlite_url: st
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
-        bounty = create_bounty(
+        proposal = propose_treasury_action(
             session,
-            repo="ramimbo/mergework",
-            issue_number=75,
-            issue_url="https://github.com/ramimbo/mergework/issues/75",
-            title="Older bounty without finalization result",
-            reward_mrwk="25",
-            acceptance="Older rows should stay compatible.",
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 75,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/75",
+                "title": "Older bounty without finalization result",
+                "reward_mrwk": "25",
+                "max_awards": 1,
+                "acceptance": "Older rows should stay compatible.",
+            },
+            proposed_by="maintainer",
         )
-        bounty_id = bounty.id
+        proposal.executes_after = utc_now() - timedelta(seconds=1)
+        session.flush()
+        executed = execute_treasury_proposal(
+            session, proposal_id=proposal.id, executed_by="maintainer"
+        )
+        bounty_id = int(json.loads(executed.result_json)["bounty"]["id"])
 
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 

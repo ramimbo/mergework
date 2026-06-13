@@ -94,7 +94,7 @@ def _bounty_attempt_warnings_for_count(
         session=lookup_session,
         pending_proposals=pending_proposals,
         attempt_summary={},
-        finalization_evidence=finalization_evidence,
+        finalization_evidence=finalization_evidence if finalization_evidence is not None else {},
     )
     awards_remaining = int(bounty_data["effective_awards_remaining"])
     if bounty_data["status"] != "open":
