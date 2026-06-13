@@ -74,6 +74,32 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
     receiver = _register_wallet(client, receiver_public, "Receiver")
     assert sender["address"] == sender_address
     assert receiver["address"] == receiver_address
+    assert sender["action_urls"] == {
+        "wallet_json": f"/api/v1/wallets/{sender_address}",
+        "link_github": "/api/v1/wallets/link-github",
+        "claim_github": "/api/v1/github/claim",
+        "transfer": "/api/v1/transfers",
+    }
+    assert sender["next_signed_payloads"]["link_github"] == {
+        "type": "mrwk_link_github_v1",
+        "address": sender_address,
+        "github_login": "signed-in-github-login",
+        "nonce": 1,
+    }
+    assert sender["next_signed_payloads"]["claim_github"] == {
+        "type": "mrwk_claim_github_v1",
+        "address": sender_address,
+        "github_login": "signed-in-github-login",
+        "nonce": 1,
+    }
+    assert sender["next_signed_payloads"]["transfer"] == {
+        "type": "mrwk_transfer_v1",
+        "from_address": sender_address,
+        "to_address": "mrwk1" + ("0" * 40),
+        "amount_microunits": 1_000_000,
+        "nonce": 1,
+        "memo": "",
+    }
 
     _fund_wallet(sqlite_url, sender_address)
 
@@ -99,7 +125,10 @@ def test_wallet_api_register_lookup_and_transfer(sqlite_url: str) -> None:
 
     assert transfer["type"] == "wallet_transfer"
     assert transfer["amount_mrwk"] == "3"
-    assert client.get(f"/api/v1/wallets/{receiver_address}").json()["balance_mrwk"] == "3"
+    receiver_detail = client.get(f"/api/v1/wallets/{receiver_address}").json()
+    assert receiver_detail["balance_mrwk"] == "3"
+    assert receiver_detail["action_urls"]["wallet_json"] == f"/api/v1/wallets/{receiver_address}"
+    assert receiver_detail["next_signed_payloads"]["transfer"]["from_address"] == receiver_address
     type_filter = client.get(f"/api/v1/wallets/{receiver_address}?type=github_claim")
     tx_type_filter = client.get(f"/api/v1/wallets/{receiver_address}?tx_type=github_claim")
     repeated_type_filter = client.get(
@@ -593,6 +622,13 @@ def test_github_session_can_link_and_claim_wallet(sqlite_url: str, monkeypatch) 
     )
     assert linked.status_code == 200
     assert linked.json()["github_login"] == "alice"
+    assert linked.json()["next_signed_payloads"]["claim_github"] == {
+        "type": "mrwk_claim_github_v1",
+        "address": address,
+        "github_login": "alice",
+        "nonce": 2,
+    }
+    assert linked.json()["next_signed_payloads"]["link_github"]["github_login"] == "alice"
 
     claim_payload = wallet_claim_payload(address=address, github_login="alice", nonce=2)
     claimed = client.post(

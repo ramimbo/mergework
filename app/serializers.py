@@ -17,7 +17,13 @@ from app.bounty_attempts import (
 )
 from app.config import get_settings
 from app.ledger.reconciliation import AcceptedPayoutCheck
-from app.ledger.service import format_mrwk, get_balance
+from app.ledger.service import (
+    format_mrwk,
+    get_balance,
+    wallet_claim_payload,
+    wallet_link_payload,
+    wallet_transfer_payload,
+)
 from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, WalletTransfer
 from app.submission_requirements import (
     SubmissionAvailability,
@@ -915,6 +921,40 @@ def _wallet_timestamp(value: datetime) -> str:
     return value.isoformat()
 
 
+def wallet_action_urls(address: str) -> dict[str, str]:
+    return {
+        "wallet_json": f"/api/v1/wallets/{address}",
+        "link_github": "/api/v1/wallets/link-github",
+        "claim_github": "/api/v1/github/claim",
+        "transfer": "/api/v1/transfers",
+    }
+
+
+def wallet_next_signed_payloads(wallet: Wallet) -> dict[str, dict[str, object]]:
+    next_nonce = wallet.nonce + 1
+    github_login = wallet.github_login or "signed-in-github-login"
+    sample_recipient = "mrwk1" + ("0" * 40)
+    return {
+        "link_github": wallet_link_payload(
+            address=wallet.address,
+            github_login=github_login,
+            nonce=next_nonce,
+        ),
+        "claim_github": wallet_claim_payload(
+            address=wallet.address,
+            github_login=github_login,
+            nonce=next_nonce,
+        ),
+        "transfer": wallet_transfer_payload(
+            from_address=wallet.address,
+            to_address=sample_recipient,
+            amount_microunits=1_000_000,
+            nonce=next_nonce,
+            memo="",
+        ),
+    }
+
+
 def wallet_to_dict(session: Session, wallet: Wallet) -> dict[str, Any]:
     """Serialize a registered wallet and its current ledger balance."""
     return {
@@ -925,6 +965,8 @@ def wallet_to_dict(session: Session, wallet: Wallet) -> dict[str, Any]:
         "balance_mrwk": format_mrwk(get_balance(session, wallet.address)),
         "nonce": wallet.nonce,
         "next_nonce": wallet.nonce + 1,
+        "action_urls": wallet_action_urls(wallet.address),
+        "next_signed_payloads": wallet_next_signed_payloads(wallet),
         "created_at": _wallet_timestamp(wallet.created_at),
     }
 
