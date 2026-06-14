@@ -87,6 +87,9 @@ def verify_ledger_snapshot_account_proof(
         index = proof["leaf_index"]
         layer_size = proof_root["tree_size"]
         for sibling in proof["proof"]:
+            while layer_size > 1 and index % 2 == 0 and index + 1 >= layer_size:
+                index //= 2
+                layer_size = (layer_size + 1) // 2
             if layer_size <= 1:
                 return False
             position = sibling["position"]
@@ -103,6 +106,10 @@ def verify_ledger_snapshot_account_proof(
                 current_hash = _node_hash(current_hash, sibling_hash)
             else:
                 return False
+            index //= 2
+            layer_size = (layer_size + 1) // 2
+
+        while layer_size > 1 and index % 2 == 0 and index + 1 >= layer_size:
             index //= 2
             layer_size = (layer_size + 1) // 2
 

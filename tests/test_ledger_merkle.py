@@ -118,6 +118,29 @@ def test_merkle_account_proof_verifies_and_serializes_deterministically(
     assert proof_json == ledger_snapshot_account_proof_json(snapshot, "github:alice")
 
 
+def test_merkle_account_proof_verifies_promoted_last_leaf_in_odd_tree() -> None:
+    snapshot = {
+        "ledger_anchor": {
+            "latest_sequence": 3,
+            "latest_entry_hash": "a" * 64,
+        },
+        "accounts": [
+            {"account": "github:alice", "balance_microunits": 12_500_000},
+            {"account": "github:bob", "balance_microunits": 7_000_000},
+            {"account": "treasury:mrwk", "balance_microunits": -19_500_000},
+        ],
+    }
+
+    root = ledger_snapshot_merkle_root(snapshot)
+    proof = ledger_snapshot_account_proof(snapshot, "treasury:mrwk")
+
+    assert root["tree_size"] == 3
+    assert proof["leaf_index"] == 2
+    assert len(proof["proof"]) == 1
+    assert proof["proof"][0]["position"] == "left"
+    assert verify_ledger_snapshot_account_proof(proof, root=root) is True
+
+
 def test_merkle_proof_rejects_tampered_leaf_siblings_root_and_anchor(sqlite_url: str) -> None:
     snapshot = _multi_account_snapshot(sqlite_url)
     root = ledger_snapshot_merkle_root(snapshot)
@@ -140,6 +163,10 @@ def test_merkle_proof_rejects_tampered_leaf_siblings_root_and_anchor(sqlite_url:
         "left" if proof["proof"][0]["position"] == "right" else "right"
     )
     assert verify_ledger_snapshot_account_proof(tampered_direction, root=root) is False
+
+    tampered_proof_root_hash = copy.deepcopy(proof)
+    tampered_proof_root_hash["root"]["root_hash"] = "1" * 64
+    assert verify_ledger_snapshot_account_proof(tampered_proof_root_hash) is False
 
     tampered_root = copy.deepcopy(root)
     tampered_root["root_hash"] = "1" * 64
