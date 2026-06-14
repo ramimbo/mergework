@@ -22,6 +22,7 @@ small, verifiable, and easy for maintainers to review.
 - Add or update tests for changed behavior.
 - Update docs for public behavior changes.
 - Run `python scripts/docs_smoke.py` when changing docs, templates, examples, or onboarding.
+- Run `python scripts/template_text_smoke.py` when changing public template text or notices, to catch typographic quotes, mojibake, and raw `{{ }}` placeholder leakage before review.
 - Do not submit generated noise, duplicate reports, or unrelated rewrites.
 - Do not claim payout, acceptance, or ledger status that has not happened.
 
