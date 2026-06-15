@@ -165,6 +165,216 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+SUBMISSION_REQUIREMENTS_RESPONSE_SCHEMA = _object_schema(
+    {
+        "submission_mode": {"type": "string"},
+        "submission_url_kind": {"type": "string"},
+        "expected_artifact": {"type": "string"},
+        "attempt_endpoint_applicability": {"type": "string"},
+        "reference_formats": {"type": "array", "items": {"type": "string"}},
+        "claim_command": {"type": "string"},
+        "attempt_endpoint": {"type": "string"},
+        "next_actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "id": {"type": "string"},
+                    "required": {"type": "boolean"},
+                    "text": {"type": "string"},
+                },
+            },
+        },
+    }
+)
+
+PENDING_BOUNTY_PROPOSAL_RESPONSE_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "proposed_by": {"type": "string"},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+        "to_account": {"type": "string", "nullable": True},
+        "submission_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+        "closed_by": {"type": "string", "nullable": True},
+        "reference": {"type": "string", "nullable": True},
+    }
+)
+
+BOUNTY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "id": {"type": "integer", "minimum": 1},
+        "repo": {"type": "string"},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "issue_url": {"type": "string", "format": "uri"},
+        "title": {"type": "string"},
+        "reward_mrwk": MRWK_DECIMAL_SCHEMA,
+        "available_mrwk": MRWK_DECIMAL_SCHEMA,
+        "reserved_mrwk": MRWK_DECIMAL_SCHEMA,
+        "max_awards": {"type": "integer", "minimum": 1},
+        "awards_paid": {"type": "integer", "minimum": 0},
+        "awards_remaining": {"type": "integer", "minimum": 0},
+        "effective_available_mrwk": MRWK_DECIMAL_SCHEMA,
+        "effective_awards_remaining": {"type": "integer", "minimum": 0},
+        "pending_payout_awards": {"type": "integer", "minimum": 0},
+        "pending_payout_proposals": {
+            "type": "array",
+            "items": PENDING_BOUNTY_PROPOSAL_RESPONSE_SCHEMA,
+        },
+        "pending_close_proposal": {
+            "anyOf": [
+                PENDING_BOUNTY_PROPOSAL_RESPONSE_SCHEMA,
+                {"type": "null"},
+            ],
+        },
+        "availability_state": {"type": "string"},
+        "availability_note": {"type": "string"},
+        "submission_requirements": SUBMISSION_REQUIREMENTS_RESPONSE_SCHEMA,
+        "active_attempt_count": {"type": "integer", "minimum": 0},
+        "active_attempt_warnings": {"type": "array", "items": {"type": "string"}},
+        "attempt_endpoint": {"type": "string"},
+        "status": {"type": "string"},
+        "acceptance": {"type": "string"},
+        "created_at": {"type": "string"},
+        "accepted_awards": {
+            "type": "array",
+            "items": _object_schema(
+                {
+                    "proof_hash": LOWERCASE_HEX_64_SCHEMA,
+                    "proof_url": {"type": "string"},
+                    "ledger_sequence": {"type": "integer", "minimum": 1},
+                    "ledger_url": {"type": "string"},
+                    "account": {"type": "string", "nullable": True},
+                    "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+                    "submission_url": {"type": "string", "nullable": True},
+                    "accepted_by": {"type": "string", "nullable": True},
+                    "created_at": {"type": "string"},
+                }
+            ),
+        },
+    }
+)
+
+BOUNTY_SUMMARY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "bounties_shown": {"type": "integer", "minimum": 0},
+        "open_awards": {"type": "integer", "minimum": 0},
+        "open_pool_mrwk": MRWK_DECIMAL_SCHEMA,
+        "effective_open_awards": {"type": "integer", "minimum": 0},
+        "effective_open_pool_mrwk": MRWK_DECIMAL_SCHEMA,
+        "availability_state_counts": {
+            "type": "object",
+            "additionalProperties": {"type": "integer", "minimum": 0},
+        },
+        "pending_payout_awards": {"type": "integer", "minimum": 0},
+        "reduced_capacity_bounties": {"type": "integer", "minimum": 0},
+        "effectively_unavailable_bounties": {"type": "integer", "minimum": 0},
+    }
+)
+
+BOUNTY_ATTEMPTS_LIST_RESPONSE_SCHEMA = _object_schema(
+    {
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "attempts": {"type": "array", "items": BOUNTY_ATTEMPT_RESPONSE_SCHEMA},
+    }
+)
+
+WORK_DISCOVERY_SOURCE_URLS_SCHEMA = _object_schema(
+    {
+        "bounty": {"type": "string"},
+        "attempts": {"type": "string"},
+        "github_issue": {"type": "string", "format": "uri"},
+        "proposal": {"type": "string"},
+    }
+)
+
+WORK_DISCOVERY_ITEM_SCHEMA = _object_schema(
+    {
+        "availability_state": {"type": "string"},
+        "bounty_id": {"type": "integer", "minimum": 1},
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "issue_number": {"type": "integer", "minimum": 1},
+        "title": {"type": "string"},
+        "issue_url": {"type": "string", "format": "uri"},
+        "reward_mrwk": MRWK_DECIMAL_SCHEMA,
+        "max_awards": {"type": "integer", "minimum": 1},
+        "effective_awards_remaining": {"type": "integer", "minimum": 0},
+        "bounty_availability_state": {"type": "string"},
+        "pending_payout_awards": {"type": "integer", "minimum": 0},
+        "executes_after": {"type": "string"},
+        "source_urls": WORK_DISCOVERY_SOURCE_URLS_SCHEMA,
+    }
+)
+
+WORK_DISCOVERY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "type": {"type": "string"},
+        "summary": _object_schema(
+            {
+                "claimable_now_count": {"type": "integer", "minimum": 0},
+                "opening_soon_count": {"type": "integer", "minimum": 0},
+                "not_claimable_count": {"type": "integer", "minimum": 0},
+                "limit": {"type": "integer", "minimum": 1},
+            }
+        ),
+        "state_definitions": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+        },
+        "claimable_now": {"type": "array", "items": WORK_DISCOVERY_ITEM_SCHEMA},
+        "opening_soon": {"type": "array", "items": WORK_DISCOVERY_ITEM_SCHEMA},
+        "not_claimable": {"type": "array", "items": WORK_DISCOVERY_ITEM_SCHEMA},
+        "non_claimable_issue_states": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "availability_state": {"type": "string"},
+                    "repo": {"type": "string"},
+                    "issue_number": {"type": "integer"},
+                    "issue_url": {"type": "string"},
+                    "title": {"type": "string"},
+                    "note": {"type": "string"},
+                },
+            },
+        },
+    }
+)
+
+PUBLIC_BOUNTY_LIST_RESPONSE = {
+    "responses": {
+        "200": _json_response({"type": "array", "items": BOUNTY_RESPONSE_SCHEMA}),
+    },
+}
+
+PUBLIC_BOUNTY_SUMMARY_RESPONSE = {
+    "responses": {
+        "200": _json_response(BOUNTY_SUMMARY_RESPONSE_SCHEMA),
+    },
+}
+
+PUBLIC_BOUNTY_DETAIL_RESPONSE = {
+    "responses": {
+        "200": _json_response(BOUNTY_RESPONSE_SCHEMA),
+    },
+}
+
+PUBLIC_WORK_DISCOVERY_RESPONSE = {
+    "responses": {
+        "200": _json_response(WORK_DISCOVERY_RESPONSE_SCHEMA),
+    },
+}
+
+PUBLIC_BOUNTY_ATTEMPTS_RESPONSE = {
+    "responses": {
+        "200": _json_response(BOUNTY_ATTEMPTS_LIST_RESPONSE_SCHEMA),
+    },
+}
+
 ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
     {
         "status": {"type": "string"},

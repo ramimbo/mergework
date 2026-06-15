@@ -23,6 +23,12 @@ def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict
     ]
 
 
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
 def _assert_properties(schema: dict, expected: Iterable[str]) -> None:
     assert set(expected).issubset(schema["properties"])
 
@@ -363,6 +369,141 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "status",
             "reason",
             "created_at",
+        },
+    )
+
+
+def test_public_get_openapi_response_schemas_expose_bounty_contracts(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    bounty_list_schema = _get_response_schema(openapi, "/api/v1/bounties")
+    assert bounty_list_schema["type"] == "array"
+    bounty_schema = bounty_list_schema["items"]
+    _assert_properties(
+        bounty_schema,
+        {
+            "id",
+            "repo",
+            "issue_number",
+            "issue_url",
+            "title",
+            "reward_mrwk",
+            "available_mrwk",
+            "reserved_mrwk",
+            "max_awards",
+            "awards_paid",
+            "awards_remaining",
+            "effective_available_mrwk",
+            "effective_awards_remaining",
+            "pending_payout_awards",
+            "availability_state",
+            "availability_note",
+            "submission_requirements",
+            "active_attempt_count",
+            "active_attempt_warnings",
+            "attempt_endpoint",
+            "status",
+            "acceptance",
+            "created_at",
+        },
+    )
+    _assert_properties(
+        bounty_schema["properties"]["submission_requirements"],
+        {
+            "submission_mode",
+            "submission_url_kind",
+            "expected_artifact",
+            "attempt_endpoint_applicability",
+            "reference_formats",
+            "claim_command",
+            "attempt_endpoint",
+            "next_actions",
+        },
+    )
+
+    detail_schema = _get_response_schema(openapi, "/api/v1/bounties/{bounty_id}")
+    _assert_properties(detail_schema, {"accepted_awards", "pending_payout_proposals"})
+
+    summary_schema = _get_response_schema(openapi, "/api/v1/bounties/summary")
+    _assert_properties(
+        summary_schema,
+        {
+            "bounties_shown",
+            "open_awards",
+            "open_pool_mrwk",
+            "effective_open_awards",
+            "effective_open_pool_mrwk",
+            "availability_state_counts",
+            "pending_payout_awards",
+            "reduced_capacity_bounties",
+            "effectively_unavailable_bounties",
+        },
+    )
+
+
+def test_public_get_openapi_response_schemas_expose_work_discovery_and_attempts(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    work_discovery_schema = _get_response_schema(openapi, "/api/v1/work-discovery")
+    _assert_properties(
+        work_discovery_schema,
+        {
+            "type",
+            "summary",
+            "state_definitions",
+            "claimable_now",
+            "opening_soon",
+            "not_claimable",
+            "non_claimable_issue_states",
+        },
+    )
+    _assert_properties(
+        work_discovery_schema["properties"]["summary"],
+        {
+            "claimable_now_count",
+            "opening_soon_count",
+            "not_claimable_count",
+            "limit",
+        },
+    )
+    claimable_item_schema = work_discovery_schema["properties"]["claimable_now"]["items"]
+    _assert_properties(
+        claimable_item_schema,
+        {
+            "availability_state",
+            "bounty_id",
+            "issue_number",
+            "title",
+            "issue_url",
+            "reward_mrwk",
+            "max_awards",
+            "effective_awards_remaining",
+            "bounty_availability_state",
+            "pending_payout_awards",
+            "source_urls",
+        },
+    )
+    _assert_properties(claimable_item_schema["properties"]["source_urls"], {"bounty", "attempts"})
+
+    attempts_schema = _get_response_schema(openapi, "/api/v1/bounties/{bounty_id}/attempts")
+    _assert_properties(attempts_schema, {"bounty_id", "warnings", "attempts"})
+    _assert_properties(
+        attempts_schema["properties"]["attempts"]["items"],
+        {
+            "id",
+            "bounty_id",
+            "submitter_account",
+            "source_url",
+            "status",
+            "expires_at",
+            "created_at",
+            "updated_at",
         },
     )
 

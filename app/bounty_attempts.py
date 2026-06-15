@@ -14,7 +14,11 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import LedgerError, validate_public_url
 from app.models import Bounty, BountyAttempt
-from app.openapi_request_bodies import OPTIONAL_ATTEMPT_BODY, OPTIONAL_ATTEMPT_RELEASE_BODY
+from app.openapi_request_bodies import (
+    OPTIONAL_ATTEMPT_BODY,
+    OPTIONAL_ATTEMPT_RELEASE_BODY,
+    PUBLIC_BOUNTY_ATTEMPTS_RESPONSE,
+)
 from app.query_validation import (
     reject_noncanonical_bool_query_param,
     reject_noncanonical_int_query_param,
@@ -249,7 +253,10 @@ def register_bounty_attempt_routes(
             raise HTTPException(status_code=403, detail="submitter_account does not match login")
         return submitter_account
 
-    @app.get("/api/v1/bounties/{bounty_id}/attempts")
+    @app.get(
+        "/api/v1/bounties/{bounty_id}/attempts",
+        openapi_extra=PUBLIC_BOUNTY_ATTEMPTS_RESPONSE,
+    )
     def api_bounty_attempts(
         request: Request,
         bounty_id: str,
