@@ -14,6 +14,7 @@
     <article>
       <span>Status</span>
       <strong class="status-pill status-{{ bounty.status }}">{{ bounty.status }}</strong>
+      <span class="status-pill">{{ bounty.availability_state | replace("_", " ") }}</span>
     </article>
     <article>
       <span>Reward per award</span>

@@ -402,6 +402,13 @@ button { cursor: pointer; color: white; background: var(--accent); border-color:
   margin: 0;
   min-width: 0;
 }
+.bounty-card-pill-group {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .status-open {
   border-color: #86efac;
   color: #166534;
