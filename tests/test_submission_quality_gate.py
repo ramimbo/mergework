@@ -959,6 +959,33 @@ def test_submission_quality_gate_live_bounties_use_api_award_capacity(monkeypatc
     } in result["checks"]
 
 
+def test_submission_quality_gate_warns_when_pr_list_shape_is_invalid(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps({"not": "a list"}),
+                stderr="",
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(submission_quality_gate.subprocess, "run", fake_run)
+    text_path = tmp_path / "draft.md"
+    text_path.write_text(
+        "Summary: work\n\nRefs #319\n\nValidation: pytest passed",
+        encoding="utf-8",
+    )
+
+    assert main(["--text-file", str(text_path), "--format", "json"]) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "warn"
+    assert "gh pr list returned non-list JSON" in output["load_warning"]
+
+
 def test_submission_quality_gate_live_context_preserves_effective_availability(
     monkeypatch,
 ) -> None:

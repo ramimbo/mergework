@@ -12,6 +12,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.api_host_args import require_json_list, require_json_object
 from scripts.bounty_refs import BOUNTY_REF_RE
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
@@ -335,20 +336,23 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def load_live_queue(repo: str) -> dict[str, Any]:
-    prs = _run_gh_json(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            str(GH_PR_SAFETY_CAP),
-            "--json",
-            "number,title,url,body,labels,mergeStateStatus",
-        ]
+    prs = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(GH_PR_SAFETY_CAP),
+                "--json",
+                "number,title,url,body,labels,mergeStateStatus",
+            ]
+        ),
+        source="gh pr list",
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
         raise RuntimeError(
@@ -359,20 +363,23 @@ def load_live_queue(repo: str) -> dict[str, Any]:
         {ref for pr in prs if isinstance(pr, dict) for ref in _bounty_refs(pr)}
     )
     referenced_issue_numbers = set(referenced_issues)
-    issues = _run_gh_json(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "all",
-            "--limit",
-            str(GH_ISSUE_SAFETY_CAP),
-            "--json",
-            "number,title,state,labels",
-        ]
+    issues = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "all",
+                "--limit",
+                str(GH_ISSUE_SAFETY_CAP),
+                "--json",
+                "number,title,state,labels",
+            ]
+        ),
+        source="gh issue list",
     )
     if len(issues) >= GH_ISSUE_SAFETY_CAP:
         raise RuntimeError(
@@ -398,18 +405,21 @@ def load_live_queue(repo: str) -> dict[str, Any]:
         include_comments = number in referenced_issue_numbers
         if include_comments:
             try:
-                viewed_issue = _run_gh_json(
-                    [
-                        "gh",
-                        "issue",
-                        "view",
-                        str(number),
-                        "--repo",
-                        repo,
-                        "--comments",
-                        "--json",
-                        "number,title,state,labels,comments",
-                    ]
+                viewed_issue = require_json_object(
+                    _run_gh_json(
+                        [
+                            "gh",
+                            "issue",
+                            "view",
+                            str(number),
+                            "--repo",
+                            repo,
+                            "--comments",
+                            "--json",
+                            "number,title,state,labels,comments",
+                        ]
+                    ),
+                    source="gh issue view",
                 )
             except RuntimeError:
                 if number not in issues_by_number:

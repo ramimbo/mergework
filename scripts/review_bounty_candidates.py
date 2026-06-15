@@ -7,6 +7,8 @@ import sys
 from collections import Counter
 from typing import Any
 
+from scripts.api_host_args import require_json_list
+
 DIRTY_MERGE_STATES = {"blocked", "conflicting", "dirty"}
 GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
@@ -298,32 +300,35 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def load_live_candidates(repo: str) -> dict[str, Any]:
-    prs = _run_gh_json(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            str(GH_PR_SAFETY_CAP),
-            "--json",
-            ",".join(
-                [
-                    "number",
-                    "title",
-                    "url",
-                    "author",
-                    "headRefOid",
-                    "mergeStateStatus",
-                    "labels",
-                    "statusCheckRollup",
-                    "reviews",
-                ]
-            ),
-        ]
+    prs = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(GH_PR_SAFETY_CAP),
+                "--json",
+                ",".join(
+                    [
+                        "number",
+                        "title",
+                        "url",
+                        "author",
+                        "headRefOid",
+                        "mergeStateStatus",
+                        "labels",
+                        "statusCheckRollup",
+                        "reviews",
+                    ]
+                ),
+            ]
+        ),
+        source="gh pr list",
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
         raise RuntimeError(
