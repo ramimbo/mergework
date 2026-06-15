@@ -71,3 +71,13 @@ def test_main_reports_count_for_all_tracked_agents_files(
 
     output = capsys.readouterr().out
     assert "AGENTS.md files ok (2 checked)" in output
+
+
+def test_tracked_paths_reports_missing_git_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_run(*_args: object, **_kwargs: object) -> object:
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(check_agents.subprocess, "run", fail_run)
+
+    with pytest.raises(RuntimeError, match="git executable not found"):
+        check_agents.tracked_paths()
