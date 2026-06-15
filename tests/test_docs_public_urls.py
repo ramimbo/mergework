@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.docs_smoke import (
     REQUIRED,
+    _validate_issue_template,
     _issue_template_labels,
     _local_target_exists,
     _markdown_anchors,
@@ -529,6 +530,47 @@ body:
 
     assert not _template_field_is_required(template, "evidence")
     assert _template_field_is_required(template, "evidence_extra")
+
+
+def test_validate_issue_template_reports_missing_file(tmp_path: Path) -> None:
+    errors = _validate_issue_template(
+        tmp_path,
+        ".github/ISSUE_TEMPLATE/missing.yml",
+        missing_message="missing template",
+    )
+
+    assert errors == ["missing template"]
+
+
+def test_validate_issue_template_collects_phrase_label_and_field_errors(tmp_path: Path) -> None:
+    template = tmp_path / ".github" / "ISSUE_TEMPLATE" / "bug.yml"
+    template.parent.mkdir(parents=True, exist_ok=True)
+    template.write_text(
+        """
+labels: ["docs"]
+body:
+  - type: textarea
+    id: expected
+    validations:
+      required: false
+""",
+        encoding="utf-8",
+    )
+
+    errors = _validate_issue_template(
+        tmp_path,
+        ".github/ISSUE_TEMPLATE/bug.yml",
+        missing_message="missing bug template",
+        required_phrases=["expected behavior"],
+        required_labels=["bug"],
+        forbidden_labels=["mrwk:bounty"],
+        required_fields=["expected", "actual"],
+    )
+
+    assert ".github/ISSUE_TEMPLATE/bug.yml missing required phrase: expected behavior" in errors
+    assert ".github/ISSUE_TEMPLATE/bug.yml must auto-apply the bug label" in errors
+    assert ".github/ISSUE_TEMPLATE/bug.yml expected field must be required" in errors
+    assert ".github/ISSUE_TEMPLATE/bug.yml actual field must be required" in errors
 
 
 def test_contributing_names_docs_smoke_for_public_docs_changes() -> None:
