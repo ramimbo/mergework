@@ -73,6 +73,12 @@
       </strong>
     </article>
     <article>
+      <span>Source issue activity</span>
+      <strong>
+        <a href="/activity?q={{ ("https://github.com/" ~ proof.repo ~ "/issues/" ~ proof.issue_number) | urlencode }}">Search source issue</a>
+      </strong>
+    </article>
+    <article>
       <span>Submission activity</span>
       <strong>
         <a href="/activity?q={{ proof.submission_url | urlencode }}">Search submission</a>
