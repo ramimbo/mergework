@@ -187,7 +187,13 @@
           </div>
           <div class="ledger-field">
             <dt>Accepted by</dt>
-            <dd>{{ award.accepted_by or "-" }}</dd>
+            <dd>
+              {% if award.accepted_by_account_url %}
+              <a href="{{ award.accepted_by_account_url }}">{{ award.accepted_by }}</a>
+              {% else %}
+              {{ award.accepted_by or "-" }}
+              {% endif %}
+            </dd>
           </div>
         </dl>
       </div>

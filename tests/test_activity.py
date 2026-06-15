@@ -429,6 +429,7 @@ def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
             "bounty_id": pending_bounty_id,
             "bounty_url": f"/bounties/{pending_bounty_id}",
             "accepted_by": "maintainer",
+            "accepted_by_account_url": "/accounts/github:maintainer",
             "proposed_at": proposal_proposed_at,
             "executes_after": proposal_executes_after,
         }
@@ -594,6 +595,7 @@ def test_activity_page_renders_pending_accepted_work(sqlite_url: str) -> None:
     assert "github:alice" in page.text
     assert "125 MRWK" in page.text
     assert 'href="https://github.com/ramimbo/mergework/pull/169"' in page.text
+    assert 'href="/accounts/github:maintainer"' in page.text
     assert "No proof-backed accepted work rows yet." in page.text
     assert "accepted MRWK" in page.text
     assert "pending MRWK" in page.text
