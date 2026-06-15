@@ -156,7 +156,19 @@ WALLET_RESPONSE_SCHEMA = _object_schema(
         "action_urls": WALLET_ACTION_URLS_SCHEMA,
         "next_signed_payloads": WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA,
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "action_urls",
+        "next_signed_payloads",
+        "created_at",
+    ],
 )
 
 LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(
