@@ -7,8 +7,14 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app import openapi_request_bodies
 from app.ledger.service import LedgerError
 from app.mcp_results import MCPTextResult
+
+MCP_WALLET_ACTION_URLS_SCHEMA = openapi_request_bodies.WALLET_ACTION_URLS_SCHEMA
+MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA = openapi_request_bodies.WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
+MCP_WALLET_OUTPUT_SCHEMA = openapi_request_bodies.WALLET_RESPONSE_SCHEMA
+MCP_WALLET_SIGNED_PAYLOAD_SCHEMA = openapi_request_bodies.WALLET_SIGNED_PAYLOAD_SCHEMA
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
 MCP_PROTOCOL_VERSION = "2025-06-18"
@@ -312,33 +318,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["public_key_hex"],
             "additionalProperties": False,
         },
-        "outputSchema": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-                },
-                "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
-                "label": {"type": ["string", "null"]},
-                "github_login": {"type": ["string", "null"]},
-                "balance_mrwk": {"type": "string"},
-                "nonce": {"type": "integer", "minimum": 0},
-                "next_nonce": {"type": "integer", "minimum": 1},
-                "created_at": {"type": "string"},
-            },
-            "required": [
-                "address",
-                "public_key_hex",
-                "label",
-                "github_login",
-                "balance_mrwk",
-                "nonce",
-                "next_nonce",
-                "created_at",
-            ],
-            "additionalProperties": True,
-        },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "get_wallet",
@@ -355,6 +335,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["address"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_wallet_transfer",
@@ -526,7 +507,7 @@ def _classify_value_error(exc: ValueError) -> dict[str, Any] | None:
     Returns a ``{"code", "tool", "field", "message"}`` dict built only from
     the static ``_KNOWN_TOOL_FIELDS`` / ``_KNOWN_FIELD_MESSAGES`` /
     ``_KNOWN_FIELDLESS_MESSAGES`` whitelists when the original message
-    matches, or ``None`` if it does not — in which case the dispatcher
+    matches, or ``None`` if it does not - in which case the dispatcher
     returns the legacy envelope without ``error.data`` so untrusted caller
     input never reaches the response.
 

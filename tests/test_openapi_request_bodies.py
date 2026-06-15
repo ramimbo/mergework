@@ -231,6 +231,8 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
             "balance_mrwk",
             "nonce",
             "next_nonce",
+            "action_urls",
+            "next_signed_payloads",
             "created_at",
         },
     )
@@ -239,6 +241,15 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
     assert wallet_props["address"]["minLength"] == 45
     assert wallet_props["address"]["maxLength"] == 45
     assert wallet_props["label"]["maxLength"] == 160
+    assert set(wallet_props["action_urls"]["required"]) == {
+        "wallet_json",
+        "link_github",
+        "claim_github",
+        "transfer",
+    }
+    wallet_payloads = wallet_props["next_signed_payloads"]
+    assert set(wallet_payloads["required"]) == {"link_github", "claim_github", "transfer"}
+    assert wallet_payloads["properties"]["transfer"]["properties"]["nonce"]["minimum"] == 1
 
     link_wallet_schema = _post_response_schema(openapi, "/api/v1/wallets/link-github")
     _assert_properties(
@@ -251,6 +262,8 @@ def test_public_post_openapi_response_schemas_expose_wallet_transfer_and_attempt
             "balance_mrwk",
             "nonce",
             "next_nonce",
+            "action_urls",
+            "next_signed_payloads",
             "created_at",
         },
     )

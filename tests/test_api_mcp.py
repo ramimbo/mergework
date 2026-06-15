@@ -39,7 +39,7 @@ def _assert_invalid_tool_arguments_envelope(
     ``expected_data`` as a dict to require an exact match, pass
     ``expected_data=None`` to require that no ``data`` key is present, and
     leave it at the default sentinel to make no assertion about the
-    presence of ``data`` at all — useful for tests that do not care about
+    presence of ``data`` at all - useful for tests that do not care about
     the new shape.
     """
     assert response_json["jsonrpc"] == "2.0"
@@ -2916,6 +2916,16 @@ def test_ledger_page_uses_wrapping_entry_cards(sqlite_url: str) -> None:
     assert 'class="table-scroll ledger-table-wrap"' not in ledger
 
 
+def test_mcp_wallet_output_schema_reuses_openapi_contract() -> None:
+    from app import mcp
+    from app import openapi_request_bodies as openapi
+
+    assert mcp.MCP_WALLET_ACTION_URLS_SCHEMA is openapi.WALLET_ACTION_URLS_SCHEMA
+    assert mcp.MCP_WALLET_SIGNED_PAYLOAD_SCHEMA is openapi.WALLET_SIGNED_PAYLOAD_SCHEMA
+    assert mcp.MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA is openapi.WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
+    assert mcp.MCP_WALLET_OUTPUT_SCHEMA is openapi.WALLET_RESPONSE_SCHEMA
+
+
 def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
@@ -2948,6 +2958,10 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert register_tool["inputSchema"]["additionalProperties"] is False
     assert set(register_tool["outputSchema"]["required"]) == set(registered_wallet)
     assert set(register_tool["outputSchema"]["properties"]) == set(registered_wallet)
+    assert registered_wallet["action_urls"]["wallet_json"] == (
+        f"/api/v1/wallets/{registered_wallet['address']}"
+    )
+    assert registered_wallet["next_signed_payloads"]["link_github"]["nonce"] == 1
 
     fetched = client.post(
         "/mcp",
@@ -2967,6 +2981,11 @@ def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     assert fetched_wallet["address"] == registered_wallet["address"]
     assert fetched_wallet["label"] == "MCP wallet"
     assert fetched_wallet["created_at"] == registered_wallet["created_at"]
+    get_wallet_tool = next(
+        tool for tool in tools["result"]["tools"] if tool["name"] == "get_wallet"
+    )
+    assert set(get_wallet_tool["outputSchema"]["required"]) == set(fetched_wallet)
+    assert set(get_wallet_tool["outputSchema"]["properties"]) == set(fetched_wallet)
 
 
 def test_mcp_wallet_write_tools_reject_unexpected_arguments(sqlite_url: str) -> None:

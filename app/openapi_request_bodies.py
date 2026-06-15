@@ -110,6 +110,40 @@ WALLET_MEMO_SCHEMA = {
     "maxLength": 240,
 }
 
+WALLET_ACTION_URLS_SCHEMA = _object_schema(
+    {
+        "wallet_json": {"type": "string"},
+        "link_github": {"type": "string"},
+        "claim_github": {"type": "string"},
+        "transfer": {"type": "string"},
+    },
+    required=["wallet_json", "link_github", "claim_github", "transfer"],
+)
+
+WALLET_SIGNED_PAYLOAD_SCHEMA = _object_schema(
+    {
+        "type": {"type": "string"},
+        "address": MRWK_WALLET_ADDRESS_SCHEMA,
+        "from_address": MRWK_WALLET_ADDRESS_SCHEMA,
+        "to_address": MRWK_WALLET_ADDRESS_SCHEMA,
+        "github_login": {"type": "string"},
+        "amount_microunits": {"type": "integer", "minimum": 1},
+        "nonce": {"type": "integer", "minimum": 1},
+        "memo": WALLET_MEMO_SCHEMA,
+    },
+    required=["type", "nonce"],
+    description="Canonical signed payload template returned for the wallet's next nonce.",
+)
+
+WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA = _object_schema(
+    {
+        "link_github": WALLET_SIGNED_PAYLOAD_SCHEMA,
+        "claim_github": WALLET_SIGNED_PAYLOAD_SCHEMA,
+        "transfer": WALLET_SIGNED_PAYLOAD_SCHEMA,
+    },
+    required=["link_github", "claim_github", "transfer"],
+)
+
 WALLET_RESPONSE_SCHEMA = _object_schema(
     {
         "address": MRWK_WALLET_ADDRESS_SCHEMA,
@@ -119,8 +153,22 @@ WALLET_RESPONSE_SCHEMA = _object_schema(
         "balance_mrwk": MRWK_DECIMAL_SCHEMA,
         "nonce": {"type": "integer", "minimum": 0},
         "next_nonce": {"type": "integer", "minimum": 1},
+        "action_urls": WALLET_ACTION_URLS_SCHEMA,
+        "next_signed_payloads": WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA,
         "created_at": {"type": "string"},
-    }
+    },
+    required=[
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "action_urls",
+        "next_signed_payloads",
+        "created_at",
+    ],
 )
 
 LEDGER_ENTRY_RESPONSE_SCHEMA = _object_schema(

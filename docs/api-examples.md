@@ -707,6 +707,34 @@ The registration response uses the same public wallet shape as
   "balance_mrwk": "0",
   "nonce": 0,
   "next_nonce": 1,
+  "action_urls": {
+    "wallet_json": "/api/v1/wallets/mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+    "link_github": "/api/v1/wallets/link-github",
+    "claim_github": "/api/v1/github/claim",
+    "transfer": "/api/v1/transfers"
+  },
+  "next_signed_payloads": {
+    "link_github": {
+      "type": "mrwk_link_github_v1",
+      "address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "github_login": "signed-in-github-login",
+      "nonce": 1
+    },
+    "claim_github": {
+      "type": "mrwk_claim_github_v1",
+      "address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "github_login": "signed-in-github-login",
+      "nonce": 1
+    },
+    "transfer": {
+      "type": "mrwk_transfer_v1",
+      "from_address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "to_address": "mrwk10000000000000000000000000000000000000000",
+      "amount_microunits": 1000000,
+      "nonce": 1,
+      "memo": ""
+    }
+  },
   "created_at": "2026-05-24T20:00:00"
 }
 ```
@@ -714,8 +742,11 @@ The registration response uses the same public wallet shape as
 Link a registered wallet to the current GitHub login. The GitHub login comes
 from the signed-in session cookie, not the request body. Sign the canonical
 wallet-link payload for the wallet's `next_nonce` with the wallet private key;
-do not send the private key to MergeWork. The signed payload is compact ASCII
-JSON with sorted keys and includes the authenticated GitHub login:
+do not send the private key to MergeWork. Wallet JSON includes
+`next_signed_payloads.link_github` as the canonical payload shape to sign; before
+signing, replace the example `signed-in-github-login` value with the
+authenticated GitHub login. The signed payload is compact ASCII JSON with sorted
+keys and includes the authenticated GitHub login:
 
 ```json
 {"address":"<registered_mrwk1_address>","github_login":"<signed_in_github_login>","nonce":1,"type":"mrwk_link_github_v1"}
@@ -740,6 +771,34 @@ The link response uses the same public wallet shape as
   "balance_mrwk": "0",
   "nonce": 1,
   "next_nonce": 2,
+  "action_urls": {
+    "wallet_json": "/api/v1/wallets/mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+    "link_github": "/api/v1/wallets/link-github",
+    "claim_github": "/api/v1/github/claim",
+    "transfer": "/api/v1/transfers"
+  },
+  "next_signed_payloads": {
+    "link_github": {
+      "type": "mrwk_link_github_v1",
+      "address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "github_login": "tatelyman",
+      "nonce": 2
+    },
+    "claim_github": {
+      "type": "mrwk_claim_github_v1",
+      "address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "github_login": "tatelyman",
+      "nonce": 2
+    },
+    "transfer": {
+      "type": "mrwk_transfer_v1",
+      "from_address": "mrwk102d449a31fbb267c8f352e9968a79e3e5fc95c1b",
+      "to_address": "mrwk10000000000000000000000000000000000000000",
+      "amount_microunits": 1000000,
+      "nonce": 2,
+      "memo": ""
+    }
+  },
   "created_at": "2026-05-24T20:00:00"
 }
 ```
@@ -1144,9 +1203,9 @@ Filter by PR body references (`Bounty #N` or `Refs #N`) to find scope-alike PRs 
 
 Before opening work on a bounty round:
 
-1. **Check the live bounty API** — if `status` is not `"open"`, `availability_state` is not `"open"`, or `effective_awards_remaining` is zero, the round is exhausted, blocked by pending payout work, or closed and no new work will be accepted.
-2. **Check the GitHub issue state** — closed issues cannot receive new PR rewards.
-3. **Check for recent maintainer comments** — if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
-4. **Verify stale rounds** — a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.
+1. **Check the live bounty API** - if `status` is not `"open"`, `availability_state` is not `"open"`, or `effective_awards_remaining` is zero, the round is exhausted, blocked by pending payout work, or closed and no new work will be accepted.
+2. **Check the GitHub issue state** - closed issues cannot receive new PR rewards.
+3. **Check for recent maintainer comments** - if a maintainer has marked the bounty as superseded or redirected work elsewhere, that is authoritative.
+4. **Verify stale rounds** - a round is stale when the bounty text, latest maintainer comment, or open PR queue suggests the requested work is already handled, no longer needed, or no longer being reviewed. Do not target stale rounds unless a maintainer explicitly redirects the work.
 
 Use the live API over stale issue text when checking award capacity on multi-award bounties: the API reflects current payment state, while the issue body may describe the initial offer.
