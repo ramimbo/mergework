@@ -9,13 +9,11 @@ from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import load_public_json, public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
 
 
@@ -567,9 +565,8 @@ def _load_issue_maintainer_activity(repo: str, issue_number: int) -> dict[str, A
 
 def _load_json_url(url: str, *, description: str) -> Any:
     try:
-        with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (HTTPError, OSError, URLError, json.JSONDecodeError) as exc:
+        return load_public_json(url, timeout_seconds=GH_TIMEOUT_SECONDS)
+    except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"{description} unavailable: {exc}") from exc
 
 

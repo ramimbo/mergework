@@ -5,9 +5,7 @@ import json
 import re
 import subprocess
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, cast
@@ -15,7 +13,7 @@ from typing import Any, cast
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import load_public_json, public_api_host
 
 
 def _positive_int(value: str) -> int:
@@ -422,9 +420,11 @@ def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
 
 
 def _load_public_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"User-Agent": "mergework-proposed-work-triage"})
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-        return json.load(response)
+    return load_public_json(
+        url,
+        timeout_seconds=HTTP_TIMEOUT_SECONDS,
+        user_agent="mergework-proposed-work-triage",
+    )
 
 
 def _load_public_bounty_issue(
@@ -434,7 +434,7 @@ def _load_public_bounty_issue(
     warnings: list[str] = []
     try:
         rows = _load_public_json(f"{api_host.rstrip('/')}/api/v1/bounties?{query}")
-    except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError) as exc:
         warnings.append(
             "payment_state_incomplete: failed to load public bounty list "
             f"for issue #{issue_number} ({type(exc).__name__})"
@@ -449,7 +449,7 @@ def _load_public_bounty_issue(
             continue
         try:
             detail = _load_public_json(f"{api_host.rstrip('/')}/api/v1/bounties/{bounty_id}")
-        except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             warnings.append(
                 "payment_state_incomplete: failed to load public bounty "
                 f"detail for bounty {bounty_id}; using list row only ({type(exc).__name__})"
