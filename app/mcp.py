@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 
 from app.ledger.service import LedgerError
 from app.mcp_results import MCPTextResult
-
+from app.openapi_request_bodies import (
+    WALLET_ACTION_URLS_SCHEMA as MCP_WALLET_ACTION_URLS_SCHEMA,
+    WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA as MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA,
+    WALLET_RESPONSE_SCHEMA as MCP_WALLET_OUTPUT_SCHEMA,
+    WALLET_SIGNED_PAYLOAD_SCHEMA as MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
+)
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}
@@ -117,87 +122,6 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     },
     "required": ["bounty_id", "issue_number", "status", "warnings", "attempts"],
     "additionalProperties": False,
-}
-
-MCP_WALLET_ACTION_URLS_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "wallet_json": {"type": "string"},
-        "link_github": {"type": "string"},
-        "claim_github": {"type": "string"},
-        "transfer": {"type": "string"},
-    },
-    "required": ["wallet_json", "link_github", "claim_github", "transfer"],
-    "additionalProperties": False,
-}
-
-MCP_WALLET_SIGNED_PAYLOAD_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "description": "Canonical signed payload template returned for the wallet's next nonce.",
-    "properties": {
-        "type": {"type": "string"},
-        "address": {
-            "type": "string",
-            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-        },
-        "from_address": {
-            "type": "string",
-            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-        },
-        "to_address": {
-            "type": "string",
-            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-        },
-        "github_login": {"type": "string"},
-        "amount_microunits": {"type": "integer", "minimum": 1},
-        "nonce": {"type": "integer", "minimum": 1},
-        "memo": {"type": "string"},
-    },
-    "required": ["type", "nonce"],
-    "additionalProperties": True,
-}
-
-MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "link_github": MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
-        "claim_github": MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
-        "transfer": MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
-    },
-    "required": ["link_github", "claim_github", "transfer"],
-    "additionalProperties": False,
-}
-
-MCP_WALLET_OUTPUT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "address": {
-            "type": "string",
-            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-        },
-        "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
-        "label": {"type": ["string", "null"]},
-        "github_login": {"type": ["string", "null"]},
-        "balance_mrwk": {"type": "string"},
-        "nonce": {"type": "integer", "minimum": 0},
-        "next_nonce": {"type": "integer", "minimum": 1},
-        "action_urls": MCP_WALLET_ACTION_URLS_SCHEMA,
-        "next_signed_payloads": MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA,
-        "created_at": {"type": "string"},
-    },
-    "required": [
-        "address",
-        "public_key_hex",
-        "label",
-        "github_login",
-        "balance_mrwk",
-        "nonce",
-        "next_nonce",
-        "action_urls",
-        "next_signed_payloads",
-        "created_at",
-    ],
-    "additionalProperties": True,
 }
 
 MCP_TOOLS: list[dict[str, Any]] = [
