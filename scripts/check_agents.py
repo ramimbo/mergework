@@ -16,13 +16,16 @@ def find_casefold_collisions(paths: list[str]) -> list[list[str]]:
 
 
 def tracked_paths() -> list[str]:
-    result = subprocess.run(
-        ["git", "ls-files"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError("git ls-files failed") from exc
     return [line for line in result.stdout.splitlines() if line]
 
 
