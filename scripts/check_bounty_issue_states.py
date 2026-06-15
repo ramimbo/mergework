@@ -12,7 +12,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import nonblank_text, public_api_host
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
@@ -228,8 +228,16 @@ def main(argv: list[str] | None = None) -> int:
         description="Verify open public MergeWork bounty rows still have open GitHub issues."
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", help="Read bounties and issues from a JSON fixture.")
-    source.add_argument("--repo", help="GitHub repository, for example ramimbo/mergework.")
+    source.add_argument(
+        "--input",
+        type=lambda value: nonblank_text(value, label="input path"),
+        help="Read bounties and issues from a JSON fixture.",
+    )
+    source.add_argument(
+        "--repo",
+        type=lambda value: nonblank_text(value, label="repo"),
+        help="GitHub repository, for example ramimbo/mergework.",
+    )
     parser.add_argument("--api-host", type=public_api_host, default=DEFAULT_API_HOST)
     parser.add_argument("--format", choices=["json", "text"], default="text")
     parser.add_argument("--fail-on-issues", action="store_true")
@@ -240,10 +248,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    data = _load_input(args.input) if args.input else load_live_data(args.repo, args.api_host)
+    use_input = args.input is not None
+    data = _load_input(args.input) if use_input else load_live_data(args.repo, args.api_host)
     report = analyze_issue_states(data)
     if args.fix:
-        if args.input:
+        if use_input:
             raise SystemExit("--fix requires --repo, not --input")
         reopen_violations(args.repo, report["violations"])
         data = load_live_data(args.repo, args.api_host)

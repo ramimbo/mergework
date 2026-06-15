@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import check_bounty_issue_states
 from scripts.check_bounty_issue_states import analyze_issue_states, main
 
@@ -109,3 +111,19 @@ def test_issue_state_check_fix_reopens_closed_issues(monkeypatch) -> None:
     )
 
     assert calls == [["gh", "issue", "reopen", "936", "--repo", "ramimbo/mergework"]]
+
+
+@pytest.mark.parametrize(
+    ("flag", "value", "message"),
+    [
+        ("--input", "", "input path must be a non-empty string"),
+        ("--input", "   ", "input path must be a non-empty string"),
+        ("--repo", "   ", "repo must be a non-empty string"),
+    ],
+)
+def test_issue_state_check_rejects_blank_source_values(flag, value, message, capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([flag, value])
+
+    assert exc_info.value.code == 2
+    assert message in capsys.readouterr().err

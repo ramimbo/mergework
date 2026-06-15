@@ -12,7 +12,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import nonblank_text, public_api_host
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
@@ -226,8 +226,16 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", help="Read bounties and pull_requests from a JSON fixture.")
-    source.add_argument("--repo", help="GitHub repository, for example ramimbo/mergework.")
+    source.add_argument(
+        "--input",
+        type=lambda value: nonblank_text(value, label="input path"),
+        help="Read bounties and pull_requests from a JSON fixture.",
+    )
+    source.add_argument(
+        "--repo",
+        type=lambda value: nonblank_text(value, label="repo"),
+        help="GitHub repository, for example ramimbo/mergework.",
+    )
     parser.add_argument("--api-host", type=public_api_host, default=DEFAULT_API_HOST)
     parser.add_argument("--state", choices=["open", "closed", "merged", "all"], default="open")
     parser.add_argument("--pr", type=int, action="append", default=[], help="Specific PR to check.")
@@ -237,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
 
     data = (
         _load_input(args.input)
-        if args.input
+        if args.input is not None
         else load_live_data(args.repo, args.api_host, args.state, args.pr)
     )
     report = analyze_closing_refs(data)

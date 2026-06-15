@@ -32,6 +32,8 @@ def test_me_page_context_defaults_for_anonymous_user(sqlite_url: str) -> None:
         "github_login": None,
         "github_balance_mrwk": "0",
         "linked_wallet_address": "",
+        "github_account_url": "",
+        "linked_wallet_url": "",
     }
 
 
@@ -57,4 +59,6 @@ def test_me_page_context_reports_balance_and_linked_wallet(sqlite_url: str) -> N
         "github_login": "alice",
         "github_balance_mrwk": "4",
         "linked_wallet_address": address,
+        "github_account_url": "/accounts/github:alice",
+        "linked_wallet_url": f"/wallets/{address}",
     }
