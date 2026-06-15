@@ -4,6 +4,13 @@ import argparse
 import urllib.parse
 
 
+def nonblank_text(value: str, *, label: str) -> str:
+    clean = value.strip()
+    if not clean:
+        raise argparse.ArgumentTypeError(f"{label} must be a non-empty string")
+    return clean
+
+
 def public_http_url(value: str, *, label: str = "URL", forbid_credentials: bool = False) -> str:
     clean = value.strip()
     if not clean:
