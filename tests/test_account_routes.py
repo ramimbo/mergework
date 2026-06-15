@@ -192,7 +192,7 @@ def test_account_routes_expose_pending_payouts_separately_from_paid_work(
         "latest_submission_url": "https://github.com/ramimbo/mergework/pull/181",
         "latest_proof_hash": proof.hash,
         "latest_proof_url": f"/proofs/{proof.hash}",
-        "latest_proof_public_url": f"https://mrwk.online/proofs/{proof.hash}",
+        "latest_proof_public_url": f"https://mrwk.ltclab.site/proofs/{proof.hash}",
     }
     assert account_api["pending_summary"] == {
         "pending_awards": 1,

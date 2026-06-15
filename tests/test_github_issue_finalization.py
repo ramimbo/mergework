@@ -41,7 +41,7 @@ def test_pending_create_bounty_comment_includes_execution_time_without_open_clai
     )
 
     assert "Status: pending `create_bounty` proposal. This issue is not claimable yet." in body
-    assert "Proposal: https://api.mrwk.online/api/v1/treasury/proposals/125" in body
+    assert "Proposal: https://api.mrwk.ltclab.site/api/v1/treasury/proposals/125" in body
     assert "Earliest execution: 2026-06-03T11:41:52Z" in body
     assert "`mrwk:bounty`" in body
     assert "claims-open comment" in body

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_claim_inventory_uses_canonical_api_host_by_default() -> None:
-    assert claim_inventory.DEFAULT_API_HOST == "https://api.mrwk.online"
+    assert claim_inventory.DEFAULT_API_HOST == "https://api.mrwk.ltclab.site"
 
 
 def _fixture() -> dict[str, object]:
@@ -296,8 +296,8 @@ def test_claim_inventory_markdown_report_is_pasteable() -> None:
     assert "| Status | Bounty | Claimant | Type | Source | Proof/Pending |" in markdown
     assert "`already_paid`" in markdown
     assert "`pending_payout`" in markdown
-    assert "https://api.mrwk.online/proofs/abc123" in markdown
-    assert "https://api.mrwk.online/api/v1/treasury/proposals/67" in markdown
+    assert "https://api.mrwk.ltclab.site/proofs/abc123" in markdown
+    assert "https://api.mrwk.ltclab.site/api/v1/treasury/proposals/67" in markdown
 
 
 def test_claim_inventory_paid_proof_overrides_pending_payout() -> None:

@@ -81,7 +81,7 @@ STOPWORDS = {
 }
 GH_TIMEOUT_SECONDS = 30
 HTTP_TIMEOUT_SECONDS = 30
-DEFAULT_API_HOST = "https://api.mrwk.online"
+DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 DEFAULT_PAYMENT_BOUNTY_ISSUE_NUMBERS = (649, 722)
 LIVE_ISSUE_SEARCHES = (
     "label:proposed-work",

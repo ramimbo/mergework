@@ -20,8 +20,8 @@ def test_readme_lists_live_and_legacy_urls() -> None:
     assert "https://mrwk.online" in readme
     assert "https://api.mrwk.online" in readme
     assert "https://mcp.mrwk.online" in readme
-    assert "https://mrwk.online/activity" in readme
-    assert "Legacy-compatible endpoints" in readme
+    assert "https://mrwk.ltclab.site/activity" in readme
+    assert "Historical host aliases" in readme
     assert "https://mrwk.ltclab.site" in readme
     assert "https://api.mrwk.ltclab.site" in readme
     assert "https://mcp.mrwk.ltclab.site" in readme
@@ -36,11 +36,11 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
     assert "source of truth for MRWK bounty payments" in paid
     assert "not manually updated for" in paid
     assert "every payout" in paid
-    assert "https://mrwk.online/activity" in paid
-    assert "https://api.mrwk.online/api/v1/activity" in paid
-    assert "Legacy-compatible endpoints remain available" in paid
     assert "https://mrwk.ltclab.site/activity" in paid
     assert "https://api.mrwk.ltclab.site/api/v1/activity" in paid
+    assert "Historical host aliases" in paid
+    assert "https://mrwk.online/activity" in paid
+    assert "https://api.mrwk.online/api/v1/activity" in paid
     assert "GET /api/v1/bounties/{id}" in paid
     assert "GET /api/v1/proofs/{proof_hash}" in paid
     assert "https://github.com/ramimbo/mergework/discussions/16" in paid
@@ -50,11 +50,11 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
 def test_api_examples_document_internal_bounty_ids() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
-    assert "API_HOST=https://api.mrwk.online" in examples
-    assert "MCP_HOST=https://mcp.mrwk.online" in examples
-    assert "https://api.mrwk.ltclab.site" in examples
-    assert "https://mcp.mrwk.ltclab.site" in examples
-    assert "legacy-compatible" in examples
+    assert "API_HOST=https://api.mrwk.ltclab.site" in examples
+    assert "MCP_HOST=https://mcp.mrwk.ltclab.site" in examples
+    assert "Historical host aliases" in examples
+    assert "https://api.mrwk.online" in examples
+    assert "https://mcp.mrwk.online" in examples
     assert "/api/v1/bounties/<bounty_id>" in examples
     assert '"name":"get_bounty"' in examples
     assert '"arguments":{"id":11}' in examples
@@ -303,6 +303,19 @@ def test_docs_document_public_work_discovery_endpoint() -> None:
     assert '"availability_state": "pending_create"' in examples
 
 
+def test_agent_guide_uses_current_public_hosts() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "API_HOST=https://api.mrwk.ltclab.site" in guide
+    assert "MCP_HOST=https://mcp.mrwk.ltclab.site" in guide
+    assert "https://mrwk.ltclab.site/auth/github/login?next=/me" in guide
+    assert "Historical API host aliases" in guide
+    assert "Historical MCP host aliases" in guide
+    assert "API_HOST=https://api.mrwk.online" not in guide
+    assert "MCP_HOST=https://mcp.mrwk.online" not in guide
+    assert "https://mrwk.online/auth/github/login?next=/me" not in guide
+
+
 def test_admin_runbook_warns_to_validate_production_admin_token() -> None:
     runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
 
@@ -318,6 +331,18 @@ def test_admin_runbook_documents_production_treasury_executor() -> None:
     assert "uses the production `.env`" in runbook
     assert "docker compose logs -f treasury-executor" in runbook
     assert "Verify `result.github_issue_finalization`" in runbook
+
+
+def test_admin_runbook_uses_current_public_hosts() -> None:
+    runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
+
+    assert "https://api.mrwk.ltclab.site/api/v1/treasury/status" in runbook
+    assert "Proposal: https://api.mrwk.ltclab.site/api/v1/treasury/proposals/" in runbook
+    assert "https://api.mrwk.ltclab.site/api/v1/admin/webhook-events?limit=1" in runbook
+    assert "`https://mrwk.ltclab.site/auth/github/callback`" in runbook
+    assert "Historical admin API host aliases" in runbook
+    assert "https://api.mrwk.online/api/v1/treasury/status" not in runbook
+    assert "https://api.mrwk.online/api/v1/admin/webhook-events?limit=1" not in runbook
 
 
 def test_api_examples_document_bounty_list_response_shape() -> None:
@@ -581,8 +606,8 @@ def test_api_examples_document_accepted_work_bounty_context() -> None:
     assert "/api/v1/accounts/github:carpedkm/accepted-work" in examples
     assert '"bounty_id": 67' in examples
     assert '"bounty_url": "/bounties/67"' in examples
-    assert '"bounty_public_url": "https://mrwk.online/bounties/67"' in examples
-    assert '"latest_proof_public_url": "https://mrwk.online/proofs/' in examples
-    assert '"ledger_public_url": "https://mrwk.online/ledger/682"' in examples
+    assert '"bounty_public_url": "https://mrwk.ltclab.site/bounties/67"' in examples
+    assert '"latest_proof_public_url": "https://mrwk.ltclab.site/proofs/' in examples
+    assert '"ledger_public_url": "https://mrwk.ltclab.site/ledger/682"' in examples
     assert "internal bounty id and public bounty URL" in examples
     assert "Relative URL fields are preserved for existing clients" in examples
