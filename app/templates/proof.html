@@ -37,7 +37,13 @@
     <dt>MergeWork bounty</dt>
     <dd><a href="/bounties/{{ proof.bounty_id }}">#{{ proof.bounty_id }}</a></dd>
     <dt>Accepted by</dt>
-    <dd>{{ proof.accepted_by }}</dd>
+    <dd>
+      {% if proof_accepted_by_account_url %}
+      <a href="{{ proof_accepted_by_account_url }}">{{ proof.accepted_by }}</a>
+      {% else %}
+      {{ proof.accepted_by }}
+      {% endif %}
+    </dd>
     <dt>Paid to</dt>
     <dd><a href="/accounts/{{ proof.to_account }}">{{ proof.to_account }}</a></dd>
     <dt>Amount</dt>

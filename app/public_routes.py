@@ -41,6 +41,15 @@ from app.status import (
 WALLET_SEARCH_QUERY_MAX_LENGTH = 500
 
 
+def _github_account_url(login: object) -> str | None:
+    if not isinstance(login, str):
+        return None
+    clean = login.strip().lower()
+    if not clean:
+        return None
+    return f"/accounts/github:{clean}"
+
+
 def _bounty_filter_params(
     status: str | None,
     query_text: str,
@@ -457,10 +466,15 @@ def register_public_routes(
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
         normalized_proof_hash = proof_hash_from_path(proof_hash)
+        proof = api_proof(normalized_proof_hash)
         return templates.TemplateResponse(
             request,
             "proof.html",
-            {"proof": api_proof(normalized_proof_hash), "proof_hash": normalized_proof_hash},
+            {
+                "proof": proof,
+                "proof_hash": normalized_proof_hash,
+                "proof_accepted_by_account_url": _github_account_url(proof.get("accepted_by")),
+            },
         )
 
     @app.get("/docs", response_class=HTMLResponse)

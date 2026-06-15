@@ -2617,6 +2617,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert "ramimbo/mergework #2" in proof_page
     assert proof.hash in proof_page
     assert "maintainer" in proof_page
+    assert 'href="/accounts/github:maintainer"' in proof_page
     assert "github:alice" in proof_page
     assert "Ledger address" in account
     assert account_api["transfer_status"] == (
@@ -2652,6 +2653,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
         "bounty_url": f"/bounties/{bounty.id}",
         "bounty_public_url": f"https://mrwk.online/bounties/{bounty.id}",
         "accepted_by": "maintainer",
+        "accepted_by_account_url": "/accounts/github:maintainer",
         "created_at": "<checked>",
     }
     assert "Claim GitHub balances from /me" in account
@@ -2663,6 +2665,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert 'href="https://github.com/ramimbo/mergework/pull/3"' in account
     assert 'via <a href="/ledger/3">#3</a>' in account
     assert "Accepted work" in account
+    assert 'href="/accounts/github:maintainer"' in account
     assert "Proof-backed bounty payments made to this account." in account
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in account
     assert 'href="https://github.com/ramimbo/mergework/issues/2"' in account

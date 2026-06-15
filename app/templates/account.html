@@ -111,7 +111,13 @@
           </div>
           <div class="ledger-field">
             <dt>Accepted by</dt>
-            <dd>{{ payout.accepted_by or "-" }}</dd>
+            <dd>
+              {% if payout.accepted_by_account_url %}
+              <a href="{{ payout.accepted_by_account_url }}">{{ payout.accepted_by }}</a>
+              {% else %}
+              {{ payout.accepted_by or "-" }}
+              {% endif %}
+            </dd>
           </div>
           <div class="ledger-field">
             <dt>Executes after</dt>
@@ -165,7 +171,13 @@
           </div>
           <div class="ledger-field">
             <dt>Accepted by</dt>
-            <dd>{{ work.accepted_by or "-" }}</dd>
+            <dd>
+              {% if work.accepted_by_account_url %}
+              <a href="{{ work.accepted_by_account_url }}">{{ work.accepted_by }}</a>
+              {% else %}
+              {{ work.accepted_by or "-" }}
+              {% endif %}
+            </dd>
           </div>
         </dl>
       </div>
