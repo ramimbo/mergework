@@ -799,12 +799,15 @@ class _JsonResponse:
 
 
 def test_submission_quality_gate_load_json_url_decodes_response(monkeypatch) -> None:
-    def fake_urlopen(url: str, *, timeout: int) -> _JsonResponse:
+    def fake_load_public_json(
+        url: str, *, timeout_seconds: int, user_agent=None
+    ) -> dict[str, bool]:
         assert url == "https://api.example.test/data"
-        assert timeout == submission_quality_gate.GH_TIMEOUT_SECONDS
-        return _JsonResponse({"ok": True})
+        assert timeout_seconds == submission_quality_gate.GH_TIMEOUT_SECONDS
+        assert user_agent is None
+        return {"ok": True}
 
-    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+    monkeypatch.setattr(submission_quality_gate, "load_public_json", fake_load_public_json)
 
     assert submission_quality_gate._load_json_url(
         "https://api.example.test/data", description="test data"
@@ -812,10 +815,11 @@ def test_submission_quality_gate_load_json_url_decodes_response(monkeypatch) -> 
 
 
 def test_submission_quality_gate_attempts_loader_keeps_contextual_error(monkeypatch) -> None:
-    def fake_urlopen(url: str, *, timeout: int) -> _JsonResponse:
-        return _JsonResponse({"attempts": "not-a-list"})
-
-    monkeypatch.setattr(submission_quality_gate, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        submission_quality_gate,
+        "load_public_json",
+        lambda url, *, timeout_seconds, user_agent=None: {"attempts": "not-a-list"},
+    )
 
     with pytest.raises(RuntimeError, match="MergeWork API attempts data must be a list"):
         submission_quality_gate._load_api_attempts("https://api.example.test", 42)
