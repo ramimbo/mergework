@@ -111,7 +111,13 @@
           </div>
           <div class="ledger-field">
             <dt>Accepted by</dt>
-            <dd>{{ row.accepted_by or "-" }}</dd>
+            <dd>
+              {% if row.accepted_by_account_url %}
+              <a href="{{ row.accepted_by_account_url }}">{{ row.accepted_by }}</a>
+              {% else %}
+              {{ row.accepted_by or "-" }}
+              {% endif %}
+            </dd>
           </div>
           <div class="ledger-field">
             <dt>Executes after</dt>

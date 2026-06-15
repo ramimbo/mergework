@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -26,6 +27,16 @@ from app.submission_requirements import (
 
 PendingBountyProposals = tuple[list[dict[str, Any]], dict[str, Any] | None]
 MRWK_MICROUNITS = Decimal(1_000_000)
+GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+
+
+def _github_account_url(login: Any) -> str | None:
+    if not isinstance(login, str):
+        return None
+    clean = login.strip().lower()
+    if not GITHUB_LOGIN_RE.fullmatch(clean):
+        return None
+    return f"/accounts/github:{clean}"
 
 
 def public_utc_timestamp(value: datetime) -> str:
@@ -164,6 +175,7 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
                 "amount_mrwk": data.get("amount_mrwk"),
                 "submission_url": data.get("submission_url"),
                 "accepted_by": data.get("accepted_by"),
+                "accepted_by_account_url": _github_account_url(data.get("accepted_by")),
                 "created_at": public_utc_timestamp(proof.created_at),
             }
         )
@@ -531,6 +543,7 @@ def _pending_activity_row(
     proposal: TreasuryProposal, payload: dict[str, Any], bounty: Bounty | None
 ) -> dict[str, Any]:
     amount_microunits = bounty.reward_microunits if bounty else 0
+    accepted_by = payload.get("accepted_by")
     return {
         "proposal_id": proposal.id,
         "proposal_url": f"/api/v1/treasury/proposals/{proposal.id}",
@@ -544,7 +557,8 @@ def _pending_activity_row(
         "bounty_issue_url": bounty.issue_url if bounty else None,
         "bounty_id": bounty.id if bounty else _proposal_bounty_id(payload),
         "bounty_url": _bounty_detail_url(bounty.id if bounty else _proposal_bounty_id(payload)),
-        "accepted_by": payload.get("accepted_by"),
+        "accepted_by": accepted_by,
+        "accepted_by_account_url": _github_account_url(accepted_by),
         "proposed_at": public_utc_timestamp(proposal.proposed_at),
         "executes_after": public_utc_timestamp(proposal.executes_after),
     }

@@ -930,6 +930,9 @@ def test_bounty_detail_shows_accepted_award_history(sqlite_url: str) -> None:
         first_proof.hash,
     ]
     assert api_detail["accepted_awards"][0]["account"] == "github:bob"
+    assert (
+        api_detail["accepted_awards"][0]["accepted_by_account_url"] == "/accounts/github:reviewer"
+    )
     assert api_detail["accepted_awards"][0]["submission_url"] == (
         "https://github.com/ramimbo/mergework/pull/202"
     )
@@ -943,6 +946,7 @@ def test_bounty_detail_shows_accepted_award_history(sqlite_url: str) -> None:
     assert f'href="/proofs/{second_proof.hash}"' in page.text
     assert f'href="/ledger/{second_proof.ledger_sequence}"' in page.text
     assert "/accounts/github:bob" in page.text
+    assert 'href="/accounts/github:reviewer"' in page.text
 
 
 def test_bounty_detail_skips_malformed_award_proof_payloads(sqlite_url: str) -> None:
