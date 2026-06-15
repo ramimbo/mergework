@@ -402,6 +402,9 @@ button { cursor: pointer; color: white; background: var(--accent); border-color:
   margin: 0;
   min-width: 0;
 }
+.bounty-card-head .status-pill + .status-pill {
+  margin-left: 8px;
+}
 .status-open {
   border-color: #86efac;
   color: #166534;

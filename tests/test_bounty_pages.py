@@ -51,6 +51,8 @@ def test_bounties_page_renders_and_filters_by_status(sqlite_url: str) -> None:
     assert all_rows.status_code == 200
     assert "Open public bounty" in all_rows.text
     assert "Paid public bounty" in all_rows.text
+    assert '<span class="status-pill">open</span>' in all_rows.text
+    assert '<span class="status-pill">paid</span>' in all_rows.text
     assert f'href="/bounties/{open_bounty.id}"' in all_rows.text
     assert f'aria-label="Bounty action links for {open_bounty.id}"' in all_rows.text
     assert f'href="/api/v1/bounties/{open_bounty.id}">JSON details</a>' in all_rows.text
@@ -195,6 +197,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert "50 MRWK still available before pending proposals" in page.text
     assert "25 MRWK effectively available" in page.text
     assert "1 award covered by pending payout proposal" in page.text
+    assert '<span class="status-pill">pending payouts partial</span>' in page.text
     assert detail.status_code == 200
     assert "<span>Effective remaining</span>" in detail.text
     assert "<span>Effective available</span>" in detail.text
@@ -254,6 +257,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
     assert "90 MRWK still available before pending proposals" in page.text
     assert "0 MRWK effectively available" in page.text
     assert "A pending close proposal would make this bounty unavailable if executed." in page.text
+    assert '<span class="status-pill">pending close</span>' in page.text
     assert detail.status_code == 200
     assert "Visible capacity before pending proposals: 3 awards, 90 MRWK." in detail.text
     assert "Pending treasury proposals" in detail.text
@@ -767,6 +771,7 @@ def test_bounty_detail_highlights_action_fields(sqlite_url: str) -> None:
     assert "<span>Awards</span>" in response.text
     assert "<span>Available</span>" in response.text
     assert "<span>Issue</span>" in response.text
+    assert '<span class="status-pill">open</span>' in response.text
     assert "100 MRWK" in response.text
     assert "What has to be true" in response.text
     assert "Focused PR improves status, reward, issue link, and acceptance text." in response.text
