@@ -922,7 +922,7 @@ def test_me_page_prefills_claim_address_for_linked_wallet(sqlite_url: str, monke
     assert f'value="{address}"' in me
     assert "Claim form is prefilled with your linked wallet." in me
     assert f'href="/wallets/{address}"' in me
-    assert f"Linked wallet: <a href=\"/wallets/{address}\"><code>{address}</code></a>" in me
+    assert f'Linked wallet: <a href="/wallets/{address}"><code>{address}</code></a>' in me
     assert "View linked wallet" in me
 
 

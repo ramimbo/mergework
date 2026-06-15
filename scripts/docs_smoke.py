@@ -249,43 +249,6 @@ def _issue_template_labels(template: str) -> set[str]:
     return labels
 
 
-def _validate_issue_template(
-    root: Path,
-    relative_path: str,
-    *,
-    missing_message: str,
-    required_phrases: list[str] | None = None,
-    required_labels: list[str] | None = None,
-    forbidden_labels: list[str] | None = None,
-    required_fields: list[str] | None = None,
-) -> list[str]:
-    path = root / relative_path
-    if not path.exists():
-        return [missing_message]
-
-    template = path.read_text(encoding="utf-8").lower()
-    labels = _issue_template_labels(template)
-    errors: list[str] = []
-
-    for phrase in required_phrases or []:
-        if phrase not in template:
-            errors.append(f"{relative_path} missing required phrase: {phrase}")
-
-    for label in required_labels or []:
-        if label not in labels:
-            errors.append(f"{relative_path} must auto-apply the {label} label")
-
-    for label in forbidden_labels or []:
-        if label in labels:
-            errors.append(f"{relative_path} must not auto-apply {label}")
-
-    for field_id in required_fields or []:
-        if not _template_field_is_required(template, field_id):
-            errors.append(f"{relative_path} {field_id} field must be required")
-
-    return errors
-
-
 def main() -> int:
     ok = True
     for relative in REQUIRED:
@@ -328,37 +291,56 @@ def main() -> int:
     elif "expected pr size:" not in pr_template.read_text(encoding="utf-8").lower():
         print("pull request template must ask for expected PR size")
         ok = False
-    for error in _validate_issue_template(
-        ROOT,
-        SECURITY_ISSUE_TEMPLATE,
-        missing_message=f"missing security issue template: {SECURITY_ISSUE_TEMPLATE}",
-        required_phrases=[
+    security_issue_template = ROOT / SECURITY_ISSUE_TEMPLATE
+    if not security_issue_template.exists():
+        print(f"missing security issue template: {SECURITY_ISSUE_TEMPLATE}")
+        ok = False
+    else:
+        security_template = security_issue_template.read_text(encoding="utf-8").lower()
+        for phrase in [
             "do not paste exploit details here",
             "follow security.md for private reporting",
             "public-safe summary",
-        ],
-        required_labels=["security"],
-        forbidden_labels=["mrwk:bounty"],
-        required_fields=["summary"],
-    ):
-        print(error)
+        ]:
+            if phrase not in security_template:
+                print(f"security issue template missing required phrase: {phrase}")
+                ok = False
+        if "security" not in _issue_template_labels(security_template):
+            print("security issue template must auto-apply the security label")
+            ok = False
+        if not _template_field_is_required(security_template, "summary"):
+            print("security issue template summary field must be required")
+            ok = False
+        if "mrwk:bounty" in _issue_template_labels(security_template):
+            print("security issue template must not auto-apply mrwk:bounty")
+            ok = False
+    bug_issue_template = ROOT / BUG_ISSUE_TEMPLATE
+    if not bug_issue_template.exists():
+        print(f"missing bug issue template: {BUG_ISSUE_TEMPLATE}")
         ok = False
-    for error in _validate_issue_template(
-        ROOT,
-        BUG_ISSUE_TEMPLATE,
-        missing_message=f"missing bug issue template: {BUG_ISSUE_TEMPLATE}",
-        required_phrases=["expected behavior", "actual behavior", "reproduction"],
-        required_labels=["bug"],
-        forbidden_labels=["mrwk:bounty"],
-        required_fields=["expected", "actual", "reproduce"],
-    ):
-        print(error)
+    else:
+        bug_template = bug_issue_template.read_text(encoding="utf-8").lower()
+        if "bug" not in _issue_template_labels(bug_template):
+            print("bug issue template must auto-apply the bug label")
+            ok = False
+        for field_id in ("expected", "actual", "reproduce"):
+            if not _template_field_is_required(bug_template, field_id):
+                print(f"bug issue template {field_id} field must be required")
+                ok = False
+        for phrase in ["expected behavior", "actual behavior", "reproduction"]:
+            if phrase not in bug_template:
+                print(f"bug issue template missing required phrase: {phrase}")
+                ok = False
+        if "mrwk:bounty" in _issue_template_labels(bug_template):
+            print("bug issue template must not auto-apply mrwk:bounty")
+            ok = False
+    bounty_issue_template = ROOT / ".github/ISSUE_TEMPLATE/bounty.yml"
+    if not bounty_issue_template.exists():
+        print("missing bounty issue template: .github/ISSUE_TEMPLATE/bounty.yml")
         ok = False
-    for error in _validate_issue_template(
-        ROOT,
-        ".github/ISSUE_TEMPLATE/bounty.yml",
-        missing_message="missing bounty issue template: .github/ISSUE_TEMPLATE/bounty.yml",
-        required_phrases=[
+    else:
+        bounty_template = bounty_issue_template.read_text(encoding="utf-8").lower()
+        for phrase in [
             "mrwk bounty: <amount> mrwk - <short scope>",
             "do not add the live bounty label from this template",
             "treasury proposal executes",
@@ -370,12 +352,17 @@ def main() -> int:
             "evidence or tests required",
             "id: out_of_scope",
             "id: duplicate_stale_rules",
-        ],
-        forbidden_labels=["mrwk:bounty"],
-        required_fields=["evidence", "out_of_scope", "duplicate_stale_rules"],
-    ):
-        print(error)
-        ok = False
+        ]:
+            if phrase not in bounty_template:
+                print(f"bounty issue template missing required phrase: {phrase}")
+                ok = False
+        if "mrwk:bounty" in _issue_template_labels(bounty_template):
+            print("bounty issue template must not auto-apply mrwk:bounty")
+            ok = False
+        for field_id in ("evidence", "out_of_scope", "duplicate_stale_rules"):
+            if not _template_field_is_required(bounty_template, field_id):
+                print(f"bounty issue template {field_id} field must be required")
+                ok = False
     proposed_work_template = ROOT / ".github/ISSUE_TEMPLATE/proposed-work.yml"
     if not proposed_work_template.exists():
         print("missing proposed work issue template: .github/ISSUE_TEMPLATE/proposed-work.yml")
