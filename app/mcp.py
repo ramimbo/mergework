@@ -15,6 +15,7 @@ from app.openapi_request_bodies import (
     WALLET_RESPONSE_SCHEMA as MCP_WALLET_OUTPUT_SCHEMA,
     WALLET_SIGNED_PAYLOAD_SCHEMA as MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
 )
+
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_SERVER_INFO = {"name": "mergework", "version": "0.1.0"}

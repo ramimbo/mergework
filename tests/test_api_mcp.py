@@ -2922,11 +2922,10 @@ def test_mcp_wallet_output_schema_reuses_openapi_contract() -> None:
 
     assert mcp.MCP_WALLET_ACTION_URLS_SCHEMA is openapi.WALLET_ACTION_URLS_SCHEMA
     assert mcp.MCP_WALLET_SIGNED_PAYLOAD_SCHEMA is openapi.WALLET_SIGNED_PAYLOAD_SCHEMA
-    assert (
-        mcp.MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
-        is openapi.WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
-    )
+    assert mcp.MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA is openapi.WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
     assert mcp.MCP_WALLET_OUTPUT_SCHEMA is openapi.WALLET_RESPONSE_SCHEMA
+
+
 def test_mcp_can_register_and_fetch_wallet(sqlite_url: str) -> None:
     client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
 
