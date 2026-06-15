@@ -4,17 +4,17 @@ import json
 from collections.abc import Callable
 from typing import Any
 
+from app.ledger.service import LedgerError
+from app.mcp_results import MCPTextResult
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.ledger.service import LedgerError
-from app.mcp_results import MCPTextResult
-from app.openapi_request_bodies import (
-    WALLET_ACTION_URLS_SCHEMA as MCP_WALLET_ACTION_URLS_SCHEMA,
-    WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA as MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA,
-    WALLET_RESPONSE_SCHEMA as MCP_WALLET_OUTPUT_SCHEMA,
-    WALLET_SIGNED_PAYLOAD_SCHEMA as MCP_WALLET_SIGNED_PAYLOAD_SCHEMA,
-)
+from app import openapi_request_bodies
+
+MCP_WALLET_ACTION_URLS_SCHEMA = openapi_request_bodies.WALLET_ACTION_URLS_SCHEMA
+MCP_WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA = openapi_request_bodies.WALLET_NEXT_SIGNED_PAYLOADS_SCHEMA
+MCP_WALLET_OUTPUT_SCHEMA = openapi_request_bodies.WALLET_RESPONSE_SCHEMA
+MCP_WALLET_SIGNED_PAYLOAD_SCHEMA = openapi_request_bodies.WALLET_SIGNED_PAYLOAD_SCHEMA
 
 MCPToolHandler = Callable[[str, str, dict[str, Any]], str | dict[str, Any] | MCPTextResult]
 MCP_PROTOCOL_VERSION = "2025-06-18"
