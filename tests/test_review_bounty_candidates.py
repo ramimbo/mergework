@@ -276,3 +276,18 @@ def test_live_candidates_reports_missing_github_cli(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
         load_live_candidates("ramimbo/mergework")
+
+
+def test_live_candidates_rejects_non_list_payload(monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0] if args else []),
+            returncode=0,
+            stdout=json.dumps({"not": "a list"}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh pr list returned non-list JSON"):
+        load_live_candidates("ramimbo/mergework")

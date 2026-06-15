@@ -546,3 +546,17 @@ def test_pr_queue_health_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="pr list reached the 201 item safety cap"):
         pr_queue_health.load_live_queue("ramimbo/mergework")
+
+
+def test_pr_queue_health_rejects_non_list_pr_payload(monkeypatch) -> None:
+    def fake_run(args, **kwargs):
+        if args[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps({"not": "a list"})
+        else:
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(pr_queue_health.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="gh pr list returned non-list JSON"):
+        pr_queue_health.load_live_queue("ramimbo/mergework")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import urllib.parse
+from typing import Any
 
 
 def public_http_url(value: str, *, label: str = "URL", forbid_credentials: bool = False) -> str:
@@ -21,3 +22,15 @@ def public_api_host(value: str) -> str:
         return public_http_url(value, label="api host")
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+def require_json_list(payload: Any, *, source: str) -> list[Any]:
+    if not isinstance(payload, list):
+        raise RuntimeError(f"{source} returned non-list JSON")
+    return payload
+
+
+def require_json_object(payload: Any, *, source: str) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{source} returned non-object JSON")
+    return payload
