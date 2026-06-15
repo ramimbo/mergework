@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from scripts import proposed_work_triage
 from scripts.proposed_work_triage import _run_gh, analyze_proposed_work, format_markdown, main
 
 
@@ -22,6 +23,10 @@ class FakeResponse:
 
     def read(self) -> bytes:
         return json.dumps(self.payload).encode()
+
+
+def test_proposed_work_triage_uses_current_api_host_by_default() -> None:
+    assert proposed_work_triage.DEFAULT_API_HOST == "https://api.mrwk.ltclab.site"
 
 
 def _complete_body(topic: str = "queue review") -> str:

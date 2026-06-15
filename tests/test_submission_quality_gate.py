@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_submission_quality_gate_uses_canonical_api_host_by_default() -> None:
-    assert submission_quality_gate.DEFAULT_API_HOST == "https://api.mrwk.online"
+    assert submission_quality_gate.DEFAULT_API_HOST == "https://api.mrwk.ltclab.site"
 
 
 def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_path) -> None:

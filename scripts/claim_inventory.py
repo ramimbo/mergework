@@ -18,7 +18,7 @@ if __package__ in {None, ""}:
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE
 
-DEFAULT_API_HOST = "https://api.mrwk.online"
+DEFAULT_API_HOST = "https://api.mrwk.ltclab.site"
 GH_TIMEOUT_SECONDS = 30
 GH_LIMIT = 200
 GITHUB_URL_RE = re.compile(

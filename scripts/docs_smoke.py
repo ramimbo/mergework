@@ -49,6 +49,11 @@ REQUIRED_PUBLIC_PHRASES = {
         "require separate maintainer/contributor discussion before implementation",
     ],
     "docs/agent-guide.md": [
+        "API_HOST=https://api.mrwk.ltclab.site",
+        "MCP_HOST=https://mcp.mrwk.ltclab.site",
+        "https://mrwk.ltclab.site/auth/github/login?next=/me",
+        "Historical API host aliases",
+        "Historical MCP host aliases",
         ("Public reads such as `GET /api/v1/bounties/{id}/attempts` do not require login"),
         ("creating or releasing an attempt requires the GitHub-authenticated browser session"),
         "Proposed work requests are intake issues, not live bounties",
@@ -115,6 +120,10 @@ REQUIRED_PUBLIC_PHRASES = {
         ("Treasury and reserve balances change as bounties are reserved, paid, and released."),
     ],
     "docs/admin-runbook.md": [
+        "https://api.mrwk.ltclab.site/api/v1/treasury/status",
+        "https://api.mrwk.ltclab.site/api/v1/admin/webhook-events?limit=1",
+        "https://mrwk.ltclab.site/auth/github/callback",
+        "Historical admin API host aliases",
         "MERGEWORK_TREASURY_EXECUTOR_ENABLED=1",
         "uses the production `.env`",
         "docker compose logs -f treasury-executor",

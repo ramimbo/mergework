@@ -22,7 +22,7 @@ STALE_PENDING_BOUNTY_STATUS_TEXT = (
     "Status: proposed bounty. This issue is not claimable yet.",
 )
 PAID_BOUNTY_FINALIZATION_COMMENT_MARKER = "<!-- mergework:mrwk:paid-bounty-finalized -->"
-DEFAULT_PUBLIC_API_BASE_URL = "https://api.mrwk.online"
+DEFAULT_PUBLIC_API_BASE_URL = "https://api.mrwk.ltclab.site"
 
 
 def _github_request(

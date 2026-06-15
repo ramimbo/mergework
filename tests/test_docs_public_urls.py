@@ -290,6 +290,19 @@ def test_docs_document_public_work_discovery_endpoint() -> None:
     assert '"availability_state": "pending_create"' in examples
 
 
+def test_agent_guide_uses_current_public_hosts() -> None:
+    guide = Path("docs/agent-guide.md").read_text(encoding="utf-8")
+
+    assert "API_HOST=https://api.mrwk.ltclab.site" in guide
+    assert "MCP_HOST=https://mcp.mrwk.ltclab.site" in guide
+    assert "https://mrwk.ltclab.site/auth/github/login?next=/me" in guide
+    assert "Historical API host aliases" in guide
+    assert "Historical MCP host aliases" in guide
+    assert "API_HOST=https://api.mrwk.online" not in guide
+    assert "MCP_HOST=https://mcp.mrwk.online" not in guide
+    assert "https://mrwk.online/auth/github/login?next=/me" not in guide
+
+
 def test_admin_runbook_warns_to_validate_production_admin_token() -> None:
     runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
 
@@ -305,6 +318,18 @@ def test_admin_runbook_documents_production_treasury_executor() -> None:
     assert "uses the production `.env`" in runbook
     assert "docker compose logs -f treasury-executor" in runbook
     assert "Verify `result.github_issue_finalization`" in runbook
+
+
+def test_admin_runbook_uses_current_public_hosts() -> None:
+    runbook = Path("docs/admin-runbook.md").read_text(encoding="utf-8")
+
+    assert "https://api.mrwk.ltclab.site/api/v1/treasury/status" in runbook
+    assert "Proposal: https://api.mrwk.ltclab.site/api/v1/treasury/proposals/" in runbook
+    assert "https://api.mrwk.ltclab.site/api/v1/admin/webhook-events?limit=1" in runbook
+    assert "`https://mrwk.ltclab.site/auth/github/callback`" in runbook
+    assert "Historical admin API host aliases" in runbook
+    assert "https://api.mrwk.online/api/v1/treasury/status" not in runbook
+    assert "https://api.mrwk.online/api/v1/admin/webhook-events?limit=1" not in runbook
 
 
 def test_api_examples_document_bounty_list_response_shape() -> None:
