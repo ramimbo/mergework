@@ -199,6 +199,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_payout(
     assert "1 award covered by pending payout proposal" in page.text
     assert '<span class="status-pill">pending payouts partial</span>' in page.text
     assert detail.status_code == 200
+    assert '<span class="status-pill">pending payouts partial</span>' in detail.text
     assert "<span>Effective remaining</span>" in detail.text
     assert "<span>Effective available</span>" in detail.text
     assert "Visible capacity before pending proposals: 2 awards, 50 MRWK." in detail.text
@@ -259,6 +260,7 @@ def test_bounties_page_shows_effective_capacity_after_pending_close(
     assert "A pending close proposal would make this bounty unavailable if executed." in page.text
     assert '<span class="status-pill">pending close</span>' in page.text
     assert detail.status_code == 200
+    assert '<span class="status-pill">pending close</span>' in detail.text
     assert "Visible capacity before pending proposals: 3 awards, 90 MRWK." in detail.text
     assert "Pending treasury proposals" in detail.text
     assert f'href="/api/v1/treasury/proposals/{proposal_id}">Proposal #{proposal_id}</a>' in (

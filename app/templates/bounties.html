@@ -77,8 +77,10 @@
   <article class="bounty-card bounty-card--{{ bounty.status }}">
     <div class="bounty-card-head">
       <h2><a href="/bounties/{{ bounty.id }}">{{ bounty.title }}</a></h2>
-      <span class="status-pill status-{{ bounty.status }}">{{ bounty.status }}</span>
-      <span class="status-pill">{{ bounty.availability_state | replace("_", " ") }}</span>
+      <div class="bounty-card-pill-group">
+        <span class="status-pill status-{{ bounty.status }}">{{ bounty.status }}</span>
+        <span class="status-pill">{{ bounty.availability_state | replace("_", " ") }}</span>
+      </div>
     </div>
     <p class="bounty-card-meta">
       {% set issue_url = safe_public_url(bounty.issue_url) %}
