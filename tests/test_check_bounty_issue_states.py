@@ -109,3 +109,18 @@ def test_issue_state_check_fix_reopens_closed_issues(monkeypatch) -> None:
     )
 
     assert calls == [["gh", "issue", "reopen", "936", "--repo", "ramimbo/mergework"]]
+
+
+def test_issue_state_check_run_gh_json_uses_shared_helper(monkeypatch) -> None:
+    calls: list[tuple[list[str], int]] = []
+
+    def fake_run_readonly_gh_json(args: list[str], *, timeout_seconds: int) -> dict[str, bool]:
+        calls.append((args, timeout_seconds))
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        check_bounty_issue_states, "run_readonly_gh_json", fake_run_readonly_gh_json
+    )
+
+    assert check_bounty_issue_states._run_gh_json(["gh", "issue", "list"]) == {"ok": True}
+    assert calls == [(["gh", "issue", "list"], check_bounty_issue_states.GH_TIMEOUT_SECONDS)]

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -12,7 +11,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import public_api_host, run_readonly_gh_json
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
@@ -123,27 +122,7 @@ def format_text_report(report: dict[str, Any]) -> str:
 
 
 def _run_gh_json(args: list[str]) -> Any:
-    command = " ".join(args)
-    try:
-        completed = subprocess.run(
-            args,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "gh command failed "
-            f"(exit {exc.returncode}): {command}\n"
-            f"stdout:\n{exc.stdout or exc.output or ''}\n"
-            f"stderr:\n{exc.stderr or ''}"
-        ) from exc
-    return json.loads(completed.stdout)
+    return run_readonly_gh_json(args, timeout_seconds=GH_TIMEOUT_SECONDS)
 
 
 def _fetch_json(url: str) -> Any:

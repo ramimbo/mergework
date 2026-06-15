@@ -276,3 +276,20 @@ def test_live_candidates_reports_missing_github_cli(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
         load_live_candidates("ramimbo/mergework")
+
+
+def test_review_bounty_candidates_run_gh_json_uses_shared_helper(monkeypatch) -> None:
+    calls: list[tuple[list[str], int]] = []
+
+    def fake_run_readonly_gh_json(args: list[str], *, timeout_seconds: int) -> list[dict[str, int]]:
+        calls.append((args, timeout_seconds))
+        return [{"number": 1}]
+
+    import scripts.review_bounty_candidates as review_bounty_candidates
+
+    monkeypatch.setattr(
+        review_bounty_candidates, "run_readonly_gh_json", fake_run_readonly_gh_json
+    )
+
+    assert review_bounty_candidates._run_gh_json(["gh", "pr", "list"]) == [{"number": 1}]
+    assert calls == [(["gh", "pr", "list"], review_bounty_candidates.GH_TIMEOUT_SECONDS)]
