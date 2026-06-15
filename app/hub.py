@@ -42,6 +42,11 @@ MERGEWORK_CONTRIBUTOR_STARTING_POINTS = (
         "href": "/api/v1/bounties?status=open&availability=effectively_open",
         "description": "Use the public API to verify live status, capacity, and requirements.",
     },
+    {
+        "title": "Work discovery",
+        "href": "/api/v1/work-discovery",
+        "description": "Explore grouped results: claimable bounties, opening-soon proposals, and paid or closed work.",
+    },
 )
 
 

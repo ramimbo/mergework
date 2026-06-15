@@ -189,6 +189,7 @@ def public_bounties_context(
         "selected_limit": limit,
         "selected_availability": selected_availability,
         "limit_options": limit_options,
+        "work_discovery_url": "/api/v1/work-discovery",
         "api_results_url": _bounties_api_url(
             selected_status,
             query_text,

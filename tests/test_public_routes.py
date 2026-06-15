@@ -52,6 +52,7 @@ def test_public_bounties_context_normalizes_filter_state() -> None:
         "selected_limit": None,
         "selected_availability": "all",
         "limit_options": (10, 25, 50, 100, 200),
+        "work_discovery_url": "/api/v1/work-discovery",
         "api_results_url": (
             "/api/v1/bounties?status=open&q=proof&repo=ramimbo%2Fmergework"
             "&issue_number=649&sort=reward"
