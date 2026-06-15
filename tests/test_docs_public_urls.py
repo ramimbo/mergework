@@ -50,11 +50,11 @@ def test_paid_bounties_points_to_authoritative_payment_records() -> None:
 def test_api_examples_document_internal_bounty_ids() -> None:
     examples = Path("docs/api-examples.md").read_text(encoding="utf-8")
 
-    assert "API_HOST=https://api.mrwk.online" in examples
-    assert "MCP_HOST=https://mcp.mrwk.online" in examples
-    assert "https://api.mrwk.ltclab.site" in examples
-    assert "https://mcp.mrwk.ltclab.site" in examples
-    assert "legacy-compatible" in examples
+    assert "API_HOST=https://api.mrwk.ltclab.site" in examples
+    assert "MCP_HOST=https://mcp.mrwk.ltclab.site" in examples
+    assert "Historical host aliases" in examples
+    assert "https://api.mrwk.online" in examples
+    assert "https://mcp.mrwk.online" in examples
     assert "/api/v1/bounties/<bounty_id>" in examples
     assert '"name":"get_bounty"' in examples
     assert '"arguments":{"id":11}' in examples
