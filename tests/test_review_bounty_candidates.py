@@ -278,18 +278,16 @@ def test_live_candidates_reports_missing_github_cli(monkeypatch) -> None:
         load_live_candidates("ramimbo/mergework")
 
 
-def test_review_bounty_candidates_run_gh_json_uses_shared_helper(monkeypatch) -> None:
-    calls: list[tuple[list[str], int]] = []
+def test_live_candidates_rejects_non_list_payload(monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0] if args else []),
+            returncode=0,
+            stdout=json.dumps({"not": "a list"}),
+            stderr="",
+        )
 
-    def fake_run_readonly_gh_json(args: list[str], *, timeout_seconds: int) -> list[dict[str, int]]:
-        calls.append((args, timeout_seconds))
-        return [{"number": 1}]
+    monkeypatch.setattr(subprocess, "run", fake_run)
 
-    import scripts.review_bounty_candidates as review_bounty_candidates
-
-    monkeypatch.setattr(
-        review_bounty_candidates, "run_readonly_gh_json", fake_run_readonly_gh_json
-    )
-
-    assert review_bounty_candidates._run_gh_json(["gh", "pr", "list"]) == [{"number": 1}]
-    assert calls == [(["gh", "pr", "list"], review_bounty_candidates.GH_TIMEOUT_SECONDS)]
+    with pytest.raises(RuntimeError, match="gh pr list returned non-list JSON"):
+        load_live_candidates("ramimbo/mergework")

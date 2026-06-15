@@ -15,7 +15,7 @@ from typing import Any
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import public_api_host, require_json_list, require_json_object
 from scripts.bounty_refs import BOUNTY_REF_RE
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
@@ -547,16 +547,17 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def _load_pr_review_comments(repo: str, pr_number: int) -> list[dict[str, Any]]:
-    raw_comments = _run_gh_json(
-        [
-            "gh",
-            "api",
-            f"repos/{repo}/pulls/{pr_number}/comments?per_page=100",
-        ]
+    raw_comments = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/pulls/{pr_number}/comments?per_page=100",
+            ]
+        ),
+        source="gh api pull review comments",
     )
     comments: list[dict[str, Any]] = []
-    if not isinstance(raw_comments, list):
-        return comments
     for item in raw_comments:
         if not isinstance(item, dict):
             continue
@@ -597,20 +598,23 @@ def load_public_api_state(api_host: str) -> dict[str, Any]:
 
 
 def load_live_inventory(repo: str, api_host: str) -> dict[str, Any]:
-    issue_list = _run_gh_json(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            str(GH_LIMIT),
-            "--json",
-            "number,title,url,labels,author",
-        ]
+    issue_list = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(GH_LIMIT),
+                "--json",
+                "number,title,url,labels,author",
+            ]
+        ),
+        source="gh issue list",
     )
     issues: list[dict[str, Any]] = []
     for issue in issue_list:
@@ -620,52 +624,60 @@ def load_live_inventory(repo: str, api_host: str) -> dict[str, Any]:
             or not _is_bounty_issue(issue)
         ):
             continue
-        issue_view = _run_gh_json(
-            [
-                "gh",
-                "issue",
-                "view",
-                str(issue["number"]),
-                "--repo",
-                repo,
-                "--json",
-                "number,title,url,body,labels,author,comments",
-            ]
+        issue_view = require_json_object(
+            _run_gh_json(
+                [
+                    "gh",
+                    "issue",
+                    "view",
+                    str(issue["number"]),
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,title,url,body,labels,author,comments",
+                ]
+            ),
+            source="gh issue view",
         )
         issues.append(issue_view)
-    prs = _run_gh_json(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            str(GH_LIMIT),
-            "--json",
-            "number,title,url,body,author,labels",
-        ]
+    prs = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(GH_LIMIT),
+                "--json",
+                "number,title,url,body,author,labels",
+            ]
+        ),
+        source="gh pr list",
     )
     pull_requests: list[dict[str, Any]] = []
     for pr in prs:
         if not isinstance(pr, dict) or not isinstance(pr.get("number"), int):
             continue
-        pr_view = _run_gh_json(
-            [
-                "gh",
-                "pr",
-                "view",
-                str(pr["number"]),
-                "--repo",
-                repo,
-                "--json",
-                "number,title,url,body,author,labels,comments,reviews",
-            ]
+        pr_view = require_json_object(
+            _run_gh_json(
+                [
+                    "gh",
+                    "pr",
+                    "view",
+                    str(pr["number"]),
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,title,url,body,author,labels,comments,reviews",
+                ]
+            ),
+            source="gh pr view",
         )
-        if isinstance(pr_view, dict):
-            pr_view["review_comments"] = _load_pr_review_comments(repo, pr["number"])
+        pr_view["review_comments"] = _load_pr_review_comments(repo, pr["number"])
         pull_requests.append(pr_view)
     public_state = load_public_api_state(api_host)
     public_state.update({"issues": issues, "pull_requests": pull_requests})

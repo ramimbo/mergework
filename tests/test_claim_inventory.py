@@ -430,6 +430,18 @@ def test_run_gh_json_reports_missing_gh(monkeypatch) -> None:
         raise AssertionError("expected missing gh RuntimeError")
 
 
+def test_claim_inventory_live_mode_rejects_non_list_issue_list(monkeypatch) -> None:
+    monkeypatch.setattr(claim_inventory, "_run_gh_json", lambda args: {"not": "a list"})
+    monkeypatch.setattr(
+        claim_inventory,
+        "load_public_api_state",
+        lambda api_host: {"bounties": [], "proofs": [], "recent": []},
+    )
+
+    with pytest.raises(RuntimeError, match="gh issue list returned non-list JSON"):
+        claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.example.test")
+
+
 def test_claim_inventory_script_entrypoint_loads_shared_parser() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/claim_inventory.py", "--help"],

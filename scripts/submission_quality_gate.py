@@ -15,7 +15,7 @@ from urllib.request import urlopen
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.api_host_args import public_api_host
+from scripts.api_host_args import public_api_host, require_json_list, require_json_object
 from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
 
 
@@ -533,17 +533,20 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def _load_issue_maintainer_activity(repo: str, issue_number: int) -> dict[str, Any]:
-    issue = _run_gh_json(
-        [
-            "gh",
-            "issue",
-            "view",
-            str(issue_number),
-            "--repo",
-            repo,
-            "--json",
-            "author,comments,createdAt",
-        ]
+    issue = require_json_object(
+        _run_gh_json(
+            [
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--repo",
+                repo,
+                "--json",
+                "author,comments,createdAt",
+            ]
+        ),
+        source="gh issue view",
     )
     activity_times = []
     repo_owner = repo.split("/", 1)[0].lower()
@@ -625,35 +628,41 @@ def _load_live_context(
 ) -> dict[str, Any]:
     load_warnings: list[str] = []
     try:
-        prs = _run_gh_json(
-            [
-                "gh",
-                "pr",
-                "list",
-                "--repo",
-                repo,
-                "--state",
-                "open",
-                "--limit",
-                str(GH_PR_SAFETY_CAP),
-                "--json",
-                "number,title,url,body,state",
-            ]
+        prs = require_json_list(
+            _run_gh_json(
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "open",
+                    "--limit",
+                    str(GH_PR_SAFETY_CAP),
+                    "--json",
+                    "number,title,url,body,state",
+                ]
+            ),
+            source="gh pr list",
         )
-        issues = _run_gh_json(
-            [
-                "gh",
-                "issue",
-                "list",
-                "--repo",
-                repo,
-                "--state",
-                "all",
-                "--limit",
-                str(GH_ISSUE_SAFETY_CAP),
-                "--json",
-                "number,title,state",
-            ]
+        issues = require_json_list(
+            _run_gh_json(
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "all",
+                    "--limit",
+                    str(GH_ISSUE_SAFETY_CAP),
+                    "--json",
+                    "number,title,state",
+                ]
+            ),
+            source="gh issue list",
         )
     except (RuntimeError, FileNotFoundError, json.JSONDecodeError) as exc:
         return {

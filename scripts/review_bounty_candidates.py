@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from collections import Counter
 from typing import Any
 
-from scripts.api_host_args import run_readonly_gh_json
+from scripts.api_host_args import require_json_list
 
 DIRTY_MERGE_STATES = {"blocked", "conflicting", "dirty"}
 GH_TIMEOUT_SECONDS = 30
@@ -270,36 +271,64 @@ def format_markdown_report(report: dict[str, Any]) -> str:
 
 
 def _run_gh_json(args: list[str]) -> Any:
-    return run_readonly_gh_json(args, timeout_seconds=GH_TIMEOUT_SECONDS)
+    command = " ".join(args)
+    try:
+        completed = subprocess.run(
+            args,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=GH_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "GitHub CLI executable 'gh' was not found; install gh and ensure it is on PATH "
+            "before using live --repo mode"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "gh command failed "
+            f"(exit {exc.returncode}): {command}\n"
+            f"stdout:\n{exc.stdout or exc.output or ''}\n"
+            f"stderr:\n{exc.stderr or ''}"
+        ) from exc
+    return json.loads(completed.stdout)
 
 
 def load_live_candidates(repo: str) -> dict[str, Any]:
-    prs = _run_gh_json(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            str(GH_PR_SAFETY_CAP),
-            "--json",
-            ",".join(
-                [
-                    "number",
-                    "title",
-                    "url",
-                    "author",
-                    "headRefOid",
-                    "mergeStateStatus",
-                    "labels",
-                    "statusCheckRollup",
-                    "reviews",
-                ]
-            ),
-        ]
+    prs = require_json_list(
+        _run_gh_json(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(GH_PR_SAFETY_CAP),
+                "--json",
+                ",".join(
+                    [
+                        "number",
+                        "title",
+                        "url",
+                        "author",
+                        "headRefOid",
+                        "mergeStateStatus",
+                        "labels",
+                        "statusCheckRollup",
+                        "reviews",
+                    ]
+                ),
+            ]
+        ),
+        source="gh pr list",
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
         raise RuntimeError(
