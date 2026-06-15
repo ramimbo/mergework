@@ -813,6 +813,8 @@ def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypat
     assert "Signed in as alice." in me
     assert "github:alice" in me
     assert "4 MRWK available to claim" in me
+    assert 'href="/accounts/github:alice"' in me
+    assert "View GitHub account ledger" in me
 
 
 def test_wallet_pages_do_not_require_manual_nonce(sqlite_url: str, monkeypatch) -> None:
@@ -919,6 +921,26 @@ def test_me_page_prefills_claim_address_for_linked_wallet(sqlite_url: str, monke
 
     assert f'value="{address}"' in me
     assert "Claim form is prefilled with your linked wallet." in me
+    assert f'href="/wallets/{address}"' in me
+    assert f"Linked wallet: <a href=\"/wallets/{address}\"><code>{address}</code></a>" in me
+    assert "View linked wallet" in me
+
+
+def test_me_page_explains_next_step_when_no_wallet_is_linked(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+    client = TestClient(
+        create_app(database_url=sqlite_url, webhook_secret="secret"),
+        base_url="https://testserver",
+    )
+    client.cookies.set("mrwk_user", _signed_value("alice", "test-cookie-secret"))
+
+    me = client.get("/me").text
+
+    assert "No wallet is linked yet." in me
+    assert "Register or open a wallet first, then sign the link action here." in me
 
 
 def test_prelinked_wallet_creates_github_account_row(sqlite_url: str) -> None:

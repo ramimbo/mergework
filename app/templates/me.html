@@ -7,6 +7,12 @@
   {% if github_login %}
   <p class="lead">Signed in as {{ github_login }}.</p>
   <p class="notice"><code>github:{{ github_login }}</code> has {{ github_balance_mrwk }} MRWK available to claim.</p>
+  <div class="actions" aria-label="Contributor account shortcuts">
+    <a href="{{ github_account_url }}">View GitHub account ledger</a>
+    {% if linked_wallet_url %}
+    <a href="{{ linked_wallet_url }}">View linked wallet</a>
+    {% endif %}
+  </div>
   <form method="post" action="/auth/logout" class="inline-form">
     <button type="submit">Sign out</button>
   </form>
@@ -22,6 +28,11 @@
 {% if github_login %}
 <section class="panel wallet-tool" data-github-tool data-github-login="{{ github_login }}">
   <h2>Link a wallet</h2>
+  {% if linked_wallet_address %}
+  <p class="notice">Linked wallet: <a href="{{ linked_wallet_url }}"><code>{{ linked_wallet_address }}</code></a></p>
+  {% else %}
+  <p class="notice">No wallet is linked yet. Register or open a wallet first, then sign the link action here.</p>
+  {% endif %}
   <form data-action="link-github">
     <label>Wallet address <input name="address" placeholder="mrwk1..." required></label>
     <label>Private key <textarea name="private_key_hex" rows="5" autocomplete="off" autocapitalize="none" spellcheck="false" required></textarea></label>
