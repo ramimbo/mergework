@@ -200,8 +200,13 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
             return account_api_context(session, account)
 
     @app.get("/api/v1/accounts/{account}/accepted-work")
-    def api_account_accepted_work(account: str) -> dict[str, Any]:
+    def api_account_accepted_work(request: Request, account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
+        reject_unsupported_query_params(
+            request,
+            ("type", "tx_type"),
+            context="account accepted-work JSON",
+        )
         with session_scope(db_url) as session:
             return account_accepted_work_context(session, account)
 

@@ -337,3 +337,27 @@ def test_account_views_reject_malformed_reserve_accounts(sqlite_url: str, accoun
     assert page_resp.status_code == 400
     assert mcp_resp.status_code == 200
     assert mcp_resp.json()["error"]["code"] == -32602
+
+
+def test_api_account_accepted_work_rejects_type(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/github:alice/accepted-work?type=github_claim")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "type is not supported on account accepted-work JSON"
+
+
+def test_api_account_accepted_work_rejects_tx_type(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/github:alice/accepted-work?tx_type=github_claim")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "tx_type is not supported on account accepted-work JSON"
+
+
+def test_api_account_accepted_work_accepts_without_transaction_filter(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/github:alice/accepted-work")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["account"] == "github:alice"
+    assert "accepted_work" in body
+    assert "summary" in body
