@@ -44,6 +44,8 @@ from app.treasury import proposal_to_dict, propose_treasury_action
 from app.work_discovery import (
     DEFAULT_WORK_DISCOVERY_LIMIT,
     MAX_WORK_DISCOVERY_LIMIT,
+    WORK_DISCOVERY_REPO_FILTER_MAX_LENGTH,
+    WORK_DISCOVERY_SEARCH_QUERY_MAX_LENGTH,
     work_discovery_to_dict,
 )
 
@@ -267,15 +269,28 @@ def register_bounty_api_routes(
     @app.get("/api/v1/work-discovery")
     def api_work_discovery(
         request: Request,
+        q: str | None = Query(None, max_length=WORK_DISCOVERY_SEARCH_QUERY_MAX_LENGTH),
+        repo: str | None = Query(None, max_length=WORK_DISCOVERY_REPO_FILTER_MAX_LENGTH),
+        issue_number: Annotated[int | None, Query(ge=1, le=SQLITE_INTEGER_MAX)] = None,
         limit: Annotated[
             int,
             Query(ge=1, le=MAX_WORK_DISCOVERY_LIMIT),
         ] = DEFAULT_WORK_DISCOVERY_LIMIT,
     ) -> dict[str, Any]:
-        reject_repeated_query_param(request, "limit")
-        reject_noncanonical_int_query_param(request, "limit")
+        for name in ("q", "repo", "issue_number", "limit"):
+            reject_repeated_query_param(request, name)
+        for name in ("q", "repo"):
+            reject_control_char_query_param(request, name)
+        for name in ("issue_number", "limit"):
+            reject_noncanonical_int_query_param(request, name)
         with session_scope(db_url) as session:
-            return work_discovery_to_dict(session, limit=limit)
+            return work_discovery_to_dict(
+                session,
+                limit=limit,
+                query_text=q,
+                repo=repo,
+                issue_number=issue_number,
+            )
 
     @app.get("/api/v1/admin/webhook-events")
     def api_admin_webhook_events(

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Bounty, TreasuryProposal
+from app.path_params import issue_number_search_value
 from app.serializers import bounties_to_dict, public_utc_timestamp
 from app.submission_requirements import work_proof_submission_requirements
 from app.treasury import proposal_payload
@@ -14,6 +15,8 @@ DEFAULT_WORK_DISCOVERY_LIMIT = 50
 MAX_WORK_DISCOVERY_LIMIT = 100
 OPEN_BOUNTY_SCAN_PAGE_SIZE = 25
 MAX_OPEN_BOUNTY_SCAN_ROWS = 500
+WORK_DISCOVERY_REPO_FILTER_MAX_LENGTH = 200
+WORK_DISCOVERY_SEARCH_QUERY_MAX_LENGTH = 500
 
 STATE_DEFINITIONS = {
     "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
@@ -68,6 +71,76 @@ def _next_action(requirements: dict[str, Any]) -> dict[str, Any]:
             "text": "Review submission requirements before opening or claiming work.",
         }
     return action
+
+
+def _normalized_text_filter(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalized_repo_filter(value: str | None) -> str | None:
+    normalized = _normalized_text_filter(value)
+    if normalized is None:
+        return None
+    return normalized.lower()
+
+
+def _query_like_value(value: str) -> str:
+    escaped = value.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _filtered_bounty_query(
+    *,
+    query_text: str | None,
+    repo: str | None,
+    issue_number: int | None,
+) -> Any:
+    query = select(Bounty)
+    normalized_query = _normalized_text_filter(query_text)
+    if normalized_query is not None:
+        like_query = _query_like_value(normalized_query)
+        query_issue_number = issue_number_search_value(normalized_query)
+        text_filter = or_(
+            func.lower(Bounty.repo).like(like_query, escape="\\"),
+            func.lower(Bounty.title).like(like_query, escape="\\"),
+            func.lower(Bounty.acceptance).like(like_query, escape="\\"),
+        )
+        if query_issue_number is not None:
+            text_filter = or_(text_filter, Bounty.issue_number == query_issue_number)
+        query = query.where(text_filter)
+    normalized_repo = _normalized_repo_filter(repo)
+    if normalized_repo is not None:
+        query = query.where(func.lower(Bounty.repo) == normalized_repo)
+    if issue_number is not None:
+        query = query.where(Bounty.issue_number == issue_number)
+    return query
+
+
+def _payload_matches_filters(
+    payload: dict[str, Any],
+    *,
+    query_text: str | None,
+    repo: str | None,
+    issue_number: int | None,
+) -> bool:
+    if issue_number is not None and int(payload["issue_number"]) != issue_number:
+        return False
+    normalized_repo = _normalized_repo_filter(repo)
+    if normalized_repo is not None and str(payload.get("repo", "")).lower() != normalized_repo:
+        return False
+    normalized_query = _normalized_text_filter(query_text)
+    if normalized_query is None:
+        return True
+    query_issue_number = issue_number_search_value(normalized_query)
+    if query_issue_number is not None and int(payload["issue_number"]) == query_issue_number:
+        return True
+    needle = normalized_query.lower()
+    return any(
+        needle in str(payload.get(field, "")).lower() for field in ("repo", "title", "acceptance")
+    )
 
 
 def _bounty_work_item(row: dict[str, Any], availability_state: str) -> dict[str, Any]:
@@ -125,6 +198,21 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
     }
 
 
+def _pending_create_matches_filters(
+    proposal: TreasuryProposal,
+    *,
+    query_text: str | None,
+    repo: str | None,
+    issue_number: int | None,
+) -> bool:
+    return _payload_matches_filters(
+        proposal_payload(proposal),
+        query_text=query_text,
+        repo=repo,
+        issue_number=issue_number,
+    )
+
+
 def _append_capped_item(bucket: list[dict[str, Any]], item: dict[str, Any], *, limit: int) -> None:
     if len(bucket) < limit:
         bucket.append(item)
@@ -134,6 +222,9 @@ def _scan_open_bounty_buckets(
     session: Session,
     *,
     limit: int,
+    query_text: str | None,
+    repo: str | None,
+    issue_number: int | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     claimable_now: list[dict[str, Any]] = []
     not_claimable: list[dict[str, Any]] = []
@@ -143,7 +234,11 @@ def _scan_open_bounty_buckets(
 
     while scanned_rows < MAX_OPEN_BOUNTY_SCAN_ROWS:
         batch_limit = min(page_size, MAX_OPEN_BOUNTY_SCAN_ROWS - scanned_rows)
-        query = select(Bounty).where(Bounty.status == "open")
+        query = _filtered_bounty_query(
+            query_text=query_text,
+            repo=repo,
+            issue_number=issue_number,
+        ).where(Bounty.status == "open")
         if last_seen_id is not None:
             query = query.where(Bounty.id < last_seen_id)
         batch = session.scalars(query.order_by(Bounty.id.desc()).limit(batch_limit)).all()
@@ -179,15 +274,30 @@ def work_discovery_to_dict(
     session: Session,
     *,
     limit: int = DEFAULT_WORK_DISCOVERY_LIMIT,
+    query_text: str | None = None,
+    repo: str | None = None,
+    issue_number: int | None = None,
 ) -> dict[str, Any]:
     """Return public read-only work discovery grouped by claimability."""
     capped_limit = max(1, min(limit, MAX_WORK_DISCOVERY_LIMIT))
-    claimable_now, not_claimable = _scan_open_bounty_buckets(session, limit=capped_limit)
+    normalized_query = _normalized_text_filter(query_text)
+    normalized_repo = _normalized_repo_filter(repo)
+    claimable_now, not_claimable = _scan_open_bounty_buckets(
+        session,
+        limit=capped_limit,
+        query_text=normalized_query,
+        repo=normalized_repo,
+        issue_number=issue_number,
+    )
 
     if len(not_claimable) < capped_limit:
         remaining_not_claimable = capped_limit - len(not_claimable)
         terminal_bounties = session.scalars(
-            select(Bounty)
+            _filtered_bounty_query(
+                query_text=normalized_query,
+                repo=normalized_repo,
+                issue_number=issue_number,
+            )
             .where(Bounty.status != "open")
             .order_by(Bounty.id.desc())
             .limit(remaining_not_claimable)
@@ -204,9 +314,20 @@ def work_discovery_to_dict(
         select(TreasuryProposal)
         .where(TreasuryProposal.status == "pending", TreasuryProposal.action == "create_bounty")
         .order_by(TreasuryProposal.executes_after.asc(), TreasuryProposal.id.asc())
-        .limit(capped_limit)
+        .limit(MAX_OPEN_BOUNTY_SCAN_ROWS)
     ).all()
-    opening_soon = [_pending_create_item(proposal) for proposal in pending_create_proposals]
+    opening_soon: list[dict[str, Any]] = []
+    for proposal in pending_create_proposals:
+        if not _pending_create_matches_filters(
+            proposal,
+            query_text=normalized_query,
+            repo=normalized_repo,
+            issue_number=issue_number,
+        ):
+            continue
+        _append_capped_item(opening_soon, _pending_create_item(proposal), limit=capped_limit)
+        if len(opening_soon) >= capped_limit:
+            break
 
     return {
         "type": "work_discovery",
@@ -215,6 +336,11 @@ def work_discovery_to_dict(
             "opening_soon_count": len(opening_soon),
             "not_claimable_count": len(not_claimable),
             "limit": capped_limit,
+        },
+        "filters": {
+            "q": normalized_query,
+            "repo": normalized_repo,
+            "issue_number": issue_number,
         },
         "state_definitions": STATE_DEFINITIONS,
         "claimable_now": claimable_now,

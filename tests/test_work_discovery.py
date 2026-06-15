@@ -305,3 +305,100 @@ def test_work_discovery_scans_open_bounties_in_bounded_pages(
     assert body["claimable_now"][0]["issue_number"] == 989
     assert body["not_claimable"][0]["issue_number"] == 990
     assert batch_sizes == [work_discovery.OPEN_BOUNTY_SCAN_PAGE_SIZE]
+
+
+def test_work_discovery_filters_scope_across_public_buckets(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        target = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=935,
+            issue_url="https://github.com/ramimbo/mergework/issues/935",
+            title="Contributor flow search filters",
+            reward_mrwk="150",
+            max_awards=2,
+            acceptance="Help contributors filter work discovery by issue scope.",
+        )
+        create_bounty(
+            session,
+            repo="other/project",
+            issue_number=935,
+            issue_url="https://github.com/other/project/issues/935",
+            title="Same issue number in another repo",
+            reward_mrwk="20",
+            acceptance="This should not match a MergeWork repo filter.",
+        )
+        pending = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 936,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/936",
+                "title": "Contributor flow opening soon",
+                "reward_mrwk": "75",
+                "max_awards": 1,
+                "acceptance": "Pending create proposal should honor discovery filters.",
+            },
+            proposed_by="maintainer",
+        )
+        closed = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=937,
+            issue_url="https://github.com/ramimbo/mergework/issues/937",
+            title="Contributor flow closed result",
+            reward_mrwk="50",
+            max_awards=1,
+            acceptance="Closed work should stay searchable in not_claimable.",
+        )
+        closed.status = "closed"
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    live = client.get(
+        "/api/v1/work-discovery?repo=RAMIMBO%2FMergeWork&issue_number=935&q=flow"
+    ).json()
+    assert live["filters"] == {
+        "q": "flow",
+        "repo": "ramimbo/mergework",
+        "issue_number": 935,
+    }
+    assert live["summary"]["claimable_now_count"] == 1
+    assert live["claimable_now"][0]["bounty_id"] == target.id
+    assert live["claimable_now"][0]["issue_number"] == 935
+    assert live["opening_soon"] == []
+    assert live["not_claimable"] == []
+
+    opening = client.get("/api/v1/work-discovery?repo=ramimbo%2Fmergework&q=936").json()
+    assert opening["claimable_now"] == []
+    assert opening["opening_soon"][0]["proposal_id"] == pending.id
+    assert opening["opening_soon"][0]["issue_number"] == 936
+
+    not_claimable = client.get("/api/v1/work-discovery?repo=ramimbo%2Fmergework&q=closed").json()
+    assert not_claimable["claimable_now"] == []
+    assert not_claimable["not_claimable"][0]["bounty_id"] == closed.id
+    assert not_claimable["not_claimable"][0]["issue_number"] == 937
+
+
+def test_work_discovery_rejects_ambiguous_filter_params(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    repeated = client.get("/api/v1/work-discovery?q=one&q=two")
+    controlled_repo = client.get("/api/v1/work-discovery?repo=ramimbo%C2%85mergework")
+    noncanonical_issue = client.get("/api/v1/work-discovery?issue_number=0935")
+    noncanonical_limit = client.get("/api/v1/work-discovery?limit=01")
+
+    assert repeated.status_code == 400
+    assert repeated.json()["detail"] == "q must be provided at most once"
+    assert controlled_repo.status_code == 400
+    assert controlled_repo.json()["detail"] == "repo must not contain control characters"
+    assert noncanonical_issue.status_code == 400
+    assert (
+        noncanonical_issue.json()["detail"] == "issue_number must be a canonical positive integer"
+    )
+    assert noncanonical_limit.status_code == 400
+    assert noncanonical_limit.json()["detail"] == "limit must be a canonical positive integer"

@@ -31,6 +31,8 @@ curl -s "$API_HOST/api/v1/bounties/summary?repo=ramimbo%2Fmergework"
 curl -s "$API_HOST/api/v1/bounties/summary?status=open&sort=awards&limit=5"
 curl -s "$API_HOST/api/v1/work-discovery"
 curl -s "$API_HOST/api/v1/work-discovery?limit=10"
+curl -s "$API_HOST/api/v1/work-discovery?repo=ramimbo%2Fmergework&issue_number=935"
+curl -s "$API_HOST/api/v1/work-discovery?q=proof"
 ```
 
 The bounties list returns public bounty rows. `status` can be omitted or set to
@@ -149,10 +151,12 @@ bounty row.
 Use `/api/v1/work-discovery` when an agent needs a single read-only work queue.
 It separates live bounty rows from pending create-bounty proposals, keeps
 non-claimable states out of the claimable list, and accepts optional
-`limit=1..100` to cap each returned bucket:
-Each queue item includes the source `repo` next to `issue_number`, so clients
-do not need to parse GitHub URLs when the same issue number exists in multiple
-repositories.
+`limit=1..100` to cap each returned bucket. Each queue item includes the source
+`repo` next to `issue_number`, so clients do not need to parse GitHub URLs when
+the same issue number exists in multiple repositories. It also accepts `q`,
+`repo`, and `issue_number` filters. Use `repo` plus `issue_number` when a
+contributor starts from one GitHub issue and needs to confirm whether that exact
+scope is claimable:
 
 ```json
 {
@@ -162,6 +166,11 @@ repositories.
     "opening_soon_count": 1,
     "not_claimable_count": 1,
     "limit": 50
+  },
+  "filters": {
+    "q": null,
+    "repo": null,
+    "issue_number": null
   },
   "state_definitions": {
     "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
