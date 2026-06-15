@@ -28,6 +28,11 @@ from app.serializers import (
 from app.wallets import WalletError, normalize_wallet_address
 
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+# Canonical public account identifiers only use ASCII letters, digits, ":" (the
+# treasury:/reserve:/github: prefix separator) and "-" (github login hyphen). Any other
+# character — the URL-encoded special-character class such as "!@#$" — is malformed and
+# must fail closed with a 400, matching the ledger / wallet / bounty path validators (#1083).
+ACCOUNT_ALLOWED_RE = re.compile(r"^[A-Za-z0-9:-]+$")
 ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "bounty_payment", "label": "Bounty payments"},
@@ -55,6 +60,10 @@ def normalized_account(account: str) -> str:
     if contains_control_character(account):
         raise HTTPException(status_code=400, detail="account must not contain control characters")
     clean = account.strip()
+    if not ACCOUNT_ALLOWED_RE.fullmatch(clean):
+        raise HTTPException(
+            status_code=400, detail="account must not contain special characters"
+        )
     lower = clean.lower()
     if lower == TREASURY_ACCOUNT:
         return TREASURY_ACCOUNT

@@ -337,3 +337,30 @@ def test_account_views_reject_malformed_reserve_accounts(sqlite_url: str, accoun
     assert page_resp.status_code == 400
     assert mcp_resp.status_code == 200
     assert mcp_resp.json()["error"]["code"] == -32602
+
+
+def test_api_account_rejects_url_encoded_special_characters(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/%21%40%23%24")  # decodes to !@#$
+    assert resp.status_code == 400
+    assert "special character" in resp.json()["detail"].lower()
+
+
+def test_api_account_accepted_work_rejects_special_characters(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/%21%40%23%24/accepted-work")
+    assert resp.status_code == 400
+    assert "special character" in resp.json()["detail"].lower()
+
+
+def test_account_page_rejects_url_encoded_special_characters(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/accounts/%24%25%5E")  # decodes to $%^
+    assert resp.status_code == 400
+
+
+def test_api_account_accepts_wallet_shaped_account(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+    resp = client.get("/api/v1/accounts/mrwk1" + "a" * 40)
+    assert resp.status_code == 200
+    assert resp.json()["account"] == "mrwk1" + "a" * 40
