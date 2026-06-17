@@ -165,6 +165,144 @@ BOUNTY_ATTEMPT_RESPONSE_SCHEMA = _object_schema(
     }
 )
 
+ACCEPTED_WORK_SUMMARY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "accepted_awards": {"type": "integer", "minimum": 0},
+        "accepted_mrwk": MRWK_DECIMAL_SCHEMA,
+        "latest_ledger_sequence": {"type": "integer", "minimum": 1, "nullable": True},
+        "latest_submission_url": {"type": "string", "nullable": True},
+        "latest_proof_hash": {**LOWERCASE_HEX_64_SCHEMA, "nullable": True},
+        "latest_proof_url": {"type": "string", "nullable": True},
+        "latest_proof_public_url": {"type": "string", "nullable": True},
+    },
+    required=[
+        "accepted_awards",
+        "accepted_mrwk",
+        "latest_ledger_sequence",
+        "latest_submission_url",
+        "latest_proof_hash",
+        "latest_proof_url",
+        "latest_proof_public_url",
+    ],
+)
+
+PENDING_PAYOUT_SUMMARY_RESPONSE_SCHEMA = _object_schema(
+    {
+        "pending_awards": {"type": "integer", "minimum": 0},
+        "pending_mrwk": MRWK_DECIMAL_SCHEMA,
+        "next_executes_after": {"type": "string", "nullable": True},
+    },
+    required=["pending_awards", "pending_mrwk", "next_executes_after"],
+)
+
+PENDING_PAYOUT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "proposal_id": {"type": "integer", "minimum": 1},
+        "proposal_url": {"type": "string"},
+        "status": {"type": "string"},
+        "amount_mrwk": {**MRWK_DECIMAL_SCHEMA, "nullable": True},
+        "bounty_id": {"type": "integer", "minimum": 1, "nullable": True},
+        "bounty_url": {"type": "string", "nullable": True},
+        "repo": {"type": "string", "nullable": True},
+        "issue_number": {"type": "integer", "minimum": 1, "nullable": True},
+        "issue_url": {"type": "string", "nullable": True},
+        "submission_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+        "proposed_at": {"type": "string"},
+        "executes_after": {"type": "string"},
+    },
+    required=[
+        "proposal_id",
+        "proposal_url",
+        "status",
+        "amount_mrwk",
+        "bounty_id",
+        "bounty_url",
+        "repo",
+        "issue_number",
+        "issue_url",
+        "submission_url",
+        "accepted_by",
+        "proposed_at",
+        "executes_after",
+    ],
+)
+
+ACCEPTED_WORK_ROW_RESPONSE_SCHEMA = _object_schema(
+    {
+        "ledger_sequence": {"type": "integer", "minimum": 1},
+        "ledger_url": {"type": "string"},
+        "ledger_public_url": {"type": "string", "nullable": True},
+        "proof_hash": LOWERCASE_HEX_64_SCHEMA,
+        "proof_url": {"type": "string"},
+        "proof_public_url": {"type": "string", "nullable": True},
+        "amount_mrwk": MRWK_DECIMAL_SCHEMA,
+        "submission_url": {"type": "string", "nullable": True},
+        "issue_url": {"type": "string", "nullable": True},
+        "repo": {"type": "string", "nullable": True},
+        "issue_number": {"type": "integer", "minimum": 1, "nullable": True},
+        "bounty_id": {"type": "integer", "minimum": 1, "nullable": True},
+        "bounty_url": {"type": "string", "nullable": True},
+        "bounty_public_url": {"type": "string", "nullable": True},
+        "accepted_by": {"type": "string", "nullable": True},
+        "created_at": {"type": "string"},
+    },
+    required=[
+        "ledger_sequence",
+        "ledger_url",
+        "ledger_public_url",
+        "proof_hash",
+        "proof_url",
+        "proof_public_url",
+        "amount_mrwk",
+        "submission_url",
+        "issue_url",
+        "repo",
+        "issue_number",
+        "bounty_id",
+        "bounty_url",
+        "bounty_public_url",
+        "accepted_by",
+        "created_at",
+    ],
+)
+
+ACCOUNT_RESPONSE_SCHEMA = _object_schema(
+    {
+        "account": {"type": "string"},
+        "ledger_address": {"type": "string"},
+        "github_login": {"type": "string", "nullable": True},
+        "exists": {"type": "boolean"},
+        "balance_mrwk": MRWK_DECIMAL_SCHEMA,
+        "transfer_status": {"type": "string"},
+        "accepted_work": ACCEPTED_WORK_SUMMARY_RESPONSE_SCHEMA,
+        "pending_summary": PENDING_PAYOUT_SUMMARY_RESPONSE_SCHEMA,
+        "pending_payouts": {"type": "array", "items": PENDING_PAYOUT_RESPONSE_SCHEMA},
+    },
+    required=[
+        "account",
+        "ledger_address",
+        "github_login",
+        "exists",
+        "balance_mrwk",
+        "transfer_status",
+        "accepted_work",
+        "pending_summary",
+        "pending_payouts",
+    ],
+)
+
+ACCOUNT_ACCEPTED_WORK_RESPONSE_SCHEMA = _object_schema(
+    {
+        "account": {"type": "string"},
+        "summary": ACCEPTED_WORK_SUMMARY_RESPONSE_SCHEMA,
+        "accepted_work": {"type": "array", "items": ACCEPTED_WORK_ROW_RESPONSE_SCHEMA},
+        "pending_summary": PENDING_PAYOUT_SUMMARY_RESPONSE_SCHEMA,
+        "pending_payouts": {"type": "array", "items": PENDING_PAYOUT_RESPONSE_SCHEMA},
+    },
+    required=["account", "summary", "accepted_work", "pending_summary", "pending_payouts"],
+)
+
 ATTEMPT_REGISTRATION_RESPONSE_SCHEMA = _object_schema(
     {
         "status": {"type": "string"},
@@ -391,6 +529,18 @@ OPTIONAL_ATTEMPT_RELEASE_BODY = {
     ),
     "responses": {
         "200": _json_response(ATTEMPT_RELEASE_RESPONSE_SCHEMA),
+    },
+}
+
+ACCOUNT_RESPONSE_BODY = {
+    "responses": {
+        "200": _json_response(ACCOUNT_RESPONSE_SCHEMA),
+    },
+}
+
+ACCOUNT_ACCEPTED_WORK_RESPONSE_BODY = {
+    "responses": {
+        "200": _json_response(ACCOUNT_ACCEPTED_WORK_RESPONSE_SCHEMA),
     },
 }
 

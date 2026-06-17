@@ -14,6 +14,10 @@ from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
+from app.openapi_request_bodies import (
+    ACCOUNT_ACCEPTED_WORK_RESPONSE_BODY,
+    ACCOUNT_RESPONSE_BODY,
+)
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
 from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
@@ -188,7 +192,7 @@ def account_page_context(
 
 
 def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templates) -> None:
-    @app.get("/api/v1/accounts/{account}")
+    @app.get("/api/v1/accounts/{account}", openapi_extra=ACCOUNT_RESPONSE_BODY)
     def api_account(request: Request, account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
         reject_unsupported_query_params(
@@ -199,7 +203,10 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
         with session_scope(db_url) as session:
             return account_api_context(session, account)
 
-    @app.get("/api/v1/accounts/{account}/accepted-work")
+    @app.get(
+        "/api/v1/accounts/{account}/accepted-work",
+        openapi_extra=ACCOUNT_ACCEPTED_WORK_RESPONSE_BODY,
+    )
     def api_account_accepted_work(account: str) -> dict[str, Any]:
         reject_path_whitespace_padding(account, "account")
         with session_scope(db_url) as session:

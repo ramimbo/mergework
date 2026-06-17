@@ -5,7 +5,11 @@ from collections.abc import Iterable
 
 from fastapi.testclient import TestClient
 
+from app.db import create_schema, session_scope
+from app.ledger.service import create_bounty, ensure_genesis, pay_bounty
 from app.main import create_app
+from app.serializers import public_utc_timestamp
+from app.treasury import propose_treasury_action
 
 EXPECTED_TTL_STRING_PATTERN = (
     r"^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|"
@@ -19,6 +23,12 @@ def _post_schema(openapi: dict, path: str) -> dict:
 
 def _post_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
     return openapi["paths"][path]["post"]["responses"][status]["content"]["application/json"][
+        "schema"
+    ]
+
+
+def _get_response_schema(openapi: dict, path: str, status: str = "200") -> dict:
+    return openapi["paths"][path]["get"]["responses"][status]["content"]["application/json"][
         "schema"
     ]
 
@@ -365,6 +375,161 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_account_openapi_response_schemas_match_runtime_fields(
+    sqlite_url: str,
+) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        pending_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=944,
+            issue_url="https://github.com/ramimbo/mergework/issues/944",
+            title="Account schema contract",
+            reward_mrwk="75",
+            acceptance="Accepted work should remain visible while pending execution.",
+        )
+        paid_bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=945,
+            issue_url="https://github.com/ramimbo/mergework/issues/945",
+            title="Paid account schema contract",
+            reward_mrwk="25",
+            acceptance="Paid work should remain proof-backed.",
+        )
+        proposal = propose_treasury_action(
+            session,
+            action="pay_bounty",
+            payload={
+                "bounty_id": pending_bounty.id,
+                "to_account": "github:alice",
+                "submission_url": "https://github.com/ramimbo/mergework/pull/944",
+                "accepted_by": "maintainer",
+            },
+            proposed_by="maintainer",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=paid_bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/945",
+            accepted_by="maintainer",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+    account_schema = _get_response_schema(openapi, "/api/v1/accounts/{account}")
+    accepted_work_schema = _get_response_schema(openapi, "/api/v1/accounts/{account}/accepted-work")
+    account_body = client.get("/api/v1/accounts/github:alice").json()
+    accepted_work_body = client.get("/api/v1/accounts/github:alice/accepted-work").json()
+
+    _assert_properties(
+        account_schema,
+        {
+            "account",
+            "ledger_address",
+            "github_login",
+            "exists",
+            "balance_mrwk",
+            "transfer_status",
+            "accepted_work",
+            "pending_summary",
+            "pending_payouts",
+        },
+    )
+    assert set(account_schema["required"]) == {
+        "account",
+        "ledger_address",
+        "github_login",
+        "exists",
+        "balance_mrwk",
+        "transfer_status",
+        "accepted_work",
+        "pending_summary",
+        "pending_payouts",
+    }
+    _assert_properties(
+        account_schema["properties"]["accepted_work"],
+        {
+            "accepted_awards",
+            "accepted_mrwk",
+            "latest_ledger_sequence",
+            "latest_submission_url",
+            "latest_proof_hash",
+            "latest_proof_url",
+            "latest_proof_public_url",
+        },
+    )
+    _assert_properties(
+        account_schema["properties"]["pending_summary"],
+        {"pending_awards", "pending_mrwk", "next_executes_after"},
+    )
+    pending_item_schema = account_schema["properties"]["pending_payouts"]["items"]
+    _assert_properties(
+        pending_item_schema,
+        {
+            "proposal_id",
+            "proposal_url",
+            "status",
+            "amount_mrwk",
+            "bounty_id",
+            "bounty_url",
+            "repo",
+            "issue_number",
+            "issue_url",
+            "submission_url",
+            "accepted_by",
+            "proposed_at",
+            "executes_after",
+        },
+    )
+
+    _assert_properties(
+        accepted_work_schema,
+        {"account", "summary", "accepted_work", "pending_summary", "pending_payouts"},
+    )
+    accepted_item_schema = accepted_work_schema["properties"]["accepted_work"]["items"]
+    _assert_properties(
+        accepted_item_schema,
+        {
+            "ledger_sequence",
+            "ledger_url",
+            "ledger_public_url",
+            "proof_hash",
+            "proof_url",
+            "proof_public_url",
+            "amount_mrwk",
+            "submission_url",
+            "issue_url",
+            "repo",
+            "issue_number",
+            "bounty_id",
+            "bounty_url",
+            "bounty_public_url",
+            "accepted_by",
+            "created_at",
+        },
+    )
+
+    assert set(account_schema["properties"]).issubset(account_body)
+    assert set(accepted_work_schema["properties"]).issubset(accepted_work_body)
+    assert account_body["accepted_work"]["latest_proof_hash"] == proof.hash
+    assert account_body["pending_summary"] == {
+        "pending_awards": 1,
+        "pending_mrwk": "75",
+        "next_executes_after": public_utc_timestamp(proposal.executes_after),
+    }
+    assert accepted_work_body["summary"] == account_body["accepted_work"]
+    assert accepted_work_body["pending_summary"] == account_body["pending_summary"]
+    assert accepted_work_body["pending_payouts"] == account_body["pending_payouts"]
+    assert accepted_work_body["accepted_work"][0]["proof_hash"] == proof.hash
+    assert accepted_work_body["accepted_work"][0]["bounty_id"] == paid_bounty.id
+    assert accepted_work_body["pending_payouts"][0]["bounty_id"] == pending_bounty.id
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
