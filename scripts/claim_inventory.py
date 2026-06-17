@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 import urllib.error
-import urllib.request
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -17,6 +16,7 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE
+from scripts.public_json import fetch_public_json
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
@@ -571,10 +571,10 @@ def _load_pr_review_comments(repo: str, pr_number: int) -> list[dict[str, Any]]:
 
 
 def _get_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"accept": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return fetch_public_json(
+            url, timeout=GH_TIMEOUT_SECONDS, headers={"accept": "application/json"}
+        )
     except (urllib.error.URLError, TimeoutError) as exc:
         raise RuntimeError(f"public API request failed: {url}") from exc
 
