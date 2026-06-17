@@ -13,12 +13,15 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.bounty_refs import BOUNTY_REF_RE
+from scripts.gh_safety import (
+    GH_ISSUE_SAFETY_CAP,
+    GH_PR_SAFETY_CAP,
+    safety_cap_message,
+)
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 GH_TIMEOUT_SECONDS = 30
-GH_PR_SAFETY_CAP = 201
-GH_ISSUE_SAFETY_CAP = 201
 MAX_BOUNTY_REF = 2**63 - 1
 ISSUE_SECTIONS = (
     ("Closed or exhausted bounty references", "closed_bounty_references"),
@@ -352,8 +355,11 @@ def load_live_queue(repo: str) -> dict[str, Any]:
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
         raise RuntimeError(
-            f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
-            "use an API-paginated collector before trusting this live report"
+            safety_cap_message(
+                "pr",
+                GH_PR_SAFETY_CAP,
+                "use an API-paginated collector before trusting this live report",
+            )
         )
     referenced_issues = sorted(
         {ref for pr in prs if isinstance(pr, dict) for ref in _bounty_refs(pr)}
@@ -376,8 +382,11 @@ def load_live_queue(repo: str) -> dict[str, Any]:
     )
     if len(issues) >= GH_ISSUE_SAFETY_CAP:
         raise RuntimeError(
-            f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
-            "use an API-paginated collector before trusting this live report"
+            safety_cap_message(
+                "issue",
+                GH_ISSUE_SAFETY_CAP,
+                "use an API-paginated collector before trusting this live report",
+            )
         )
     issues_by_number = {
         int(issue["number"]): issue

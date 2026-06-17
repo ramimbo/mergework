@@ -14,10 +14,10 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
+from scripts.gh_safety import GH_PR_SAFETY_CAP, safety_cap_message
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
-GH_PR_SAFETY_CAP = 200
 MAX_BOUNTY_REF = 2**63 - 1
 
 
@@ -197,8 +197,11 @@ def _load_pull_requests(repo: str, state: str, pr_numbers: list[int]) -> list[di
     )
     if len(prs) >= GH_PR_SAFETY_CAP:
         raise RuntimeError(
-            f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
-            "use --pr for a bounded check or an API-paginated collector"
+            safety_cap_message(
+                "pr",
+                GH_PR_SAFETY_CAP,
+                "use --pr for a bounded check or an API-paginated collector",
+            )
         )
     return [item for item in prs if isinstance(item, dict)]
 

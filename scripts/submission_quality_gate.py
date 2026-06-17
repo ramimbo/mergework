@@ -17,6 +17,11 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
+from scripts.gh_safety import (
+    GH_ISSUE_SAFETY_CAP,
+    GH_PR_SAFETY_CAP,
+    safety_cap_message,
+)
 
 
 def _non_negative_int(value: str) -> int:
@@ -43,8 +48,6 @@ SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
 GH_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
-GH_PR_SAFETY_CAP = 101
-GH_ISSUE_SAFETY_CAP = 201
 MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 MAX_BOUNTY_REF = 2**63 - 1
 EFFECTIVE_AVAILABILITY_FIELDS = (
@@ -664,13 +667,19 @@ def _load_live_context(
         }
     if len(prs) >= GH_PR_SAFETY_CAP:
         load_warnings.append(
-            f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
-            "similar-open-PR checks may be incomplete"
+            safety_cap_message(
+                "pr",
+                GH_PR_SAFETY_CAP,
+                "similar-open-PR checks may be incomplete",
+            )
         )
     if len(issues) >= GH_ISSUE_SAFETY_CAP:
         load_warnings.append(
-            f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
-            "bounty discovery may be incomplete"
+            safety_cap_message(
+                "issue",
+                GH_ISSUE_SAFETY_CAP,
+                "bounty discovery may be incomplete",
+            )
         )
     try:
         api_bounties = _load_api_bounties(repo, api_host)
