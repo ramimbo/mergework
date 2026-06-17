@@ -7,7 +7,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.parse
-import urllib.request
+import urllib.request  # noqa: F401  # tests monkeypatch urlopen via this module's urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, cast
@@ -16,6 +16,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.api_host_args import public_api_host
+from scripts.public_json import fetch_public_json
 
 
 def _positive_int(value: str) -> int:
@@ -422,9 +423,11 @@ def _gh_issue_search(repo: str, query: str, limit: int) -> list[dict[str, Any]]:
 
 
 def _load_public_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"User-Agent": "mergework-proposed-work-triage"})
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-        return json.load(response)
+    return fetch_public_json(
+        url,
+        timeout=HTTP_TIMEOUT_SECONDS,
+        headers={"User-Agent": "mergework-proposed-work-triage"},
+    )
 
 
 def _load_public_bounty_issue(

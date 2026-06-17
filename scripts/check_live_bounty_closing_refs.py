@@ -5,7 +5,6 @@ import json
 import subprocess
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +13,7 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
+from scripts.public_json import JSON_ACCEPT_HEADERS, fetch_public_json
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
@@ -147,10 +147,8 @@ def _run_gh_json(args: list[str]) -> Any:
 
 
 def _fetch_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return fetch_public_json(url, timeout=GH_TIMEOUT_SECONDS, headers=JSON_ACCEPT_HEADERS)
     except (TimeoutError, urllib.error.URLError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"failed to fetch JSON from {url}: {exc}") from exc
 

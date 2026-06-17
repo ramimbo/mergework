@@ -17,6 +17,7 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
+from scripts.public_json import fetch_public_json
 
 
 def _non_negative_int(value: str) -> int:
@@ -567,8 +568,9 @@ def _load_issue_maintainer_activity(repo: str, issue_number: int) -> dict[str, A
 
 def _load_json_url(url: str, *, description: str) -> Any:
     try:
-        with urlopen(url, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return fetch_public_json(
+            url, timeout=GH_TIMEOUT_SECONDS, opener=urlopen, build_request=False
+        )
     except (HTTPError, OSError, URLError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"{description} unavailable: {exc}") from exc
 

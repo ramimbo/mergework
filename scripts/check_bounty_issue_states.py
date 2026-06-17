@@ -5,7 +5,6 @@ import json
 import subprocess
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.api_host_args import public_api_host
+from scripts.public_json import JSON_ACCEPT_HEADERS, fetch_public_json
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
@@ -167,10 +167,8 @@ def _run_gh(args: list[str]) -> None:
 
 
 def _fetch_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return fetch_public_json(url, timeout=GH_TIMEOUT_SECONDS, headers=JSON_ACCEPT_HEADERS)
     except (TimeoutError, urllib.error.URLError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"failed to fetch JSON from {url}: {exc}") from exc
 
@@ -184,7 +182,7 @@ def _load_public_bounties(api_host: str) -> list[dict[str, Any]]:
 
 
 def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
-    return _run_gh_json(
+    data = _run_gh_json(
         [
             "gh",
             "issue",
@@ -196,6 +194,9 @@ def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
             "number,state,url,closed,closedAt",
         ]
     )
+    if not isinstance(data, dict):
+        raise RuntimeError(f"expected a JSON object for issue #{issue_number}")
+    return data
 
 
 def load_live_data(repo: str, api_host: str) -> dict[str, Any]:
