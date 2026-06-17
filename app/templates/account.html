@@ -20,6 +20,9 @@
     <a href="{{ account_action_urls.account_json }}">Account JSON</a>
     <a href="{{ account_action_urls.accepted_work_json }}">Accepted-work JSON</a>
     <a href="{{ account_action_urls.activity }}">Activity for account</a>
+    {% if account_action_urls.wallet_detail %}
+    <a href="{{ account_action_urls.wallet_detail }}">Wallet detail</a>
+    {% endif %}
   </div>
 </section>
 

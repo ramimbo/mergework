@@ -13,7 +13,7 @@ from app.control_chars import contains_control_character
 from app.db import session_scope
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
-from app.models import Account
+from app.models import Account, Wallet
 from app.path_params import SQLITE_INTEGER_MAX, reject_path_whitespace_padding
 from app.query_validation import reject_repeated_query_param, reject_unsupported_query_params
 from app.serializers import (
@@ -172,9 +172,12 @@ def account_page_context(
     account = normalized_account(account)
     selected_transaction_type, transaction_filter = _transaction_type_filter(transaction_type)
     account_context = _account_api_context_for_normalized_account(session, account)
+    action_urls = account_action_urls(account)
+    if account.startswith("mrwk1") and session.get(Wallet, account) is not None:
+        action_urls["wallet_detail"] = f"/wallets/{quote(account, safe='')}"
     return {
         "account": account_context,
-        "account_action_urls": account_action_urls(account),
+        "account_action_urls": action_urls,
         "accepted_summary": account_context["accepted_work"],
         "accepted_work": safe_accepted_work_for_account(session, account),
         "pending_summary": account_context["pending_summary"],

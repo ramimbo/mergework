@@ -20,10 +20,12 @@ from app.ledger.service import (
     create_bounty,
     ensure_genesis,
     pay_bounty,
+    register_wallet,
 )
 from app.main import create_app
 from app.serializers import public_utc_timestamp
 from app.treasury import propose_treasury_action
+from app.wallets import address_from_public_key_hex
 
 
 def test_account_contexts_include_balance_status_and_proof_backed_rows(
@@ -132,6 +134,28 @@ def test_account_action_urls_escape_query_accounts() -> None:
         "accepted_work_json": "/api/v1/accounts/github:alice/accepted-work",
         "activity": "/api/v1/activity?account=github%3Aalice",
     }
+
+
+def test_registered_wallet_account_page_links_to_wallet_detail(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    public_key_hex = "11" * 32
+    registered_address = address_from_public_key_hex(public_key_hex)
+    unregistered_address = "mrwk1" + ("0" * 40)
+    with session_scope(sqlite_url) as session:
+        register_wallet(session, public_key_hex=public_key_hex, label="Ops wallet")
+        registered_context = account_page_context(session, registered_address.upper())
+        unregistered_context = account_page_context(session, unregistered_address)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    registered_page = client.get(f"/accounts/{registered_address.upper()}").text
+    unregistered_page = client.get(f"/accounts/{unregistered_address}").text
+
+    assert registered_context["account_action_urls"]["wallet_detail"] == (
+        f"/wallets/{registered_address}"
+    )
+    assert "wallet_detail" not in unregistered_context["account_action_urls"]
+    assert f'href="/wallets/{registered_address}">Wallet detail</a>' in registered_page
+    assert f'href="/wallets/{unregistered_address}">Wallet detail</a>' not in unregistered_page
 
 
 def test_account_routes_expose_pending_payouts_separately_from_paid_work(
