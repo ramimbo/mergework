@@ -5,12 +5,12 @@ from pathlib import Path
 
 from scripts.docs_smoke import (
     REQUIRED,
-    _validate_issue_template,
     _issue_template_labels,
     _local_target_exists,
     _markdown_anchors,
     _markdown_heading_anchor,
     _template_field_is_required,
+    _validate_issue_template,
 )
 
 
