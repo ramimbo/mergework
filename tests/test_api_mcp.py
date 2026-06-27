@@ -1294,6 +1294,7 @@ def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
             "amount_mrwk": "75",
             "submission_url": "https://github.com/ramimbo/mergework/pull/284",
             "accepted_by": "maintainer",
+            "accepted_by_account_url": "/accounts/github:maintainer",
             "created_at": public_utc_timestamp(proof.created_at),
         }
     ]
