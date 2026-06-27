@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -11,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.control_chars import contains_control_character
 from app.db import session_scope
+from app.github_accounts import GITHUB_LOGIN_RE
 from app.ledger.service import TREASURY_ACCOUNT, format_mrwk, get_balance
 from app.ledger_views import account_ledger_transactions
 from app.models import Account
@@ -27,7 +27,6 @@ from app.serializers import (
 )
 from app.wallets import WalletError, normalize_wallet_address
 
-GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
 ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "bounty_payment", "label": "Bounty payments"},

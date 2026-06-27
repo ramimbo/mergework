@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -17,6 +16,7 @@ from app.bounty_attempts import (
     bounty_attempt_summary_from_count,
 )
 from app.config import get_settings
+from app.github_accounts import github_account_url
 from app.ledger.reconciliation import AcceptedPayoutCheck
 from app.ledger.service import format_mrwk, get_balance
 from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, WalletTransfer
@@ -27,16 +27,6 @@ from app.submission_requirements import (
 
 PendingBountyProposals = tuple[list[dict[str, Any]], dict[str, Any] | None]
 MRWK_MICROUNITS = Decimal(1_000_000)
-GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
-
-
-def _github_account_url(login: Any) -> str | None:
-    if not isinstance(login, str):
-        return None
-    clean = login.strip().lower()
-    if not GITHUB_LOGIN_RE.fullmatch(clean):
-        return None
-    return f"/accounts/github:{clean}"
 
 
 def public_utc_timestamp(value: datetime) -> str:
@@ -175,7 +165,7 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
                 "amount_mrwk": data.get("amount_mrwk"),
                 "submission_url": data.get("submission_url"),
                 "accepted_by": data.get("accepted_by"),
-                "accepted_by_account_url": _github_account_url(data.get("accepted_by")),
+                "accepted_by_account_url": github_account_url(data.get("accepted_by")),
                 "created_at": public_utc_timestamp(proof.created_at),
             }
         )
@@ -798,7 +788,7 @@ def accepted_work_for_account(session: Session, account: str) -> list[dict[str, 
                 "bounty_url": bounty_url,
                 "bounty_public_url": _public_page_url(bounty_url, public_base_url),
                 "accepted_by": data.get("accepted_by"),
-                "accepted_by_account_url": _github_account_url(data.get("accepted_by")),
+                "accepted_by_account_url": github_account_url(data.get("accepted_by")),
                 "created_at": public_utc_timestamp(entry.created_at),
             }
         )

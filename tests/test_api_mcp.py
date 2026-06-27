@@ -2673,6 +2673,42 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert 'href="/accounts/github:alice"' in account
 
 
+def test_explorer_renders_malformed_accepted_by_without_account_links(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=22,
+            issue_url="https://github.com/ramimbo/mergework/issues/22",
+            title="Malformed accepted_by links",
+            reward_mrwk="25",
+            acceptance="Accepted label",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/22",
+            accepted_by="Bad Name!",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    proof_page = client.get(f"/proofs/{proof.hash}").text
+    accepted_work_api = client.get("/api/v1/accounts/github:alice/accepted-work").json()
+    account = client.get("/accounts/github:alice").text
+
+    assert "Bad Name!" in proof_page
+    assert 'href="/accounts/github:bad name!"' not in proof_page
+    assert accepted_work_api["accepted_work"][0]["accepted_by"] == "Bad Name!"
+    assert accepted_work_api["accepted_work"][0]["accepted_by_account_url"] is None
+    assert "Bad Name!" in account
+    assert 'href="/accounts/github:bad name!"' not in account
+
+
 def test_account_api_keeps_schema_when_accepted_work_proof_is_malformed(
     sqlite_url: str,
 ) -> None:

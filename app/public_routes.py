@@ -22,6 +22,7 @@ from app.bounty_availability import (
 from app.bounty_sorting import BOUNTY_SORT_ERROR, BOUNTY_SORT_LABELS, normalize_bounty_sort
 from app.control_chars import contains_control_character
 from app.db import session_scope
+from app.github_accounts import github_account_url
 from app.ledger_views import account_ledger_transaction_types, account_ledger_transactions
 from app.models import Wallet
 from app.path_params import SQLITE_INTEGER_MAX, proof_hash_from_path, reject_path_whitespace_padding
@@ -39,15 +40,6 @@ from app.status import (
 )
 
 WALLET_SEARCH_QUERY_MAX_LENGTH = 500
-
-
-def _github_account_url(login: object) -> str | None:
-    if not isinstance(login, str):
-        return None
-    clean = login.strip().lower()
-    if not clean:
-        return None
-    return f"/accounts/github:{clean}"
 
 
 def _bounty_filter_params(
@@ -473,7 +465,7 @@ def register_public_routes(
             {
                 "proof": proof,
                 "proof_hash": normalized_proof_hash,
-                "proof_accepted_by_account_url": _github_account_url(proof.get("accepted_by")),
+                "proof_accepted_by_account_url": github_account_url(proof.get("accepted_by")),
             },
         )
 
