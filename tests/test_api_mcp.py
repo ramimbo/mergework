@@ -1294,6 +1294,7 @@ def test_mcp_get_bounty_can_include_accepted_awards(sqlite_url: str) -> None:
             "amount_mrwk": "75",
             "submission_url": "https://github.com/ramimbo/mergework/pull/284",
             "accepted_by": "maintainer",
+            "accepted_by_account_url": "/accounts/github:maintainer",
             "created_at": public_utc_timestamp(proof.created_at),
         }
     ]
@@ -2617,6 +2618,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert "ramimbo/mergework #2" in proof_page
     assert proof.hash in proof_page
     assert "maintainer" in proof_page
+    assert 'href="/accounts/github:maintainer"' in proof_page
     assert "github:alice" in proof_page
     assert "Ledger address" in account
     assert account_api["transfer_status"] == (
@@ -2652,6 +2654,7 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
         "bounty_url": f"/bounties/{bounty.id}",
         "bounty_public_url": f"https://mrwk.online/bounties/{bounty.id}",
         "accepted_by": "maintainer",
+        "accepted_by_account_url": "/accounts/github:maintainer",
         "created_at": "<checked>",
     }
     assert "Claim GitHub balances from /me" in account
@@ -2663,11 +2666,48 @@ def test_explorer_links_ledger_proof_and_account(sqlite_url: str) -> None:
     assert 'href="https://github.com/ramimbo/mergework/pull/3"' in account
     assert 'via <a href="/ledger/3">#3</a>' in account
     assert "Accepted work" in account
+    assert 'href="/accounts/github:maintainer"' in account
     assert "Proof-backed bounty payments made to this account." in account
     assert f'href="/bounties/{bounty.id}">Bounty #{bounty.id}</a>' in account
     assert 'href="https://github.com/ramimbo/mergework/issues/2"' in account
     assert 'href="/accounts/reserve:bounty:1"' in account
     assert 'href="/accounts/github:alice"' in account
+
+
+def test_explorer_renders_malformed_accepted_by_without_account_links(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=22,
+            issue_url="https://github.com/ramimbo/mergework/issues/22",
+            title="Malformed accepted_by links",
+            reward_mrwk="25",
+            acceptance="Accepted label",
+        )
+        proof = pay_bounty(
+            session,
+            bounty_id=bounty.id,
+            to_account="github:alice",
+            submission_url="https://github.com/ramimbo/mergework/pull/22",
+            accepted_by="Bad Name!",
+            verifier_result={"label": "mrwk:accepted"},
+        )
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    proof_page = client.get(f"/proofs/{proof.hash}").text
+    accepted_work_api = client.get("/api/v1/accounts/github:alice/accepted-work").json()
+    account = client.get("/accounts/github:alice").text
+
+    assert "Bad Name!" in proof_page
+    assert 'href="/accounts/github:bad name!"' not in proof_page
+    assert accepted_work_api["accepted_work"][0]["accepted_by"] == "Bad Name!"
+    assert accepted_work_api["accepted_work"][0]["accepted_by_account_url"] is None
+    assert "Bad Name!" in account
+    assert 'href="/accounts/github:bad name!"' not in account
 
 
 def test_account_api_keeps_schema_when_accepted_work_proof_is_malformed(

@@ -22,6 +22,7 @@ from app.bounty_availability import (
 from app.bounty_sorting import BOUNTY_SORT_ERROR, BOUNTY_SORT_LABELS, normalize_bounty_sort
 from app.control_chars import contains_control_character
 from app.db import session_scope
+from app.github_accounts import github_account_url
 from app.ledger_views import account_ledger_transaction_types, account_ledger_transactions
 from app.models import Wallet
 from app.path_params import SQLITE_INTEGER_MAX, proof_hash_from_path, reject_path_whitespace_padding
@@ -457,10 +458,15 @@ def register_public_routes(
     @app.get("/proofs/{proof_hash}", response_class=HTMLResponse)
     def proof_page(request: Request, proof_hash: str) -> HTMLResponse:
         normalized_proof_hash = proof_hash_from_path(proof_hash)
+        proof = api_proof(normalized_proof_hash)
         return templates.TemplateResponse(
             request,
             "proof.html",
-            {"proof": api_proof(normalized_proof_hash), "proof_hash": normalized_proof_hash},
+            {
+                "proof": proof,
+                "proof_hash": normalized_proof_hash,
+                "proof_accepted_by_account_url": github_account_url(proof.get("accepted_by")),
+            },
         )
 
     @app.get("/docs", response_class=HTMLResponse)

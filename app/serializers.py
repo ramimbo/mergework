@@ -16,6 +16,7 @@ from app.bounty_attempts import (
     bounty_attempt_summary_from_count,
 )
 from app.config import get_settings
+from app.github_accounts import github_account_url
 from app.ledger.reconciliation import AcceptedPayoutCheck
 from app.ledger.service import format_mrwk, get_balance
 from app.models import Bounty, LedgerEntry, Proof, TreasuryProposal, Wallet, WalletTransfer
@@ -164,6 +165,7 @@ def bounty_awards_to_dict(session: Session, bounty_id: int) -> list[dict[str, An
                 "amount_mrwk": data.get("amount_mrwk"),
                 "submission_url": data.get("submission_url"),
                 "accepted_by": data.get("accepted_by"),
+                "accepted_by_account_url": github_account_url(data.get("accepted_by")),
                 "created_at": public_utc_timestamp(proof.created_at),
             }
         )
@@ -786,6 +788,7 @@ def accepted_work_for_account(session: Session, account: str) -> list[dict[str, 
                 "bounty_url": bounty_url,
                 "bounty_public_url": _public_page_url(bounty_url, public_base_url),
                 "accepted_by": data.get("accepted_by"),
+                "accepted_by_account_url": github_account_url(data.get("accepted_by")),
                 "created_at": public_utc_timestamp(entry.created_at),
             }
         )
