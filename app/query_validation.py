@@ -12,16 +12,17 @@ CANONICAL_INTEGER_QUERY_RE = re.compile(r"^(?:0|[1-9][0-9]*)$")
 CANONICAL_BOOLEAN_QUERY_VALUES = {"true", "false"}
 
 
+def _raise_bad_query_param(detail: str) -> None:
+    raise HTTPException(status_code=400, detail=detail)
+
+
 def _query_param_values(request: Request, name: str) -> list[str]:
     return request.query_params.getlist(name)
 
 
 def _reject_control_char_value(value: str, name: str) -> None:
     if contains_control_character(value):
-        raise HTTPException(
-            status_code=400,
-            detail=f"{name} must not contain control characters",
-        )
+        _raise_bad_query_param(f"{name} must not contain control characters")
 
 
 def reject_control_char_query_param(request: Request, name: str) -> None:
@@ -35,10 +36,7 @@ def reject_noncanonical_int_query_param(request: Request, name: str) -> None:
     for value in _query_param_values(request, name):
         _reject_control_char_value(value, name)
         if not CANONICAL_INTEGER_QUERY_RE.fullmatch(value):
-            raise HTTPException(
-                status_code=400,
-                detail=f"{name} must be a canonical positive integer",
-            )
+            _raise_bad_query_param(f"{name} must be a canonical positive integer")
 
 
 def reject_noncanonical_bool_query_param(request: Request, name: str) -> None:
@@ -46,19 +44,13 @@ def reject_noncanonical_bool_query_param(request: Request, name: str) -> None:
     for value in _query_param_values(request, name):
         _reject_control_char_value(value, name)
         if value not in CANONICAL_BOOLEAN_QUERY_VALUES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{name} must be true or false",
-            )
+            _raise_bad_query_param(f"{name} must be true or false")
 
 
 def reject_repeated_query_param(request: Request, name: str) -> None:
     """Reject ambiguous scalar query parameters before FastAPI chooses one value."""
     if len(_query_param_values(request, name)) > 1:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{name} must be provided at most once",
-        )
+        _raise_bad_query_param(f"{name} must be provided at most once")
 
 
 def reject_unsupported_query_params(
@@ -67,7 +59,4 @@ def reject_unsupported_query_params(
     """Reject query parameters that are valid elsewhere but unsupported here."""
     for name in names:
         if _query_param_values(request, name):
-            raise HTTPException(
-                status_code=400,
-                detail=f"{name} is not supported on {context}",
-            )
+            _raise_bad_query_param(f"{name} is not supported on {context}")
