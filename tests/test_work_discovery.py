@@ -106,6 +106,11 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
                 "bounty": f"/api/v1/bounties/{live_bounty.id}",
                 "attempts": f"/api/v1/bounties/{live_bounty.id}/attempts",
                 "github_issue": "https://github.com/ramimbo/mergework/issues/800",
+                "public_bounty_page": f"/bounties/{live_bounty.id}",
+                "claimable_matches": (
+                    "/bounties?status=open&repo=ramimbo/mergework"
+                    "&issue_number=800&sort=reward&availability=effectively_open"
+                ),
             },
             "next_action": {
                 "id": "confirm_award_slot",

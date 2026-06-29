@@ -152,7 +152,9 @@ non-claimable states out of the claimable list, and accepts optional
 `limit=1..100` to cap each returned bucket:
 Each queue item includes the source `repo` next to `issue_number`, so clients
 do not need to parse GitHub URLs when the same issue number exists in multiple
-repositories.
+repositories. Live bounty rows also expose `public_bounty_page` (human HTML at
+`/bounties/{id}`) and `claimable_matches` (browser filter URL) alongside the
+machine-readable API paths in `source_urls`.
 
 ```json
 {
@@ -187,7 +189,9 @@ repositories.
       "source_urls": {
         "bounty": "/api/v1/bounties/108",
         "attempts": "/api/v1/bounties/108/attempts",
-        "github_issue": "https://github.com/ramimbo/mergework/issues/800"
+        "github_issue": "https://github.com/ramimbo/mergework/issues/800",
+        "public_bounty_page": "/bounties/108",
+        "claimable_matches": "/bounties?status=open&repo=ramimbo/mergework&issue_number=800&sort=reward&availability=effectively_open"
       },
       "next_action": {
         "id": "confirm_award_slot",
