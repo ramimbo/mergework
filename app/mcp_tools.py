@@ -234,7 +234,11 @@ def call_mcp_tool(
                 newest_bounties = session.scalars(
                     query.order_by(Bounty.id.desc()).limit(limit)
                 ).all()
-                return json.dumps(bounties_to_dict(newest_bounties, session=session))
+                bounty_dicts = bounties_to_dict(newest_bounties, session=session)
+                return MCPTextResult(
+                    text=json.dumps(bounty_dicts, indent=2),
+                    structured_content=bounty_dicts,
+                )
             bounties = session.scalars(query.order_by(Bounty.id.desc())).all()
             sorted_bounties = sort_bounties(
                 filter_bounties_by_availability(
@@ -243,7 +247,11 @@ def call_mcp_tool(
                 ),
                 sort,
             )
-            return json.dumps(sorted_bounties[:limit])
+            result = sorted_bounties[:limit]
+            return MCPTextResult(
+                text=json.dumps(result, indent=2),
+                structured_content=result,
+            )
         if name == "get_bounty":
             bounty = selected_bounty("id", internal_id_aliases=("bounty_id",))
             if bounty is None:
@@ -251,7 +259,10 @@ def call_mcp_tool(
             bounty_data = bounty_to_dict(bounty, session=session)
             if optional_bool_arg("include_awards"):
                 bounty_data["awards"] = bounty_awards_to_dict(session, bounty.id)
-            return json.dumps(bounty_data)
+            return MCPTextResult(
+                text=json.dumps(bounty_data, indent=2),
+                structured_content=bounty_data,
+            )
         if name == "list_bounty_attempts":
             bounty = selected_bounty("bounty_id", internal_id_aliases=("id",))
             if bounty is None:

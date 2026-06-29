@@ -9,6 +9,15 @@ from app.ledger.service import create_bounty, ensure_genesis
 from app.mcp_tools import call_mcp_tool
 
 
+from app.mcp_results import MCPTextResult
+
+def _get_content(r: str | dict[str, object] | MCPTextResult) -> list | dict:
+    """Extract json content from MCPTextResult or raw string."""
+    if isinstance(r, MCPTextResult):
+        return r.structured_content
+    return json.loads(r)
+
+
 def test_call_mcp_tool_lists_bounties_from_extracted_dispatcher(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
@@ -25,9 +34,13 @@ def test_call_mcp_tool_lists_bounties_from_extracted_dispatcher(sqlite_url: str)
 
     result = call_mcp_tool(sqlite_url, "list_bounties", {"status": "open"})
 
-    bounties = json.loads(result)
+    bounties = _get_content(result)
     assert bounties[0]["issue_number"] == 390
     assert bounties[0]["title"] == "Code health bounty"
+    # Verify structured content is returned
+    if isinstance(result, MCPTextResult):
+        assert isinstance(result.structured_content, list)
+        assert "structuredContent" in dir(result) or hasattr(result, "structured_content")
 
 
 def test_call_mcp_tool_filters_bounties_by_repo_and_issue_number(sqlite_url: str) -> None:
@@ -59,7 +72,7 @@ def test_call_mcp_tool_filters_bounties_by_repo_and_issue_number(sqlite_url: str
         {"repo": "example/mergework", "issue_number": 390},
     )
 
-    bounties = json.loads(result)
+    bounties = _get_content(result)
     assert [bounty["id"] for bounty in bounties] == [target.id]
 
 
@@ -168,3 +181,71 @@ def test_call_mcp_tool_rejects_c1_nonce_before_integer_parsing(sqlite_url: str) 
                 "signature_hex": "00" * 64,
             },
         )
+
+
+# ─── Conformance: structuredContent output ────────────────────
+
+def test_mcp_tool_list_bounties_returns_structured_content(sqlite_url: str) -> None:
+    """Conformance: list_bounties returns structuredContent with full bounty payload."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=395,
+            issue_url="https://github.com/ramimbo/mergework/issues/395",
+            title="Conformance test bounty",
+            reward_mrwk="100",
+            acceptance="Structured conformance.",
+        )
+
+    result = call_mcp_tool(sqlite_url, "list_bounties", {"status": "open"})
+    assert isinstance(result, MCPTextResult), "list_bounties should return MCPTextResult"
+    assert result.structured_content is not None, "structured_content should not be None"
+    assert isinstance(result.structured_content, list), "structured_content should be a list"
+    assert len(result.structured_content) > 0, "structured_content should not be empty"
+    assert result.structured_content[0]["issue_number"] == 395
+    assert result.structured_content[0]["reward_mrwk"] == "100"
+    assert "title" in result.structured_content[0]
+    assert "id" in result.structured_content[0]
+    # Human-readable text preserved
+    assert "Conformance test bounty" in result.text
+
+
+def test_mcp_tool_get_bounty_returns_structured_content(sqlite_url: str) -> None:
+    """Conformance: get_bounty returns structuredContent with full bounty payload."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        bounty = create_bounty(
+            session,
+            repo="ramimbo/mergework",
+            issue_number=396,
+            issue_url="https://github.com/ramimbo/mergework/issues/396",
+            title="Get bounty conformance",
+            reward_mrwk="150",
+            acceptance="Structured conformance for get_bounty.",
+        )
+
+    result = call_mcp_tool(sqlite_url, "get_bounty", {"id": bounty.id})
+    assert isinstance(result, MCPTextResult), "get_bounty should return MCPTextResult"
+    assert result.structured_content is not None
+    assert result.structured_content["issue_number"] == 396
+    assert result.structured_content["reward_mrwk"] == "150"
+    assert result.structured_content["title"] == "Get bounty conformance"
+    assert "Get bounty conformance" in result.text
+
+
+def test_mcp_tool_get_balance_returns_structured_content(sqlite_url: str) -> None:
+    """Conformance: get_balance returns structuredContent with account and balance."""
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    result = call_mcp_tool(sqlite_url, "get_balance", {"account": "treasury:mrwk"})
+    assert isinstance(result, MCPTextResult), "get_balance should return MCPTextResult"
+    assert result.structured_content is not None
+    assert "account" in result.structured_content
+    assert "balance_mrwk" in result.structured_content
+    assert result.structured_content["account"] == "treasury:mrwk"
