@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -45,10 +46,17 @@ NON_CLAIMABLE_ISSUE_STATES = [
 
 def _bounty_source_urls(row: dict[str, Any]) -> dict[str, str]:
     bounty_id = int(row["id"])
+    repo = str(row["repo"])
+    issue_number = int(row["issue_number"])
     return {
         "bounty": f"/api/v1/bounties/{bounty_id}",
         "attempts": f"/api/v1/bounties/{bounty_id}/attempts",
         "github_issue": str(row["issue_url"]),
+        "public_bounty_page": f"/bounties/{bounty_id}",
+        "claimable_matches": (
+            f"/bounties?status=open&repo={quote(repo, safe='/')}"
+            f"&issue_number={issue_number}&sort=reward&availability=effectively_open"
+        ),
     }
 
 
