@@ -162,6 +162,18 @@ curl -s -X POST "$API_HOST/api/v1/bounty-attempts/<attempt_id>/release" \
 
 Inspect an account or registered wallet:
 
+Account path identifiers must use one of these canonical shapes:
+
+- `github:<login>` — GitHub login only, lowercase alphanumerics and hyphens
+- `mrwk1<40 hex>` — registered MRWK wallet address
+- `reserve:bounty:<id>` — internal reserve account
+- `treasury:mrwk` — treasury account
+- plain legacy names — letters, digits, `.`, `_`, and `-` only
+
+URL-encoded special characters (for example `%21%40%23%24`) and other malformed
+path IDs return HTTP 400 with `{"detail":"account identifier is malformed"}` on
+both `/api/v1/accounts/{account}` and `/accounts/{account}`.
+
 ```bash
 curl -s "$API_HOST/api/v1/accounts/treasury:mrwk"
 curl -s "$API_HOST/api/v1/wallets/mrwk1..."

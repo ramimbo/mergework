@@ -68,6 +68,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert body["summary"] == {
         "claimable_now_count": 1,
         "opening_soon_count": 1,
+        "opening_soon_due_count": 0,
         "not_claimable_count": 1,
         "limit": 50,
     }
@@ -128,6 +129,7 @@ def test_work_discovery_distinguishes_live_and_pending_create_work(sqlite_url: s
     assert body["opening_soon"] == [
         {
             "availability_state": "pending_create",
+            "execution_due": False,
             "proposal_id": pending_create.id,
             "repo": "ramimbo/mergework",
             "issue_number": 900,
@@ -305,3 +307,59 @@ def test_work_discovery_scans_open_bounties_in_bounded_pages(
     assert body["claimable_now"][0]["issue_number"] == 989
     assert body["not_claimable"][0]["issue_number"] == 990
     assert batch_sizes == [work_discovery.OPEN_BOUNTY_SCAN_PAGE_SIZE]
+
+
+def test_work_discovery_flags_overdue_pending_create_proposals(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+        future_proposal = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 1001,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/1001",
+                "title": "Future opening soon bounty",
+                "reward_mrwk": "50",
+                "max_awards": 1,
+                "acceptance": "Future proposal is not yet due.",
+            },
+            proposed_by="maintainer",
+        )
+        future_proposal.executes_after = datetime(2099, 1, 1, 0, 0, 0)
+        session.add(future_proposal)
+        overdue_proposal = propose_treasury_action(
+            session,
+            action="create_bounty",
+            payload={
+                "repo": "ramimbo/mergework",
+                "issue_number": 1002,
+                "issue_url": "https://github.com/ramimbo/mergework/issues/1002",
+                "title": "Overdue opening soon bounty",
+                "reward_mrwk": "75",
+                "max_awards": 1,
+                "acceptance": "Overdue proposal should be flagged pending_create_due.",
+            },
+            proposed_by="maintainer",
+        )
+        overdue_proposal.executes_after = datetime(2000, 1, 1, 0, 0, 0)
+        session.add(overdue_proposal)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/api/v1/work-discovery")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["opening_soon_count"] == 2
+    assert body["summary"]["opening_soon_due_count"] == 1
+    by_issue = {item["issue_number"]: item for item in body["opening_soon"]}
+    assert by_issue[1001]["availability_state"] == "pending_create"
+    assert by_issue[1001]["execution_due"] is False
+    assert by_issue[1002]["availability_state"] == "pending_create_due"
+    assert by_issue[1002]["execution_due"] is True
+    assert by_issue[1002]["proposal_id"] == overdue_proposal.id
+    assert body["state_definitions"]["pending_create_due"].startswith(
+        "Public treasury proposal exists and its executes_after is in the past,"
+    )

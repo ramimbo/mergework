@@ -28,6 +28,7 @@ from app.serializers import (
 from app.wallets import WalletError, normalize_wallet_address
 
 GITHUB_LOGIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$")
+PLAIN_ACCOUNT_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
 ACCOUNT_TRANSACTION_TYPE_OPTIONS = [
     {"value": "all", "label": "All"},
     {"value": "bounty_payment", "label": "Bounty payments"},
@@ -83,6 +84,8 @@ def normalized_account(account: str) -> str:
         if not GITHUB_LOGIN_RE.fullmatch(login):
             raise HTTPException(status_code=400, detail="github login must be valid")
         return f"github:{login}"
+    if not PLAIN_ACCOUNT_RE.fullmatch(clean):
+        raise HTTPException(status_code=400, detail="account identifier is malformed")
     return clean
 
 

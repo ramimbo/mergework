@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -18,6 +19,11 @@ MAX_OPEN_BOUNTY_SCAN_ROWS = 500
 STATE_DEFINITIONS = {
     "live_bounty": "Public bounty row is open and has positive effective_awards_remaining.",
     "pending_create": "Public treasury proposal exists but the bounty row is not live yet.",
+    "pending_create_due": (
+        "Public treasury proposal exists and its executes_after is in the past, "
+        "but the bounty row is not live yet. The proposal is not claimable; "
+        "the executor or maintainer may need to finalise it."
+    ),
     "pending_payout": "Accepted work has a pending pay_bounty proposal, not proof-backed payment.",
     "closed_or_exhausted": "Bounty is closed, paid, or has no effective award capacity.",
     "proposed_work": (
@@ -105,8 +111,16 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
         title=str(payload["title"]),
         acceptance=str(payload.get("acceptance", "")),
     )
+    executes_after = proposal.executes_after
+    if executes_after is not None:
+        if executes_after.tzinfo is None:
+            executes_after = executes_after.replace(tzinfo=UTC)
+        execution_due = bool(executes_after <= datetime.now(UTC))
+    else:
+        execution_due = False
     return {
-        "availability_state": "pending_create",
+        "availability_state": "pending_create_due" if execution_due else "pending_create",
+        "execution_due": execution_due,
         "proposal_id": int(proposal.id),
         "repo": str(payload["repo"]),
         "issue_number": int(payload["issue_number"]),
@@ -115,7 +129,7 @@ def _pending_create_item(proposal: TreasuryProposal) -> dict[str, Any]:
         "reward_mrwk": str(payload["reward_mrwk"]),
         "max_awards": int(payload["max_awards"]),
         "effective_awards_remaining": 0,
-        "executes_after": public_utc_timestamp(proposal.executes_after),
+        "executes_after": public_utc_timestamp(executes_after) if executes_after else None,
         "source_urls": {
             "proposal": f"/api/v1/treasury/proposals/{proposal.id}",
             "github_issue": str(payload["issue_url"]),
@@ -207,12 +221,14 @@ def work_discovery_to_dict(
         .limit(capped_limit)
     ).all()
     opening_soon = [_pending_create_item(proposal) for proposal in pending_create_proposals]
+    opening_soon_due_count = sum(1 for item in opening_soon if item.get("execution_due"))
 
     return {
         "type": "work_discovery",
         "summary": {
             "claimable_now_count": len(claimable_now),
             "opening_soon_count": len(opening_soon),
+            "opening_soon_due_count": opening_soon_due_count,
             "not_claimable_count": len(not_claimable),
             "limit": capped_limit,
         },

@@ -337,3 +337,30 @@ def test_account_views_reject_malformed_reserve_accounts(sqlite_url: str, accoun
     assert page_resp.status_code == 400
     assert mcp_resp.status_code == 200
     assert mcp_resp.json()["error"]["code"] == -32602
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/accounts/%21%40%23%24",
+        "/api/v1/accounts/%21%40%24",
+        "/accounts/%21%40%23%24",
+        "/accounts/%21%40%24",
+    ],
+)
+def test_account_views_reject_url_encoded_special_characters(sqlite_url: str, path: str) -> None:
+    client = _setup_app(sqlite_url)
+
+    resp = client.get(path)
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "account identifier is malformed"
+
+
+def test_account_views_accept_plain_alphanumeric_account(sqlite_url: str) -> None:
+    client = _setup_app(sqlite_url)
+
+    resp = client.get("/api/v1/accounts/plain-account")
+
+    assert resp.status_code == 200
+    assert resp.json()["account"] == "plain-account"
