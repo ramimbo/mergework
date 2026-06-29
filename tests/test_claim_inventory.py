@@ -449,3 +449,90 @@ def test_claim_inventory_rejects_invalid_api_host(capsys) -> None:
             main(["--repo", "ramimbo/mergework", "--api-host", bad])
         assert excinfo.value.code == 2
         assert "api host must" in capsys.readouterr().err
+
+
+def test_claim_inventory_exposes_safety_caps() -> None:
+    assert claim_inventory.GH_PR_SAFETY_CAP > claim_inventory.GH_LIMIT
+    assert claim_inventory.GH_ISSUE_SAFETY_CAP > claim_inventory.GH_LIMIT
+    assert claim_inventory.GH_PUBLIC_API_SAFETY_CAP > claim_inventory.GH_LIMIT
+
+
+def test_claim_inventory_public_api_fails_fast_on_bounty_safety_cap(monkeypatch) -> None:
+    cap = claim_inventory.GH_PUBLIC_API_SAFETY_CAP
+    bounties = [{"id": i, "title": f"bounty-{i}"} for i in range(cap)]
+    activity = {"contributors": [{"login": "x"}], "recent": []}
+
+    def fake_get_json(url: str) -> object:
+        if "bounties" in url:
+            return bounties
+        return activity
+
+    monkeypatch.setattr(claim_inventory, "_get_json", fake_get_json)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        claim_inventory.load_public_api_state("https://api.mrwk.online")
+    assert "bounties" in str(excinfo.value)
+    assert "safety cap" in str(excinfo.value)
+
+
+def test_claim_inventory_public_api_fails_fast_on_activity_safety_cap(monkeypatch) -> None:
+    cap = claim_inventory.GH_PUBLIC_API_SAFETY_CAP
+    bounties = [{"id": 1, "title": "bounty-1"}]
+    activity = {
+        "contributors": [{"login": f"c{i}"} for i in range(cap)],
+        "recent": [],
+    }
+
+    def fake_get_json(url: str) -> object:
+        if "bounties" in url:
+            return bounties
+        return activity
+
+    monkeypatch.setattr(claim_inventory, "_get_json", fake_get_json)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        claim_inventory.load_public_api_state("https://api.mrwk.online")
+    assert "contributors" in str(excinfo.value)
+    assert "safety cap" in str(excinfo.value)
+
+
+def test_claim_inventory_live_mode_fails_fast_on_issue_safety_cap(monkeypatch) -> None:
+    cap = claim_inventory.GH_ISSUE_SAFETY_CAP
+    issue_list = [{"number": i} for i in range(cap)]
+    prs: list[dict] = []
+
+    def fake_run_gh_json(cmd: list[str]) -> object:
+        if cmd[:2] == ["gh", "issue"] and "list" in cmd:
+            return issue_list
+        if cmd[:2] == ["gh", "pr"] and "list" in cmd:
+            return prs
+        return []
+
+    monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.mrwk.online")
+    assert "issue list" in str(excinfo.value)
+    assert "safety cap" in str(excinfo.value)
+
+
+def test_claim_inventory_live_mode_fails_fast_on_pr_safety_cap(monkeypatch) -> None:
+    issue_cap = claim_inventory.GH_ISSUE_SAFETY_CAP
+    pr_cap = claim_inventory.GH_PR_SAFETY_CAP
+    issue_list = [{"number": i} for i in range(issue_cap - 1)]
+    prs = [{"number": i} for i in range(pr_cap)]
+
+    def fake_run_gh_json(cmd: list[str]) -> object:
+        if cmd[:2] == ["gh", "issue"] and "list" in cmd:
+            return issue_list
+        if cmd[:2] == ["gh", "pr"] and "list" in cmd:
+            return prs
+        return []
+
+    monkeypatch.setattr(claim_inventory, "_run_gh_json", fake_run_gh_json)
+    monkeypatch.setattr(claim_inventory, "_get_json", lambda _url: [])
+
+    with pytest.raises(RuntimeError) as excinfo:
+        claim_inventory.load_live_inventory("ramimbo/mergework", "https://api.mrwk.online")
+    assert "pr list" in str(excinfo.value)
+    assert "safety cap" in str(excinfo.value)

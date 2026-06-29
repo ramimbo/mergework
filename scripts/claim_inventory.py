@@ -21,6 +21,9 @@ from scripts.bounty_refs import BOUNTY_REF_RE
 DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
 GH_LIMIT = 200
+GH_PR_SAFETY_CAP = 201
+GH_ISSUE_SAFETY_CAP = 201
+GH_PUBLIC_API_SAFETY_CAP = 201
 GITHUB_URL_RE = re.compile(
     r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/"
     r"(?:issues|pull)/\d+(?:#[A-Za-z0-9_.-]+)?"
@@ -581,8 +584,22 @@ def _get_json(url: str) -> Any:
 
 def load_public_api_state(api_host: str) -> dict[str, Any]:
     host = api_host.rstrip("/")
-    bounties = _get_json(f"{host}/api/v1/bounties?limit={GH_LIMIT}")
-    activity = _get_json(f"{host}/api/v1/activity?limit={GH_LIMIT}")
+    bounties = _get_json(f"{host}/api/v1/bounties?limit={GH_PUBLIC_API_SAFETY_CAP}")
+    activity = _get_json(f"{host}/api/v1/activity?limit={GH_PUBLIC_API_SAFETY_CAP}")
+    if isinstance(bounties, list) and len(bounties) >= GH_PUBLIC_API_SAFETY_CAP:
+        raise RuntimeError(
+            f"public /api/v1/bounties reached the {GH_PUBLIC_API_SAFETY_CAP} item "
+            "safety cap; use an API-paginated collector before trusting this live report"
+        )
+    if isinstance(activity, dict):
+        for section in ("contributors", "recent"):
+            value = activity.get(section)
+            if isinstance(value, list) and len(value) >= GH_PUBLIC_API_SAFETY_CAP:
+                raise RuntimeError(
+                    f"public /api/v1/activity.{section} reached the "
+                    f"{GH_PUBLIC_API_SAFETY_CAP} item safety cap; use an "
+                    "API-paginated collector before trusting this live report"
+                )
     data: dict[str, Any] = {}
     if isinstance(bounties, list):
         data["bounties"] = bounties
@@ -607,11 +624,16 @@ def load_live_inventory(repo: str, api_host: str) -> dict[str, Any]:
             "--state",
             "open",
             "--limit",
-            str(GH_LIMIT),
+            str(GH_ISSUE_SAFETY_CAP),
             "--json",
             "number,title,url,labels,author",
         ]
     )
+    if len(issue_list) >= GH_ISSUE_SAFETY_CAP:
+        raise RuntimeError(
+            f"gh issue list reached the {GH_ISSUE_SAFETY_CAP} item safety cap; "
+            "use an API-paginated collector before trusting this live report"
+        )
     issues: list[dict[str, Any]] = []
     for issue in issue_list:
         if (
@@ -643,11 +665,16 @@ def load_live_inventory(repo: str, api_host: str) -> dict[str, Any]:
             "--state",
             "open",
             "--limit",
-            str(GH_LIMIT),
+            str(GH_PR_SAFETY_CAP),
             "--json",
             "number,title,url,body,author,labels",
         ]
     )
+    if len(prs) >= GH_PR_SAFETY_CAP:
+        raise RuntimeError(
+            f"gh pr list reached the {GH_PR_SAFETY_CAP} item safety cap; "
+            "use an API-paginated collector before trusting this live report"
+        )
     pull_requests: list[dict[str, Any]] = []
     for pr in prs:
         if not isinstance(pr, dict) or not isinstance(pr.get("number"), int):
