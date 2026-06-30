@@ -656,6 +656,47 @@ def test_github_login_stores_safe_default_for_backslash_next(sqlite_url: str, mo
     assert next_path == "/me"
 
 
+def test_github_login_rejects_repeated_next(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/auth/github/login?next=/me&next=/admin", follow_redirects=False)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "next must be provided at most once"
+
+
+def test_github_callback_rejects_repeated_state(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(
+        "/auth/github/callback?code=abc&code=def&state=xyz",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "code must be provided at most once"
+
+
+def test_github_oauth_callback_route_is_registered(sqlite_url: str, monkeypatch) -> None:
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MERGEWORK_GITHUB_OAUTH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("MERGEWORK_PUBLIC_BASE_URL", "https://mrwk.example.test")
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/auth/github/callback", follow_redirects=False)
+
+    assert response.status_code == 422
+
+
 def test_wallet_pages_expose_transfer_and_github_claim_flows(sqlite_url: str) -> None:
     create_schema(sqlite_url)
     _, public_hex, address = _keypair()

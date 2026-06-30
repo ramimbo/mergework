@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 
 from app.config import Settings
 from app.control_chars import contains_control_character
+from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
 
 
 def oauth_configured(settings: Settings) -> bool:
@@ -109,7 +110,11 @@ def register_auth_routes(app: FastAPI, *, settings: Settings) -> AuthService:
     auth = AuthService(settings)
 
     @app.get("/auth/github/login")
-    def auth_github_login(next_path: str | None = Query(None, alias="next")) -> RedirectResponse:
+    def auth_github_login(
+        request: Request, next_path: str | None = Query(None, alias="next")
+    ) -> RedirectResponse:
+        reject_repeated_query_param(request, "next")
+        reject_control_char_query_param(request, "next")
         if not oauth_configured(settings):
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
         safe_next = safe_next_path(next_path)
@@ -133,6 +138,9 @@ def register_auth_routes(app: FastAPI, *, settings: Settings) -> AuthService:
 
     @app.get("/auth/github/callback")
     async def auth_github_callback(request: Request, code: str, state: str) -> RedirectResponse:
+        for name in ("code", "state"):
+            reject_repeated_query_param(request, name)
+            reject_control_char_query_param(request, name)
         if not oauth_configured(settings):
             raise HTTPException(status_code=503, detail="GitHub OAuth is not configured")
         cookie_state = request.cookies.get("mrwk_oauth_state")
