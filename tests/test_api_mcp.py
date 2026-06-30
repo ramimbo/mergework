@@ -2464,6 +2464,27 @@ def test_mcp_submit_work_proof_rejects_invalid_bounty_selectors(
     _assert_invalid_tool_arguments_envelope(response.json(), request_id=request_id)
 
 
+def test_mcp_submit_work_proof_rejects_control_padded_format(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 37,
+            "method": "tools/call",
+            "params": {"name": "submit_work_proof", "arguments": {"format": "\u0085json"}},
+        },
+    )
+
+    assert response.status_code == 200
+    _assert_invalid_tool_arguments_envelope(response.json(), request_id=37)
+
+
 @pytest.mark.parametrize(
     ("arguments", "request_id"),
     [
