@@ -35,7 +35,7 @@
   <a href="{{ status_filter_urls.paid | safe }}"{% if selected_status == "paid" %} aria-current="page"{% endif %}>Paid</a>
   <a href="{{ status_filter_urls.closed | safe }}"{% if selected_status == "closed" %} aria-current="page"{% endif %}>Closed</a>
 </nav>
-{% if query_text %}<p>Showing matches for “{{ query_text }}”.</p>{% endif %}
+{% if query_text %}<p>Showing matches for "{{ query_text }}".</p>{% endif %}
 {% if selected_repo or selected_issue_number %}
 <p>Source filter:{% if selected_repo %} {{ selected_repo }}{% endif %}{% if selected_issue_number %} #{{ selected_issue_number }}{% endif %}. <a href="{{ clear_source_filter_url | safe }}">Clear source filter</a></p>
 {% endif %}
