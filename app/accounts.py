@@ -50,6 +50,8 @@ def normalized_wallet_address(address: str) -> str:
 
 
 def normalized_account(account: str) -> str:
+    if any(char in account for char in "!@#$%^&*()+={}[]|\\;\"'<>?,/"):
+        raise HTTPException(status_code=400, detail="account identifier is malformed")
     if not account or not account.strip():
         raise HTTPException(status_code=400, detail="account must not be empty")
     if contains_control_character(account):
