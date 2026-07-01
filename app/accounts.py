@@ -224,3 +224,44 @@ def register_account_routes(app: FastAPI, *, db_url: str, templates: Jinja2Templ
         with session_scope(db_url) as session:
             context = account_page_context(session, account, tx_type)
         return templates.TemplateResponse(request, "account.html", context)
+
+    @app.get("/api/v1/accounts/{account}/submissions")
+    def api_account_submissions(request: Request, account: str) -> dict[str, Any]:
+        """Expose contributor submission status.
+
+        Returns a read-only view of:
+        - submitted PRs (open, merged, closed)
+        - submission status (submitted, blocked, accepted, pending_payout, paid)
+        - evidence (PR URLs, claim comments)
+        """
+        reject_path_whitespace_padding(account, "account")
+        reject_unsupported_query_params(
+            request,
+            ("include_closed",),
+            context="account submissions JSON detail",
+        )
+        with session_scope(db_url):
+            # Normalize account
+            normalized = normalized_account(account)
+
+            # Get GitHub login if account is github:
+            github_login = github_login_from_account(normalized)
+
+            # Basic response structure
+            # TODO: Query actual submission data from database and GitHub API
+            return {
+                "account": normalized,
+                "github_login": github_login,
+                "submissions": [],  # TODO: Populate with actual submission data
+                "summary": {
+                    "submitted": 0,
+                    "blocked": 0,
+                    "accepted": 0,
+                    "pending_payout": 0,
+                    "paid": 0,
+                },
+                "note": (
+                    "Initial implementation. Full submission tracking pending "
+                    "database schema and GitHub API integration."
+                ),
+            }
