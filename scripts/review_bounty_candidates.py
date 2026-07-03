@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
-DIRTY_MERGE_STATES = {"blocked", "conflicting", "dirty"}
-GH_TIMEOUT_SECONDS = 30
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.gh_cli import run_gh_json_list as _run_gh_json
+
 GH_PR_SAFETY_CAP = 201
 STANDARD_QUALITY_CHECK = "Quality, readiness, docs, and image checks"
 HUMAN_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED", "COMMENTED"}
+
+DIRTY_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
 
 
 def _login(raw: Any) -> str:
@@ -266,35 +271,6 @@ def format_markdown_report(report: dict[str, Any]) -> str:
             f"({_single_line(row['reason'])})"
         )
     return "\n".join(lines)
-
-
-def _run_gh_json(args: list[str]) -> Any:
-    command = " ".join(args)
-    try:
-        completed = subprocess.run(
-            args,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
-    except FileNotFoundError as exc:
-        raise RuntimeError(
-            "GitHub CLI executable 'gh' was not found; install gh and ensure it is on PATH "
-            "before using live --repo mode"
-        ) from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "gh command failed "
-            f"(exit {exc.returncode}): {command}\n"
-            f"stdout:\n{exc.stdout or exc.output or ''}\n"
-            f"stderr:\n{exc.stderr or ''}"
-        ) from exc
-    return json.loads(completed.stdout)
 
 
 def load_live_candidates(repo: str) -> dict[str, Any]:
