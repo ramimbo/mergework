@@ -4,8 +4,6 @@ import argparse
 import json
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -13,9 +11,11 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.api_host_args import public_api_host
+from scripts.gh_cli import DEFAULT_GH_TIMEOUT_SECONDS as GH_TIMEOUT_SECONDS
+from scripts.gh_cli import run_gh_json as _run_gh_json
+from scripts.public_api_json import load_public_bounty_list
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
-GH_TIMEOUT_SECONDS = 30
 
 
 def _int_or_none(value: Any) -> int | None:
@@ -119,31 +119,8 @@ def format_text_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _run_gh_json(args: list[str]) -> Any:
-    command = " ".join(args)
-    try:
-        completed = subprocess.run(
-            args,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "gh command failed "
-            f"(exit {exc.returncode}): {command}\n"
-            f"stdout:\n{exc.stdout or exc.output or ''}\n"
-            f"stderr:\n{exc.stderr or ''}"
-        ) from exc
-    return json.loads(completed.stdout)
-
-
 def _run_gh(args: list[str]) -> None:
+    """Run gh for maintainer --fix paths (may mutate GitHub state)."""
     command = " ".join(args)
     try:
         subprocess.run(
@@ -166,23 +143,6 @@ def _run_gh(args: list[str]) -> None:
         ) from exc
 
 
-def _fetch_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (TimeoutError, urllib.error.URLError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"failed to fetch JSON from {url}: {exc}") from exc
-
-
-def _load_public_bounties(api_host: str) -> list[dict[str, Any]]:
-    url = f"{api_host.rstrip('/')}/api/v1/bounties?status=open&limit=200"
-    data = _fetch_json(url)
-    if not isinstance(data, list):
-        raise RuntimeError(f"expected a JSON list from {url}")
-    return [item for item in data if isinstance(item, dict)]
-
-
 def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
     return _run_gh_json(
         [
@@ -199,7 +159,7 @@ def _load_issue(repo: str, issue_number: int) -> dict[str, Any]:
 
 
 def load_live_data(repo: str, api_host: str) -> dict[str, Any]:
-    bounties = _load_public_bounties(api_host)
+    bounties = load_public_bounty_list(api_host, query="status=open&limit=200")
     issue_numbers = sorted(
         number for number in (_issue_number(bounty) for bounty in bounties) if number is not None
     )
