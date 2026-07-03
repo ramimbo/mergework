@@ -468,6 +468,8 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert balance_schema["additionalProperties"] is False
     assert balance_schema["properties"]["account"]["minLength"] == 1
     assert "github:<login>" in balance_schema["properties"]["account"]["description"]
+    balance_output_schema = balance_tool["outputSchema"]
+    assert balance_output_schema["required"] == ["account", "balance_mrwk", "balance_microunits"]
     ledger_tool = next(
         tool for tool in tools["result"]["tools"] if tool["name"] == "get_ledger_entry"
     )
@@ -475,11 +477,15 @@ def test_mcp_tools_list_and_call(sqlite_url: str) -> None:
     assert ledger_schema["required"] == ["sequence"]
     assert ledger_schema["additionalProperties"] is False
     assert ledger_schema["properties"]["sequence"]["minimum"] == 1
+    ledger_output_schema = ledger_tool["outputSchema"]
+    assert "sequence" in ledger_output_schema["required"]
     proof_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "get_proof")
     proof_schema = proof_tool["inputSchema"]
     assert proof_schema["required"] == ["hash"]
     assert proof_schema["additionalProperties"] is False
     assert proof_schema["properties"]["hash"]["pattern"] == "^[0-9a-fA-F]{64}$"
+    assert "proof" in proof_tool["outputSchema"]["required"]
+    assert "outputSchema" in wallet_tool
 
     balance = client.post(
         "/mcp",
@@ -2434,6 +2440,7 @@ def test_mcp_submit_work_proof_scopes_issue_number_by_repo(sqlite_url: str) -> N
         ({"bounty_id": 1, "issue_number": 1}, 25),
         ({"format": "xml"}, 26),
         ({"format": 1}, 27),
+        ({"format": None}, 33),
         ({"format": "\x85json"}, 28),
         ({"repo": "ramimbo/mergework"}, 29),
         ({"bounty_id": 1, "repo": "ramimbo/mergework"}, 30),
