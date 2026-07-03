@@ -5,10 +5,15 @@ import json
 import subprocess
 import sys
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.gh_cli_constants import GH_TIMEOUT_SECONDS
+
 DIRTY_MERGE_STATES = {"blocked", "conflicting", "dirty"}
-GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 201
 STANDARD_QUALITY_CHECK = "Quality, readiness, docs, and image checks"
 HUMAN_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED", "COMMENTED"}
