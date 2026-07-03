@@ -103,17 +103,18 @@ def call_mcp_tool(
         return query
 
     def output_format_arg() -> str:
-        value = args.get("format", "text")
-        if value is None:
+        if "format" not in args:
             return "text"
+        value = args["format"]
+        if value is None:
+            raise ValueError("format must be text or json")
         if not isinstance(value, str):
             raise ValueError("format must be a string")
         if contains_control_character(value):
             raise ValueError("format must not contain control characters")
-        normalized = value.strip().lower()
-        if normalized not in {"text", "json"}:
+        if value not in {"text", "json"}:
             raise ValueError("format must be text or json")
-        return normalized
+        return value
 
     def optional_repo_selector_arg() -> str | None:
         repo = optional_clean_str_arg("repo")
