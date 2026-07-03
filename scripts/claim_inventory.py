@@ -17,9 +17,9 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE
+from scripts.gh_cli_constants import GH_TIMEOUT_SECONDS
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
-GH_TIMEOUT_SECONDS = 30
 GH_LIMIT = 200
 GITHUB_URL_RE = re.compile(
     r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/"

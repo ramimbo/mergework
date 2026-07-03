@@ -17,6 +17,7 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
+from scripts.gh_cli_constants import GH_TIMEOUT_SECONDS
 
 
 def _non_negative_int(value: str) -> int:
@@ -40,7 +41,6 @@ EVIDENCE_RE = re.compile(
     re.IGNORECASE,
 )
 SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
-GH_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
 GH_PR_SAFETY_CAP = 101

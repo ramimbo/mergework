@@ -13,9 +13,9 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.api_host_args import public_api_host
+from scripts.gh_cli_constants import GH_TIMEOUT_SECONDS
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
-GH_TIMEOUT_SECONDS = 30
 
 
 def _int_or_none(value: Any) -> int | None:
