@@ -119,6 +119,101 @@ MCP_BOUNTY_ATTEMPTS_OUTPUT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MCP_GET_BALANCE_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Account balance payload returned in structuredContent.",
+    "properties": {
+        "account": {"type": "string"},
+        "balance_mrwk": {"type": "string"},
+        "balance_microunits": {"type": "integer"},
+    },
+    "required": ["account", "balance_mrwk", "balance_microunits"],
+    "additionalProperties": False,
+}
+
+MCP_WALLET_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Registered MRWK wallet payload returned in structuredContent.",
+    "properties": {
+        "address": {
+            "type": "string",
+            "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
+        },
+        "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "label": {"type": ["string", "null"]},
+        "github_login": {"type": ["string", "null"]},
+        "balance_mrwk": {"type": "string"},
+        "nonce": {"type": "integer", "minimum": 0},
+        "next_nonce": {"type": "integer", "minimum": 1},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "address",
+        "public_key_hex",
+        "label",
+        "github_login",
+        "balance_mrwk",
+        "nonce",
+        "next_nonce",
+        "created_at",
+    ],
+    "additionalProperties": True,
+}
+
+MCP_GET_LEDGER_ENTRY_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Public ledger entry payload returned in structuredContent.",
+    "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "type": {"type": "string"},
+        "from": {"type": "string"},
+        "to": {"type": "string"},
+        "amount_mrwk": {"type": "string"},
+        "reference": {"type": ["string", "null"]},
+        "previous_hash": {"type": "string"},
+        "entry_hash": {"type": "string"},
+        "proof_hash": {"type": ["string", "null"]},
+        "created_at": {"type": "string"},
+    },
+    "required": [
+        "sequence",
+        "type",
+        "from",
+        "to",
+        "amount_mrwk",
+        "reference",
+        "previous_hash",
+        "entry_hash",
+        "proof_hash",
+        "created_at",
+    ],
+    "additionalProperties": False,
+}
+
+MCP_GET_PROOF_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "description": "Public proof payload returned in structuredContent.",
+    "properties": {
+        "hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "kind": {"type": "string"},
+        "ledger_sequence": {"type": ["integer", "null"], "minimum": 1},
+        "bounty_id": {"type": ["integer", "null"], "minimum": 1},
+        "submission_id": {"type": ["integer", "null"], "minimum": 1},
+        "created_at": {"type": "string"},
+        "proof": {"type": "object", "additionalProperties": True},
+    },
+    "required": [
+        "hash",
+        "kind",
+        "ledger_sequence",
+        "bounty_id",
+        "submission_id",
+        "created_at",
+        "proof",
+    ],
+    "additionalProperties": False,
+}
+
 MCP_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_bounties",
@@ -292,6 +387,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["account"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_GET_BALANCE_OUTPUT_SCHEMA,
     },
     {
         "name": "register_wallet",
@@ -312,33 +408,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["public_key_hex"],
             "additionalProperties": False,
         },
-        "outputSchema": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "pattern": "^[mM][rR][wW][kK]1[0-9a-fA-F]{40}$",
-                },
-                "public_key_hex": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
-                "label": {"type": ["string", "null"]},
-                "github_login": {"type": ["string", "null"]},
-                "balance_mrwk": {"type": "string"},
-                "nonce": {"type": "integer", "minimum": 0},
-                "next_nonce": {"type": "integer", "minimum": 1},
-                "created_at": {"type": "string"},
-            },
-            "required": [
-                "address",
-                "public_key_hex",
-                "label",
-                "github_login",
-                "balance_mrwk",
-                "nonce",
-                "next_nonce",
-                "created_at",
-            ],
-            "additionalProperties": True,
-        },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "get_wallet",
@@ -355,6 +425,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["address"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_WALLET_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_wallet_transfer",
@@ -375,6 +446,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["sequence"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_GET_LEDGER_ENTRY_OUTPUT_SCHEMA,
     },
     {
         "name": "get_proof",
@@ -393,6 +465,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
             "required": ["hash"],
             "additionalProperties": False,
         },
+        "outputSchema": MCP_GET_PROOF_OUTPUT_SCHEMA,
     },
     {
         "name": "submit_work_proof",
@@ -514,6 +587,7 @@ _KNOWN_FIELD_MESSAGES: dict[str, str] = {
 # field-prefixed (e.g. `unknown tool`).
 _KNOWN_FIELDLESS_MESSAGES: dict[str, str] = {
     "unknown tool": "unknown tool",
+    "unknown argument": "unknown argument",
     "matches multiple bounties": "matches multiple bounties",
     "repo can only be used with issue_number": ("repo can only be used with issue_number"),
 }

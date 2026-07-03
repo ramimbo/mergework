@@ -309,13 +309,16 @@ Tools:
 - `list_bounties`
 - `get_bounty`
 - `list_bounty_attempts`
-- `get_balance`
+- `get_balance` (`tools/list` advertises the account input schema and balance
+  output schema)
 - `register_wallet` (`tools/list` advertises the public-key input schema and the
   registered wallet output schema)
-- `get_wallet`
+- `get_wallet` (same wallet output schema as `register_wallet`)
 - `submit_wallet_transfer`
-- `get_ledger_entry`
-- `get_proof`
+- `get_ledger_entry` (`tools/list` advertises the sequence input schema and
+  ledger-entry output schema)
+- `get_proof` (`tools/list` advertises the hash input schema and proof output
+  schema)
 - `submit_work_proof` (`format: "json"` returns structuredContent; `tools/list`
   advertises the selector and format schema)
 
@@ -330,7 +333,14 @@ back to text for human-readable not-found messages.
 
 `get_balance` keeps the legacy balance text and also includes
 `result.structuredContent.account`, `balance_mrwk`, and `balance_microunits` so
-callers do not need to parse the text response.
+callers do not need to parse the text response. `tools/list` advertises the
+same fields in `get_balance.outputSchema.required`.
+
+Reusable schema/runtime conformance coverage lives in
+`tests/test_mcp_schema_conformance.py`. It compares advertised `tools/list`
+output schemas with representative `tools/call` structuredContent payloads and
+checks that tools with `additionalProperties: false` reject unknown arguments
+with the safe `error.data.message: "unknown argument"` envelope.
 
 ### Argument-validation errors
 
