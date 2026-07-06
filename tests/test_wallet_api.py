@@ -789,6 +789,38 @@ def test_wallet_pages_reject_control_character_filters(sqlite_url: str) -> None:
     assert oversized_search_response.json()["detail"] == "q must be at most 500 characters"
 
 
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    (
+        ("type=test_funding", "type is not supported on wallet list"),
+        ("tx_type=wallet_transfer", "tx_type is not supported on wallet list"),
+        ("from_address=mrwk1abc", "from_address is not supported on wallet list"),
+        ("to_address=mrwk1abc", "to_address is not supported on wallet list"),
+        ("account=github:alice", "account is not supported on wallet list"),
+        ("status=open", "status is not supported on wallet list"),
+        ("limit=25", "limit is not supported on wallet list"),
+        ("sort=newest", "sort is not supported on wallet list"),
+    ),
+)
+def test_wallet_list_rejects_unsupported_filters(sqlite_url: str, query: str, detail: str) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get(f"/wallets?{query}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+
+
+def test_wallet_list_allows_supported_q_filter(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/wallets?q=mrwk1abc")
+
+    assert response.status_code == 200
+    assert "No registered wallets match this search." in response.text
+
+
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
     create_schema(sqlite_url)
