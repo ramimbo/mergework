@@ -42,6 +42,7 @@ def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_pa
         "bounty_payable": "pass",
         "summary_present": "pass",
         "evidence_present": "pass",
+        "payment_status_language": "pass",
         "similar_open_pr": "pass",
     }
 
@@ -62,6 +63,155 @@ def test_submission_quality_gate_script_entrypoint_loads_shared_parser() -> None
 
     assert result.returncode == 0
     assert "usage:" in result.stdout
+
+
+def test_submission_quality_gate_fails_payout_boundary_status_wording() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary:
+            Add a focused pre-submission wording guard.
+
+            Refs #319
+
+            Payout boundary:
+            This submission is not confirmed or withdrawable.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert {
+        "name": "payment_status_language",
+        "status": "fail",
+        "message": (
+            "replace `Payout boundary` status wording with neutral `Submission status` text"
+        ),
+    } in result["checks"]
+
+
+def test_submission_quality_gate_fails_reserved_payment_status_assertion() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary:
+            Add a focused pre-submission wording guard.
+
+            Refs #319
+
+            Submission status:
+            This pending claim is paid.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert {
+        "name": "payment_status_language",
+        "status": "fail",
+        "message": (
+            "reserve paid, settled, received, and withdrawable status claims for "
+            "proof-backed ledger outcomes"
+        ),
+    } in result["checks"]
+
+
+def test_submission_quality_gate_fails_reserved_wording_alongside_allowlisted_terms() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary:
+            Add a focused pre-submission wording guard.
+
+            Refs #319
+
+            Per the docs, this submission is paid.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert {
+        "name": "payment_status_language",
+        "status": "fail",
+        "message": (
+            "reserve paid, settled, received, and withdrawable status claims for "
+            "proof-backed ledger outcomes"
+        ),
+    } in result["checks"]
+
+
+def test_submission_quality_gate_accepts_neutral_submission_status_wording() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary:
+            Add a focused pre-submission wording guard.
+
+            Refs #319
+
+            Submission status:
+            Maintainer acceptance and any later proof or ledger outcome are tracked
+            separately through the bounty issue and public rows.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "pass"
+    assert {
+        "name": "payment_status_language",
+        "status": "pass",
+        "message": "no premature payment-status wording found",
+    } in result["checks"]
+
+
+def test_submission_quality_gate_allows_technical_and_docs_payment_wording() -> None:
+    result = evaluate_submission(
+        {
+            "submission_text": """
+            Summary:
+            Add a focused pre-submission wording guard.
+
+            Refs #319
+
+            Scope:
+            No payout execution changes are included.
+            Docs explain when proof-backed ledger entries become paid.
+
+            Validation:
+            - pytest passed.
+            """,
+            "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+            "pull_requests": [],
+        }
+    )
+
+    assert result["status"] == "pass"
+    assert {
+        "name": "payment_status_language",
+        "status": "pass",
+        "message": "no premature payment-status wording found",
+    } in result["checks"]
 
 
 def test_submission_quality_gate_accepts_claim_command_reference() -> None:

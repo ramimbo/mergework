@@ -40,6 +40,26 @@ EVIDENCE_RE = re.compile(
     re.IGNORECASE,
 )
 SUMMARY_RE = re.compile(r"\b(summary|what changed|changes?)\b", re.IGNORECASE)
+PAYMENT_STATUS_HEADING_RE = re.compile(
+    r"^\s*(?:#+\s*)?payout boundary\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+PAYMENT_STATUS_BOUNDARY_RE = re.compile(
+    r"\bnot\s+(?:confirmed|earned|accepted|paid|settled|received)\s+(?:or|and)\s+withdrawable\b",
+    re.IGNORECASE,
+)
+PAYMENT_STATUS_ASSERTION_RE = re.compile(
+    r"\b(?:submission|submitted|pending|claim|status|attempt|this work|this pr|bounty)\b"
+    r"[^\n.]{0,80}\b(?:paid|settled|received|withdrawable)\b|"
+    r"\b(?:paid|settled|received|withdrawable)\b[^\n.]{0,80}"
+    r"\b(?:submission|submitted|pending|claim|status|attempt|this work|this pr|bounty)\b",
+    re.IGNORECASE,
+)
+PAYMENT_STATUS_CONTEXT_ALLOW_RE = re.compile(
+    r"\b(?:docs?|documentation|runbook|lifecycle|proof-backed|"
+    r"no\s+(?:payout|payment|ledger|treasury)\s+(?:execution|changes?))\b",
+    re.IGNORECASE,
+)
 GH_TIMEOUT_SECONDS = 30
 DEFAULT_API_HOST = "https://api.mrwk.online"
 DEFAULT_MAX_MAINTAINER_AGE_DAYS = 14
@@ -316,6 +336,37 @@ def _has_evidence(text: str) -> bool:
     return False
 
 
+def _payment_status_language_check(text: str) -> dict[str, str]:
+    for line in text.splitlines():
+        if PAYMENT_STATUS_ASSERTION_RE.search(line):
+            return _check(
+                "payment_status_language",
+                "fail",
+                "reserve paid, settled, received, and withdrawable status claims for "
+                "proof-backed ledger outcomes",
+            )
+        if PAYMENT_STATUS_CONTEXT_ALLOW_RE.search(line):
+            continue
+        if PAYMENT_STATUS_HEADING_RE.search(line):
+            return _check(
+                "payment_status_language",
+                "fail",
+                "replace `Payout boundary` status wording with neutral `Submission status` text",
+            )
+        if PAYMENT_STATUS_BOUNDARY_RE.search(line):
+            return _check(
+                "payment_status_language",
+                "fail",
+                "avoid saying submitted work is not confirmed, earned, accepted, paid, settled, "
+                "received, or withdrawable; use neutral submission-status wording",
+            )
+    return _check(
+        "payment_status_language",
+        "pass",
+        "no premature payment-status wording found",
+    )
+
+
 def _matching_pr_bounty_refs(pr: dict[str, Any]) -> list[int]:
     text = "\n".join(str(pr.get(key) or "") for key in ("title", "body"))
     return _bounty_refs(text)
@@ -480,6 +531,8 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
                 "include concrete test or validation evidence before submission",
             )
         )
+
+    checks.append(_payment_status_language_check(text))
 
     similar = _similar_open_prs(pull_requests, bounty_ref, _title_from_submission(text))
     if similar:
