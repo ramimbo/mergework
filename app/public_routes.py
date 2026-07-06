@@ -39,6 +39,20 @@ from app.status import (
 )
 
 WALLET_SEARCH_QUERY_MAX_LENGTH = 500
+WALLET_LIST_UNSUPPORTED_FILTERS = (
+    "account",
+    "availability",
+    "from_address",
+    "issue_number",
+    "limit",
+    "offset",
+    "repo",
+    "sort",
+    "status",
+    "to_address",
+    "tx_type",
+    "type",
+)
 
 
 def _bounty_filter_params(
@@ -425,6 +439,9 @@ def register_public_routes(
     def wallets_page(request: Request, q: str | None = Query(None)) -> HTMLResponse:
         reject_control_char_query_param(request, "q")
         reject_repeated_query_param(request, "q")
+        reject_unsupported_query_params(
+            request, WALLET_LIST_UNSUPPORTED_FILTERS, context="wallet list"
+        )
         with session_scope(db_url) as session:
             context = wallets_page_context(session, q)
         return templates.TemplateResponse(request, "wallets.html", context)
