@@ -11,8 +11,24 @@ from sqlalchemy.orm import Session
 from app.accounts import normalized_account
 from app.control_chars import contains_control_character
 from app.db import session_scope
-from app.query_validation import reject_control_char_query_param, reject_repeated_query_param
+from app.query_validation import (
+    reject_control_char_query_param,
+    reject_repeated_query_param,
+    reject_unsupported_query_params,
+)
 from app.serializers import activity_to_dict
+
+ACTIVITY_UNSUPPORTED_FILTERS = (
+    "limit",
+    "offset",
+    "status",
+    "sort",
+    "repo",
+    "issue_number",
+    "availability",
+    "type",
+    "tx_type",
+)
 
 
 def activity_context(
@@ -46,6 +62,11 @@ def _activity_page_url(account: str | None) -> str:
 
 
 def _validate_activity_filter_params(request: Request) -> None:
+    reject_unsupported_query_params(
+        request,
+        ACTIVITY_UNSUPPORTED_FILTERS,
+        context="activity",
+    )
     for name in ("q", "account"):
         reject_control_char_query_param(request, name)
         reject_repeated_query_param(request, name)

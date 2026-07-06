@@ -346,6 +346,36 @@ def test_activity_query_rejects_control_characters(sqlite_url: str) -> None:
     assert invalid_page_account_response.json()["detail"] == "github login must be valid"
 
 
+def test_activity_routes_reject_unsupported_filters(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    with session_scope(sqlite_url) as session:
+        ensure_genesis(session)
+
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    assert client.get("/api/v1/activity?q=github").status_code == 200
+    assert client.get("/activity?account=github:alice").status_code == 200
+
+    for query, field in (
+        ("limit=10", "limit"),
+        ("status=open", "status"),
+        ("sort=recent", "sort"),
+        ("repo=ramimbo%2Fmergework", "repo"),
+        ("issue_number=935", "issue_number"),
+        ("availability=effectively_open", "availability"),
+        ("type=payment", "type"),
+        ("tx_type=payment", "tx_type"),
+        ("offset=1", "offset"),
+    ):
+        api_response = client.get(f"/api/v1/activity?{query}")
+        page_response = client.get(f"/activity?{query}")
+
+        assert api_response.status_code == 400
+        assert api_response.json()["detail"] == f"{field} is not supported on activity"
+        assert page_response.status_code == 400
+        assert page_response.json()["detail"] == f"{field} is not supported on activity"
+
+
 def test_activity_api_exposes_pending_payouts_separately_from_paid_work(
     sqlite_url: str,
 ) -> None:
