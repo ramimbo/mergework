@@ -811,6 +811,16 @@ def test_wallet_list_rejects_unsupported_filters(sqlite_url: str, query: str, de
     assert response.json()["detail"] == detail
 
 
+def test_wallet_list_allows_supported_q_filter(sqlite_url: str) -> None:
+    create_schema(sqlite_url)
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+
+    response = client.get("/wallets?q=mrwk1abc")
+
+    assert response.status_code == 200
+    assert "No registered wallets match this search." in response.text
+
+
 def test_me_page_shows_signed_in_github_claim_balance(sqlite_url: str, monkeypatch) -> None:
     monkeypatch.setenv("MERGEWORK_COOKIE_SECRET", "test-cookie-secret")
     create_schema(sqlite_url)
