@@ -29,6 +29,22 @@ def _json_response(
     }
 
 
+HTTP_ERROR_RESPONSE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "detail": {
+            "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "object", "additionalProperties": True}},
+            ],
+            "description": "Bounded FastAPI error detail for rejected public API requests.",
+        },
+    },
+    "required": ["detail"],
+}
+
+
 def _object_schema(
     properties: dict[str, Any], *, required: list[str] | None = None, description: str | None = None
 ) -> dict[str, Any]:
@@ -367,6 +383,10 @@ OPTIONAL_ATTEMPT_BODY = {
         "201": _json_response(
             ATTEMPT_REGISTRATION_RESPONSE_SCHEMA, description="Attempt registered."
         ),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA,
+            description="Invalid attempt reservation payload.",
+        ),
         "409": _json_response(
             ATTEMPT_CONFLICT_RESPONSE_SCHEMA,
             description="Attempt unavailable or duplicate active attempt.",
@@ -391,6 +411,10 @@ OPTIONAL_ATTEMPT_RELEASE_BODY = {
     ),
     "responses": {
         "200": _json_response(ATTEMPT_RELEASE_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA,
+            description="Invalid attempt release payload.",
+        ),
     },
 }
 
@@ -409,6 +433,7 @@ WALLET_REGISTER_BODY = {
     ),
     "responses": {
         "200": _json_response(WALLET_RESPONSE_SCHEMA),
+        "400": _json_response(HTTP_ERROR_RESPONSE_SCHEMA, description="Invalid wallet payload."),
     },
 }
 
@@ -430,6 +455,9 @@ SIGNED_WALLET_ACTION_BODY = {
     ),
     "responses": {
         "200": _json_response(WALLET_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA, description="Invalid signed wallet payload."
+        ),
     },
 }
 
@@ -437,6 +465,9 @@ GITHUB_CLAIM_BODY = {
     "requestBody": SIGNED_WALLET_ACTION_BODY["requestBody"],
     "responses": {
         "200": _json_response(LEDGER_ENTRY_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA, description="Invalid GitHub claim payload."
+        ),
     },
 }
 
@@ -465,6 +496,10 @@ WALLET_TRANSFER_BODY = {
     ),
     "responses": {
         "200": _json_response(WALLET_TRANSFER_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA,
+            description="Invalid wallet transfer payload.",
+        ),
     },
 }
 
@@ -484,6 +519,10 @@ TREASURY_PROPOSAL_BODY = {
     ),
     "responses": {
         "200": _json_response(TREASURY_PROPOSAL_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA,
+            description="Invalid treasury proposal payload.",
+        ),
     },
 }
 
@@ -499,6 +538,10 @@ TREASURY_CHALLENGE_BODY = {
     ),
     "responses": {
         "200": _json_response(TREASURY_CHALLENGE_RESPONSE_SCHEMA),
+        "400": _json_response(
+            HTTP_ERROR_RESPONSE_SCHEMA,
+            description="Invalid treasury challenge payload.",
+        ),
     },
 }
 

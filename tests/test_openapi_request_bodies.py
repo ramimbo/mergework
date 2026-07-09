@@ -8,8 +8,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 EXPECTED_TTL_STRING_PATTERN = (
-    r"^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|"
-    r"60[0-3][0-9]{3}|604[0-7][0-9]{2}|604800)$"
+    r"^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|" r"60[0-3][0-9]{3}|604[0-7][0-9]{2}|604800)$"
 )
 
 
@@ -365,6 +364,34 @@ def test_public_post_openapi_response_schemas_expose_treasury_fields(sqlite_url:
             "created_at",
         },
     )
+
+
+def test_public_post_openapi_error_responses_expose_detail_contract(
+    sqlite_url: str,
+) -> None:
+    client = TestClient(create_app(database_url=sqlite_url, webhook_secret="secret"))
+    openapi = client.get("/openapi.json").json()
+
+    public_post_paths = (
+        "/api/v1/bounties/{bounty_id}/attempts",
+        "/api/v1/bounty-attempts/{attempt_id}/release",
+        "/api/v1/wallets/register",
+        "/api/v1/wallets/link-github",
+        "/api/v1/github/claim",
+        "/api/v1/transfers",
+        "/api/v1/treasury/proposals",
+        "/api/v1/treasury/proposals/{proposal_id}/challenges",
+    )
+
+    for path in public_post_paths:
+        schema = _post_response_schema(openapi, path, "400")
+        assert schema["additionalProperties"] is False
+        assert set(schema["required"]) == {"detail"}
+        detail_schema = schema["properties"]["detail"]
+        assert {"type": "string"} in detail_schema["oneOf"]
+        assert {"type": "array", "items": {"type": "object", "additionalProperties": True}} in (
+            detail_schema["oneOf"]
+        )
 
 
 def test_attempt_openapi_request_bodies_remain_optional(sqlite_url: str) -> None:
