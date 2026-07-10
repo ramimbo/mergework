@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import subprocess  # noqa: F401 - monkeypatched in tests
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -14,9 +12,11 @@ if __package__ in {None, ""}:
 
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
+from scripts.gh_cli import run_gh_json as _run_gh_json
+from scripts.public_api_json import load_public_bounty_list
+from scripts.source_args import validate_source_args
 
 DEFAULT_API_HOST = "https://api.mrwk.online"
-GH_TIMEOUT_SECONDS = 30
 GH_PR_SAFETY_CAP = 200
 MAX_BOUNTY_REF = 2**63 - 1
 
@@ -122,47 +122,6 @@ def format_text_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _run_gh_json(args: list[str]) -> Any:
-    command = " ".join(args)
-    try:
-        completed = subprocess.run(
-            args,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=GH_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"gh command timed out after {GH_TIMEOUT_SECONDS}s: {command}") from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "gh command failed "
-            f"(exit {exc.returncode}): {command}\n"
-            f"stdout:\n{exc.stdout or exc.output or ''}\n"
-            f"stderr:\n{exc.stderr or ''}"
-        ) from exc
-    return json.loads(completed.stdout)
-
-
-def _fetch_json(url: str) -> Any:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=GH_TIMEOUT_SECONDS) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (TimeoutError, urllib.error.URLError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"failed to fetch JSON from {url}: {exc}") from exc
-
-
-def _load_public_bounties(api_host: str) -> list[dict[str, Any]]:
-    url = f"{api_host.rstrip('/')}/api/v1/bounties?status=open&limit=200"
-    data = _fetch_json(url)
-    if not isinstance(data, list):
-        raise RuntimeError(f"expected a JSON list from {url}")
-    return [item for item in data if isinstance(item, dict)]
-
-
 def _load_pull_requests(repo: str, state: str, pr_numbers: list[int]) -> list[dict[str, Any]]:
     if pr_numbers:
         return [
@@ -205,7 +164,7 @@ def _load_pull_requests(repo: str, state: str, pr_numbers: list[int]) -> list[di
 
 def load_live_data(repo: str, api_host: str, state: str, pr_numbers: list[int]) -> dict[str, Any]:
     return {
-        "bounties": _load_public_bounties(api_host),
+        "bounties": load_public_bounty_list(api_host, query="status=open&limit=200"),
         "pull_requests": _load_pull_requests(repo, state, pr_numbers),
     }
 
@@ -235,10 +194,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fail-on-issues", action="store_true")
     args = parser.parse_args(argv)
 
+    input_arg, repo_arg = validate_source_args(
+        parser,
+        input_value=args.input,
+        repo_value=args.repo,
+    )
     data = (
-        _load_input(args.input)
-        if args.input
-        else load_live_data(args.repo, args.api_host, args.state, args.pr)
+        _load_input(input_arg)
+        if input_arg is not None
+        else load_live_data(repo_arg, args.api_host, args.state, args.pr)
     )
     report = analyze_closing_refs(data)
     if args.format == "json":
