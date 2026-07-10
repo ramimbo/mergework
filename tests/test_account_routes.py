@@ -100,6 +100,12 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     api_type_filter_response = client.get("/api/v1/accounts/github:bob?type=github_claim")
     api_tx_type_filter_response = client.get("/api/v1/accounts/github:bob?tx_type=github_claim")
     accepted_response = client.get("/api/v1/accounts/github:bob/accepted-work")
+    accepted_type_filter = client.get(
+        "/api/v1/accounts/github:bob/accepted-work?type=bounty_payment"
+    )
+    accepted_tx_type_filter = client.get(
+        "/api/v1/accounts/github:bob/accepted-work?tx_type=bounty_payment"
+    )
     page_response = client.get("/accounts/github:bob")
 
     assert api_response.status_code == 200
@@ -116,6 +122,14 @@ def test_registered_account_routes_preserve_api_and_page_shapes(sqlite_url: str)
     assert accepted_response.status_code == 200
     assert accepted_response.json()["summary"]["accepted_mrwk"] == "25"
     assert accepted_response.json()["accepted_work"][0]["submission_url"].endswith("/pull/178")
+    assert accepted_type_filter.status_code == 400
+    assert accepted_type_filter.json()["detail"] == (
+        "type is not supported on account accepted-work JSON detail"
+    )
+    assert accepted_tx_type_filter.status_code == 400
+    assert accepted_tx_type_filter.json()["detail"] == (
+        "tx_type is not supported on account accepted-work JSON detail"
+    )
     assert page_response.status_code == 200
     assert "github:bob" in page_response.text
     assert "25 MRWK" in page_response.text
