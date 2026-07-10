@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import check_live_bounty_closing_refs
 from scripts.check_live_bounty_closing_refs import analyze_closing_refs, main
 
@@ -113,3 +115,26 @@ def test_closing_ref_check_loads_specific_prs(monkeypatch) -> None:
 
     assert prs[0]["number"] == 1015
     assert calls[0][:4] == ["gh", "pr", "view", "1015"]
+
+
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "must not be empty or whitespace-only"),
+        (["--input", "   "], "must not be empty or whitespace-only"),
+        (["--repo", ""], "must not be empty or whitespace-only"),
+        (["--repo", "   "], "must not be empty or whitespace-only"),
+    ),
+)
+def test_closing_ref_check_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main([*source_args, "--format", "json"])
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert expected_message in captured.err
+    assert captured.out == ""
