@@ -46,5 +46,15 @@ jobs:
         run: python scripts/check_deploy_ready.py
       - name: Docs smoke
         run: python scripts/docs_smoke.py
+      - name: Check live bounty closing references
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          python scripts/check_live_bounty_closing_refs.py
+          --repo ramimbo/mergework
+          --pr ${{ github.event.pull_request.number }}
+          --fail-on-issues
+
       - name: Build Docker image
         run: docker build -t mergework:ci .

@@ -113,3 +113,39 @@ def test_closing_ref_check_loads_specific_prs(monkeypatch) -> None:
 
     assert prs[0]["number"] == 1015
     assert calls[0][:4] == ["gh", "pr", "view", "1015"]
+
+
+def test_load_pull_requests_uses_github_api_when_token_set(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_urlopen(request, timeout=0):
+        calls.append(request.full_url)
+        payload = json.dumps(
+            {
+                "number": 1015,
+                "title": "Guard bounty closeout",
+                "body": "Closes #944",
+                "html_url": "https://github.com/ramimbo/mergework/pull/1015",
+                "state": "open",
+            }
+        ).encode("utf-8")
+
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return payload
+
+        return _Resp()
+
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setattr(check_live_bounty_closing_refs.urllib.request, "urlopen", fake_urlopen)
+
+    prs = check_live_bounty_closing_refs._load_pull_requests("ramimbo/mergework", "open", [1015])
+
+    assert prs[0]["number"] == 1015
+    assert "api.github.com/repos/ramimbo/mergework/pulls/1015" in calls[0]
