@@ -80,3 +80,9 @@ Run these before opening a PR:
 
 Private findings stay private until maintainers approve disclosure. Public
 ledger entries for security work must use redacted proof metadata only.
+
+Before merging, ensure PR titles/bodies do not use GitHub closing keywords
+(`closes`, `fixes`, `resolves`, etc.) against open public bounty issues. CI runs
+`scripts/check_live_bounty_closing_refs.py` on each pull request using the GitHub
+API (`GITHUB_TOKEN`) for the current PR body.
+
