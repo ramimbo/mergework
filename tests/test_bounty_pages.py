@@ -427,7 +427,7 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
     text_search = client.get("/bounties?q=proof+inspection")
     assert text_search.status_code == 200
     assert "Search bounties" in text_search.text
-    assert "Showing matches for “proof inspection”." in text_search.text
+    assert 'Showing matches for "proof inspection".' in text_search.text
     assert "Improve public bounty discovery" in text_search.text
     assert "Internal admin cleanup" not in text_search.text
     assert 'href="/bounties?status=open&q=proof%20inspection"' in text_search.text
@@ -442,7 +442,7 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
 
     hash_issue_page = client.get("/bounties?q=%2365")
     assert hash_issue_page.status_code == 200
-    assert "Showing matches for “#65”." in hash_issue_page.text
+    assert 'Showing matches for "#65".' in hash_issue_page.text
     assert "Internal admin cleanup" in hash_issue_page.text
     assert "Improve public bounty discovery" not in hash_issue_page.text
 
@@ -549,8 +549,14 @@ def test_bounties_page_and_api_search_by_text_and_issue_number(sqlite_url: str) 
 @pytest.mark.parametrize(
     ("path", "expected_detail"),
     [
-        ("/bounties?sort=oldest", "sort must be one of: newest, reward, available, awards"),
-        ("/bounties?availability=stale", "availability must be one of: all, effectively_open"),
+        (
+            "/bounties?sort=oldest",
+            "sort must be one of: newest, reward, available, awards",
+        ),
+        (
+            "/bounties?availability=stale",
+            "availability must be one of: all, effectively_open",
+        ),
     ],
 )
 def test_bounties_page_rejects_invalid_sort_and_availability_filters(
@@ -647,7 +653,9 @@ def test_bounties_page_and_api_sort_public_rows(sqlite_url: str) -> None:
     assert invalid_sort.json()["detail"] == "sort must be one of: newest, reward, available, awards"
 
 
-def test_bounties_page_api_and_summary_filter_effectively_open_rows(sqlite_url: str) -> None:
+def test_bounties_page_api_and_summary_filter_effectively_open_rows(
+    sqlite_url: str,
+) -> None:
     create_schema(sqlite_url)
     with session_scope(sqlite_url) as session:
         ensure_genesis(session)
