@@ -16,7 +16,15 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.api_host_args import public_api_host
-from scripts.bounty_refs import BOUNTY_REF_RE, GITHUB_LINKED_ISSUE_RE, LEADING_BOUNTY_REF_RE
+from scripts.bounty_refs import (
+    BOUNTY_REF_RE,
+    GITHUB_LINKED_ISSUE_RE,
+    LEADING_BOUNTY_REF_RE,
+)
+from scripts.public_payment_language import (
+    SUGGESTED_REPLACEMENT,
+    find_payment_language_violations,
+)
 
 
 def _non_negative_int(value: str) -> int:
@@ -427,7 +435,9 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
         else:
             checks.append(
                 _check(
-                    "bounty_payable", "pass", _bounty_payability_pass_message(bounty_ref, bounty)
+                    "bounty_payable",
+                    "pass",
+                    _bounty_payability_pass_message(bounty_ref, bounty),
                 )
             )
             availability_warning = _bounty_availability_warning(bounty_ref, bounty)
@@ -478,6 +488,27 @@ def evaluate_submission(data: dict[str, Any]) -> dict[str, Any]:
                 "evidence_present",
                 "warn",
                 "include concrete test or validation evidence before submission",
+            )
+        )
+
+    payment_violations = find_payment_language_violations(text)
+    if payment_violations:
+        preview = "; ".join(payment_violations[:2])
+        if len(payment_violations) > 2:
+            preview += f" (+{len(payment_violations) - 2} more)"
+        checks.append(
+            _check(
+                "payment_language",
+                "fail",
+                f"{preview}. {SUGGESTED_REPLACEMENT}",
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "payment_language",
+                "pass",
+                "no premature payment/status wording found",
             )
         )
 
@@ -725,7 +756,11 @@ def _load_live_context(
                     "MergeWork API bounty id unavailable for attempts lookup"
                 )
         bounties.append(bounty_record)
-    data = {"submission_text": submission_text, "bounties": bounties, "pull_requests": prs}
+    data = {
+        "submission_text": submission_text,
+        "bounties": bounties,
+        "pull_requests": prs,
+    }
     if load_warnings:
         data["load_warning"] = "; ".join(load_warnings)
     return data
