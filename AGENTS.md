@@ -80,3 +80,10 @@ Run these before opening a PR:
 
 Private findings stay private until maintainers approve disclosure. Public
 ledger entries for security work must use redacted proof metadata only.
+
+PR bodies and submission drafts must not use premature payment/status wording such as
+`Payout boundary`, legacy "not confirmed or withdrawable" phrasing, or reserved
+paid/settled/received/withdrawable claim assertions. Use neutral `Submission status`
+language instead. CI runs `scripts/check_pr_payment_language.py` on each pull request,
+and `scripts/submission_quality_gate.py` enforces the same rule for draft checks.
+

@@ -43,6 +43,7 @@ def test_submission_quality_gate_passes_open_bounty_with_evidence(capsys, tmp_pa
         "summary_present": "pass",
         "evidence_present": "pass",
         "similar_open_pr": "pass",
+        "payment_language": "pass",
     }
 
     input_path = tmp_path / "submission.json"
@@ -196,7 +197,9 @@ def test_submission_quality_gate_accepts_github_linking_keywords() -> None:
 
 
 @pytest.mark.parametrize("reference", ("Fixes #319abc", "Fixes #319_abc", "Fixes #319-abc"))
-def test_submission_quality_gate_rejects_linking_keyword_issue_suffix(reference: str) -> None:
+def test_submission_quality_gate_rejects_linking_keyword_issue_suffix(
+    reference: str,
+) -> None:
     result = evaluate_submission(
         {
             "submission_text": (
@@ -811,7 +814,9 @@ def test_submission_quality_gate_load_json_url_decodes_response(monkeypatch) -> 
     ) == {"ok": True}
 
 
-def test_submission_quality_gate_attempts_loader_keeps_contextual_error(monkeypatch) -> None:
+def test_submission_quality_gate_attempts_loader_keeps_contextual_error(
+    monkeypatch,
+) -> None:
     def fake_urlopen(url: str, *, timeout: int) -> _JsonResponse:
         return _JsonResponse({"attempts": "not-a-list"})
 
@@ -911,7 +916,9 @@ def test_submission_quality_gate_warns_when_live_collections_hit_safety_caps(
     } in result["checks"]
 
 
-def test_submission_quality_gate_live_bounties_use_api_award_capacity(monkeypatch) -> None:
+def test_submission_quality_gate_live_bounties_use_api_award_capacity(
+    monkeypatch,
+) -> None:
     def fake_run(args, **kwargs):
         if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
@@ -1034,7 +1041,11 @@ def test_submission_quality_gate_live_context_scopes_referenced_bounty_checks(
                 returncode=0,
                 stdout=json.dumps(
                     [
-                        {"number": 318, "title": "MRWK bounty: unrelated", "state": "OPEN"},
+                        {
+                            "number": 318,
+                            "title": "MRWK bounty: unrelated",
+                            "state": "OPEN",
+                        },
                         {"number": 319, "title": "MRWK bounty: gate", "state": "OPEN"},
                     ]
                 ),
@@ -1139,7 +1150,9 @@ def test_submission_quality_gate_live_context_warns_when_attempt_id_missing(
     } in result["checks"]
 
 
-def test_submission_quality_gate_live_context_adds_maintainer_activity(monkeypatch) -> None:
+def test_submission_quality_gate_live_context_adds_maintainer_activity(
+    monkeypatch,
+) -> None:
     def fake_run(args, **kwargs):
         if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
@@ -1432,3 +1445,38 @@ def test_quality_gate_cli_rejects_invalid_api_host(tmp_path, capsys) -> None:
             main(["--text-file", str(draft), "--api-host", bad])
         assert excinfo.value.code == 2
         assert "api host must" in capsys.readouterr().err
+
+
+def test_evaluate_submission_fails_on_premature_payment_wording() -> None:
+    data = {
+        "submission_text": (
+            "Summary: fix docs\n\nRefs #319\n\n"
+            "## Payout boundary\nThis submission is paid and withdrawable."
+        ),
+        "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+        "pull_requests": [],
+    }
+
+    result = evaluate_submission(data)
+
+    payment_checks = [check for check in result["checks"] if check["name"] == "payment_language"]
+    assert payment_checks
+    assert payment_checks[0]["status"] == "fail"
+    assert result["status"] == "fail"
+
+
+def test_evaluate_submission_passes_neutral_submission_status() -> None:
+    data = {
+        "submission_text": (
+            "Summary: fix docs\n\nRefs #319\n\n"
+            "## Submission status\nAcceptance and proof are tracked separately."
+        ),
+        "bounties": [{"number": 319, "state": "OPEN", "awards_remaining": 1}],
+        "pull_requests": [],
+    }
+
+    result = evaluate_submission(data)
+
+    payment_checks = [check for check in result["checks"] if check["name"] == "payment_language"]
+    assert payment_checks
+    assert payment_checks[0]["status"] == "pass"
