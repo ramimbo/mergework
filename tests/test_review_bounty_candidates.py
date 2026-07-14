@@ -8,9 +8,11 @@ from pathlib import Path
 import pytest
 
 from scripts.review_bounty_candidates import (
+    _apply_bounty_saturation,
     analyze_candidates,
     format_markdown_report,
     format_text_report,
+    index_bounty_claims,
     load_live_candidates,
     main,
 )
@@ -276,3 +278,232 @@ def test_live_candidates_reports_missing_github_cli(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="GitHub CLI executable 'gh' was not found"):
         load_live_candidates("ramimbo/mergework")
+
+
+def _pr(
+    number: int,
+    *,
+    head: str,
+    base: str = "base1",
+    merge_state: str = "CLEAN",
+    reviews: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return {
+        "number": number,
+        "title": f"PR {number}",
+        "url": f"https://github.com/ramimbo/mergework/pull/{number}",
+        "author": {"login": "alice"},
+        "headRefOid": head,
+        "baseRefOid": base,
+        "mergeStateStatus": merge_state,
+        "labels": [],
+        "statusCheckRollup": _quality_check(),
+        "reviews": reviews or [],
+    }
+
+
+def test_review_bounty_candidates_marks_pr_review_claim_at_current_head() -> None:
+    head = "c" * 40
+    fixture = {
+        "repo": "ramimbo/mergework",
+        "pull_requests": [_pr(784, head=head)],
+        "bounty_claim_comments": [
+            {
+                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-1",
+                "author": {"login": "bob"},
+                "body": (
+                    "Claiming review evidence "
+                    "https://github.com/ramimbo/mergework/pull/784#pullrequestreview-4406541805\n"
+                    f"head: {head}"
+                ),
+            }
+        ],
+    }
+
+    report = analyze_candidates(fixture, reviewer="reviewer")
+    row = report["pull_requests"][0]
+
+    assert row["state"] == "already_claimed_current_head"
+    assert row["claim_evidence_kind"] == "pr_review"
+    assert row["matched_claim_urls"] == [
+        "https://github.com/ramimbo/mergework/issues/654#issuecomment-1"
+    ]
+
+
+def test_review_bounty_candidates_marks_pr_comment_claim() -> None:
+    fixture = {
+        "repo": "ramimbo/mergework",
+        "pull_requests": [_pr(533, head="head533")],
+        "bounty_claim_comments": [
+            {
+                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-2",
+                "author": {"login": "bob"},
+                "body": (
+                    "Reviewed via concise PR comment "
+                    "https://github.com/ramimbo/mergework/pull/533#issuecomment-999"
+                ),
+            }
+        ],
+    }
+
+    report = analyze_candidates(fixture, reviewer="reviewer")
+    row = report["pull_requests"][0]
+
+    assert row["state"] == "claimed_by_pr_comment"
+    assert row["claim_evidence_kind"] == "pr_comment"
+
+
+def test_review_bounty_candidates_flags_stale_head_claim() -> None:
+    fixture = {
+        "repo": "ramimbo/mergework",
+        "pull_requests": [_pr(662, head="newhead")],
+        "bounty_claim_comments": [
+            {
+                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-3",
+                "author": {"login": "bob"},
+                "body": (
+                    "Claiming https://github.com/ramimbo/mergework/pull/662#pullrequestreview-1\n"
+                    "headRefOid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                ),
+            }
+        ],
+    }
+
+    report = analyze_candidates(fixture, reviewer="reviewer")
+    row = report["pull_requests"][0]
+
+    assert row["state"] == "claimed_stale_head_or_base"
+    assert "differs from current head" in row["reason"]
+
+
+def test_review_bounty_candidates_flags_dirty_unclaimed_current_base_candidate() -> None:
+    fixture = {
+        "repo": "ramimbo/mergework",
+        "pull_requests": [_pr(662, head="head662", merge_state="DIRTY")],
+        "bounty_claim_comments": [],
+    }
+
+    report = analyze_candidates(fixture, reviewer="reviewer")
+    row = report["pull_requests"][0]
+
+    assert row["state"] == "dirty_unclaimed_current_base_candidate"
+
+
+def test_review_bounty_candidates_claim_without_pr_review_object() -> None:
+    fixture = {
+        "repo": "ramimbo/mergework",
+        "pull_requests": [_pr(784, head="head784", reviews=[])],
+        "bounty_claim_comments": [
+            {
+                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-4",
+                "author": {"login": "bob"},
+                "body": "Claiming PR #784 with evidence in bounty comment only.",
+            }
+        ],
+    }
+
+    report = analyze_candidates(fixture, reviewer="reviewer")
+    row = report["pull_requests"][0]
+
+    assert row["state"] == "already_claimed_on_bounty_issue"
+    assert row["current_head_human_reviews"] == 0
+
+
+def test_index_bounty_claims_parses_bare_pr_number() -> None:
+    claims = index_bounty_claims(
+        [
+            {
+                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-5",
+                "author": {"login": "bob"},
+                "body": "Claiming review for PR #784",
+            }
+        ],
+        repo="ramimbo/mergework",
+    )
+
+    assert 784 in claims
+    assert claims[784][0]["evidence_kind"] == "pr_reference"
+
+
+def test_review_bounty_candidates_live_mode_loads_bounty_issue_comments(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args, **kwargs):
+        calls.append(list(args))
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps([_pr(784, head="head784")]),
+                stderr="",
+            )
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "comments": [
+                            {
+                                "html_url": "https://github.com/ramimbo/mergework/issues/654#issuecomment-1",
+                                "author": {"login": "bob"},
+                                "body": (
+                                    "Claiming "
+                                    "https://github.com/ramimbo/mergework/pull/784#pullrequestreview-1"
+                                ),
+                            }
+                        ]
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    data = load_live_candidates("ramimbo/mergework", bounty_issue=654)
+    report = analyze_candidates(data, reviewer="reviewer", repo=data["repo"])
+
+    assert any(call[:3] == ["gh", "issue", "view"] for call in calls)
+    assert report["pull_requests"][0]["state"] == "already_claimed_on_bounty_issue"
+
+
+def test_review_bounty_candidates_rejects_bounty_issue_in_offline_mode(capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "--input",
+                "fixture.json",
+                "--bounty-issue",
+                "654",
+                "--reviewer",
+                "reviewer",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+    assert "--bounty-issue is only valid in live --repo mode" in capsys.readouterr().err
+
+
+def test_apply_bounty_saturation_preserves_current_head_reviewer_state() -> None:
+    row = {
+        "state": "already_reviewed_current_head_by_reviewer",
+        "reason": "reviewer already reviewed current head",
+        "number": 784,
+    }
+    claims = [
+        {
+            "head_sha": "a" * 40,
+            "base_sha": "b" * 40,
+            "evidence_kind": "pr_body",
+            "comment_url": "https://example.test/claim",
+        }
+    ]
+    result = _apply_bounty_saturation(
+        row,
+        claims=claims,
+        merge_state="clean",
+        head_oid="a" * 40,
+        base_oid="b" * 40,
+    )
+    assert result["state"] == "already_reviewed_current_head_by_reviewer"
