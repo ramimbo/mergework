@@ -438,6 +438,30 @@ balances. Keep the legacy callback
 links still need it. If the GitHub app is rotated later, update deployment
 secrets outside the repository and restart Docker Compose.
 
+After deploy or when bounty comments look stale, run the public link health
+check against representative bounty, proposal, proof, and OAuth URLs:
+
+```bash
+python scripts/check_public_mrwk_links.py --input fixtures/public_mrwk_links.json --fail-on-issues
+# `--input` live-probes each listed URL (fixture stores URL + type only)
+# `--input` live-probes each listed URL (fixture stores URL + type only)
+```
+
+The script fails when a published link returns any non-2xx/3xx status (outside 200–399) or an Express
+`Cannot GET` shell instead of the expected public detail response. OAuth routes
+use a separate health rule: `422` or `503` from FastAPI means the route is
+registered, while `404` or an Express shell means production is serving the
+wrong app (see issue #1146).
+
+Post-deploy, also run:
+
+```bash
+docker compose run --rm app python scripts/check_deploy_ready.py
+```
+
+That gate now verifies GitHub OAuth login/callback routes are registered in
+the built app before a release goes live.
+
 ## Disputes
 
 - Ask for concrete missing evidence with `mrwk:needs-info`.

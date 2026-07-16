@@ -10,11 +10,19 @@ from app.treasury_executor_config import executor_config_from_env
 
 
 def main() -> int:
-    errors = validate_deploy_settings(get_settings())
+    settings = get_settings()
+    errors = validate_deploy_settings(settings)
     try:
         executor_config_from_env()
     except ValueError as exc:
         errors.append(str(exc))
+    if not errors:
+        try:
+            from app.oauth_deploy_smoke import validate_oauth_routes_registered
+
+            errors.extend(validate_oauth_routes_registered())
+        except ImportError:
+            pass
     if errors:
         print("Deploy readiness check failed:")
         for error in errors:

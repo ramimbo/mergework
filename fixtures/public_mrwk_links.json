@@ -1,0 +1,24 @@
+{
+  "links": [
+    {
+      "url": "https://mrwk.online/auth/github/login",
+      "type": "oauth"
+    },
+    {
+      "url": "https://mrwk.online/auth/github/callback",
+      "type": "oauth"
+    },
+    {
+      "url": "https://mrwk.online/bounties/120",
+      "type": "bounty"
+    },
+    {
+      "url": "https://api.mrwk.online/api/v1/treasury/proposals/211",
+      "type": "proposal"
+    },
+    {
+      "url": "https://mrwk.online/proofs/abc123",
+      "type": "proof"
+    }
+  ]
+}
