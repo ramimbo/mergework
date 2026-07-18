@@ -1,0 +1,2201 @@
+openapi: 3.1.0
+info:
+  title: MergeWork
+  version: 0.1.0
+paths:
+  /auth/github/login:
+    get:
+      summary: Auth Github Login
+      operationId: auth_github_login_auth_github_login_get
+      parameters:
+      - name: next
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/github/callback:
+    get:
+      summary: Auth Github Callback
+      operationId: auth_github_callback_auth_github_callback_get
+      parameters:
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Code
+      - name: state
+        in: query
+        required: true
+        schema:
+          type: string
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/logout:
+    post:
+      summary: Auth Logout
+      operationId: auth_logout_auth_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Health Get
+  /api/v1/status:
+    get:
+      summary: Api Status
+      operationId: api_status_api_v1_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Api Status Api V1 Status Get
+  /api/v1/bounties:
+    get:
+      summary: Api Bounties
+      operationId: api_bounties_api_v1_bounties_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 200
+            minimum: 1
+          - type: 'null'
+          title: Limit
+      - name: sort
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort
+      - name: repo
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Repo
+      - name: issue_number
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 9223372036854775807
+            minimum: 1
+          - type: 'null'
+          title: Issue Number
+      - name: availability
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Availability
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Api Bounties Api V1 Bounties Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      summary: Api Create Bounty
+      operationId: api_create_bounty_api_v1_bounties_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Create Bounty Api V1 Bounties Post
+  /api/v1/bounties/summary:
+    get:
+      summary: Api Bounties Summary
+      operationId: api_bounties_summary_api_v1_bounties_summary_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 200
+            minimum: 1
+          - type: 'null'
+          title: Limit
+      - name: sort
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort
+      - name: repo
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Repo
+      - name: issue_number
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 9223372036854775807
+            minimum: 1
+          - type: 'null'
+          title: Issue Number
+      - name: availability
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Availability
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Bounties Summary Api V1 Bounties Summary Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/work-discovery:
+    get:
+      summary: Api Work Discovery
+      operationId: api_work_discovery_api_v1_work_discovery_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Work Discovery Api V1 Work Discovery Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/admin/webhook-events:
+    get:
+      summary: Api Admin Webhook Events
+      operationId: api_admin_webhook_events_api_v1_admin_webhook_events_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Api Admin Webhook Events Api V1 Admin Webhook Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bounties/{bounty_id}:
+    get:
+      summary: Api Bounty
+      operationId: api_bounty_api_v1_bounties__bounty_id__get
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Bounty Api V1 Bounties  Bounty Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reconciliation/payouts:
+    get:
+      summary: Api Payout Reconciliation
+      operationId: api_payout_reconciliation_api_v1_reconciliation_payouts_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Api Payout Reconciliation Api V1 Reconciliation Payouts Get
+  /api/v1/bounties/{bounty_id}/pay:
+    post:
+      summary: Api Pay Bounty
+      operationId: api_pay_bounty_api_v1_bounties__bounty_id__pay_post
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Api Pay Bounty Api V1 Bounties  Bounty Id  Pay Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bounties/{bounty_id}/close:
+    post:
+      summary: Api Close Bounty
+      operationId: api_close_bounty_api_v1_bounties__bounty_id__close_post
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Close Bounty Api V1 Bounties  Bounty Id  Close Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bounties/{bounty_id}/attempts:
+    get:
+      summary: Api Bounty Attempts
+      operationId: api_bounty_attempts_api_v1_bounties__bounty_id__attempts_get
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      - name: include_expired
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Include Expired
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 100
+            minimum: 1
+          - type: 'null'
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Bounty Attempts Api V1 Bounties  Bounty Id  Attempts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      summary: Api Create Bounty Attempt
+      operationId: api_create_bounty_attempt_api_v1_bounties__bounty_id__attempts_post
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '201':
+          description: Attempt registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  status:
+                    type: string
+                  attempt:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      id:
+                        type: integer
+                        minimum: 1
+                      bounty_id:
+                        type: integer
+                        minimum: 1
+                      submitter_account:
+                        type: string
+                      source_url:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      expires_at:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '409':
+          description: Attempt unavailable or duplicate active attempt.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  status:
+                    type: string
+                  bounty_id:
+                    type: integer
+                    minimum: 1
+                  attempt:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      id:
+                        type: integer
+                        minimum: 1
+                      bounty_id:
+                        type: integer
+                        minimum: 1
+                      submitter_account:
+                        type: string
+                      source_url:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      expires_at:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                submitter_account:
+                  type: string
+                  description: Optional github:<login> account; must match the signed-in GitHub login.
+                source_url:
+                  type: string
+                  format: uri
+                  description: Optional public work branch or pull request URL.
+                ttl_seconds:
+                  anyOf:
+                  - type: integer
+                    minimum: 60
+                    maximum: 604800
+                  - type: string
+                    description: Integer value encoded as a string (60..604800).
+                    pattern: ^(?:[6-9][0-9]|[1-9][0-9]{2,4}|[1-5][0-9]{5}|60[0-3][0-9]{3}|604[0-7][0-9]{2}|604800)$
+                  default: 86400
+                  description: Attempt lifetime in seconds, from 60 to 604800.
+              description: Optional advisory attempt reservation payload.
+  /api/v1/bounty-attempts/{attempt_id}/release:
+    post:
+      summary: Api Release Bounty Attempt
+      operationId: api_release_bounty_attempt_api_v1_bounty_attempts__attempt_id__release_post
+      parameters:
+      - name: attempt_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Attempt Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Release Bounty Attempt Api V1 Bounty Attempts  Attempt Id  Release
+                  Post
+                properties:
+                  status:
+                    type: string
+                  attempt:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      id:
+                        type: integer
+                        minimum: 1
+                      bounty_id:
+                        type: integer
+                        minimum: 1
+                      submitter_account:
+                        type: string
+                      source_url:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                      expires_at:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                submitter_account:
+                  type: string
+                  description: Optional github:<login> account; must match the signed-in GitHub login.
+              description: Optional attempt release identity payload.
+  /api/v1/treasury/proposals:
+    get:
+      summary: Api Treasury Proposals
+      operationId: api_treasury_proposals_api_v1_treasury_proposals_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Action
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Status
+      - name: to_account
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: To Account
+      - name: bounty_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 9223372036854775807
+            minimum: 1
+          - type: 'null'
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Api Treasury Proposals Api V1 Treasury Proposals Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      summary: Api Create Treasury Proposal
+      operationId: api_create_treasury_proposal_api_v1_treasury_proposals_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Create Treasury Proposal Api V1 Treasury Proposals Post
+                properties:
+                  id:
+                    type: integer
+                    minimum: 1
+                  type:
+                    type: string
+                  action:
+                    type: string
+                  status:
+                    type: string
+                  payload_hash:
+                    type: string
+                    minLength: 64
+                    maxLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                  payload:
+                    type: object
+                    additionalProperties: true
+                  proposed_by:
+                    type: string
+                  executed_by:
+                    type: string
+                    nullable: true
+                  proposed_at:
+                    type: string
+                  executes_after:
+                    type: string
+                  executed_at:
+                    type: string
+                    nullable: true
+                  executed_ledger_sequence:
+                    type: integer
+                    nullable: true
+                  result:
+                    type: object
+                    additionalProperties: true
+                  challenges:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        id:
+                          type: integer
+                          minimum: 1
+                        proposal_id:
+                          type: integer
+                          minimum: 1
+                        challenger_account:
+                          type: string
+                        challenge_type:
+                          type: string
+                        status:
+                          type: string
+                        reason:
+                          type: string
+                        created_at:
+                          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                action:
+                  type: string
+                  description: Treasury action name.
+                payload:
+                  type: object
+                  additionalProperties: true
+                  description: Action-specific treasury proposal payload.
+              required:
+              - action
+              - payload
+        required: true
+  /api/v1/treasury/status:
+    get:
+      summary: Api Treasury Status
+      operationId: api_treasury_status_api_v1_treasury_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Api Treasury Status Api V1 Treasury Status Get
+  /api/v1/treasury/proposals/{proposal_id}:
+    get:
+      summary: Api Treasury Proposal
+      operationId: api_treasury_proposal_api_v1_treasury_proposals__proposal_id__get
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Treasury Proposal Api V1 Treasury Proposals  Proposal Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/treasury/proposals/{proposal_id}/execute:
+    post:
+      summary: Api Execute Treasury Proposal
+      operationId: api_execute_treasury_proposal_api_v1_treasury_proposals__proposal_id__execute_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Execute Treasury Proposal Api V1 Treasury Proposals  Proposal Id  Execute
+                  Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/treasury/proposals/{proposal_id}/challenges:
+    post:
+      summary: Api Create Treasury Challenge
+      operationId: api_create_treasury_challenge_api_v1_treasury_proposals__proposal_id__challenges_post
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Create Treasury Challenge Api V1 Treasury Proposals  Proposal Id  Challenges
+                  Post
+                properties:
+                  id:
+                    type: integer
+                    minimum: 1
+                  proposal_id:
+                    type: integer
+                    minimum: 1
+                  challenger_account:
+                    type: string
+                  challenge_type:
+                    type: string
+                  status:
+                    type: string
+                  reason:
+                    type: string
+                  created_at:
+                    type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                challenge_type:
+                  type: string
+                  description: Challenge category.
+                reason:
+                  type: string
+                  description: Public challenge reason.
+              required:
+              - challenge_type
+              - reason
+        required: true
+  /api/v1/accounts/{account}:
+    get:
+      summary: Api Account
+      operationId: api_account_api_v1_accounts__account__get
+      parameters:
+      - name: account
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Account Api V1 Accounts  Account  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/accounts/{account}/accepted-work:
+    get:
+      summary: Api Account Accepted Work
+      operationId: api_account_accepted_work_api_v1_accounts__account__accepted_work_get
+      parameters:
+      - name: account
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Account Accepted Work Api V1 Accounts  Account  Accepted Work Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /accounts/{account}:
+    get:
+      summary: Account Page
+      operationId: account_page_accounts__account__get
+      parameters:
+      - name: account
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Account
+      - name: tx_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tx Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/me:
+    get:
+      summary: Api Auth Me
+      operationId: api_auth_me_api_v1_auth_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Api Auth Me Api V1 Auth Me Get
+  /api/v1/wallets/register:
+    post:
+      summary: Api Register Wallet
+      operationId: api_register_wallet_api_v1_wallets_register_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                public_key_hex:
+                  type: string
+                  maxLength: 64
+                  minLength: 64
+                  pattern: ^[0-9a-f]{64}$
+                  description: 64-character lowercase hex Ed25519 public key.
+                label:
+                  type: string
+                  maxLength: 160
+                  description: Optional wallet display label, trimmed and limited to 160 characters.
+              additionalProperties: true
+              type: object
+              required:
+              - public_key_hex
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                properties:
+                  address:
+                    type: string
+                    maxLength: 45
+                    minLength: 45
+                    pattern: ^mrwk1[0-9a-f]{40}$
+                    description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                  public_key_hex:
+                    type: string
+                    maxLength: 64
+                    minLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                  label:
+                    type: string
+                    maxLength: 160
+                    description: Optional wallet display label, trimmed and limited to 160 characters.
+                    nullable: true
+                  github_login:
+                    type: string
+                    nullable: true
+                  balance_mrwk:
+                    type: string
+                    pattern: ^\d+(?:\.\d{1,6})?$
+                    description: Decimal MRWK amount with at most six decimal places.
+                  nonce:
+                    type: integer
+                    minimum: 0.0
+                  next_nonce:
+                    type: integer
+                    minimum: 1.0
+                  created_at:
+                    type: string
+                additionalProperties: true
+                type: object
+                title: Response Api Register Wallet Api V1 Wallets Register Post
+  /api/v1/wallets/{address}:
+    get:
+      summary: Api Wallet
+      operationId: api_wallet_api_v1_wallets__address__get
+      parameters:
+      - name: address
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Address
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Wallet Api V1 Wallets  Address  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/wallets/link-github:
+    post:
+      summary: Api Link Wallet Github
+      operationId: api_link_wallet_github_api_v1_wallets_link_github_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                address:
+                  type: string
+                  maxLength: 45
+                  minLength: 45
+                  pattern: ^mrwk1[0-9a-f]{40}$
+                  description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                nonce:
+                  anyOf:
+                  - type: integer
+                    minimum: 1.0
+                  - type: string
+                    pattern: ^[1-9][0-9]*$
+                    description: Positive integer value encoded as a string.
+                signature_hex:
+                  type: string
+                  maxLength: 128
+                  minLength: 128
+                  pattern: ^[0-9a-f]{128}$
+                  description: 128-character lowercase hex Ed25519 signature.
+              additionalProperties: true
+              type: object
+              required:
+              - address
+              - nonce
+              - signature_hex
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                properties:
+                  address:
+                    type: string
+                    maxLength: 45
+                    minLength: 45
+                    pattern: ^mrwk1[0-9a-f]{40}$
+                    description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                  public_key_hex:
+                    type: string
+                    maxLength: 64
+                    minLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                  label:
+                    type: string
+                    maxLength: 160
+                    description: Optional wallet display label, trimmed and limited to 160 characters.
+                    nullable: true
+                  github_login:
+                    type: string
+                    nullable: true
+                  balance_mrwk:
+                    type: string
+                    pattern: ^\d+(?:\.\d{1,6})?$
+                    description: Decimal MRWK amount with at most six decimal places.
+                  nonce:
+                    type: integer
+                    minimum: 0.0
+                  next_nonce:
+                    type: integer
+                    minimum: 1.0
+                  created_at:
+                    type: string
+                additionalProperties: true
+                type: object
+                title: Response Api Link Wallet Github Api V1 Wallets Link Github Post
+  /api/v1/github/claim:
+    post:
+      summary: Api Github Claim
+      operationId: api_github_claim_api_v1_github_claim_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                address:
+                  type: string
+                  maxLength: 45
+                  minLength: 45
+                  pattern: ^mrwk1[0-9a-f]{40}$
+                  description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                nonce:
+                  anyOf:
+                  - type: integer
+                    minimum: 1.0
+                  - type: string
+                    pattern: ^[1-9][0-9]*$
+                    description: Positive integer value encoded as a string.
+                signature_hex:
+                  type: string
+                  maxLength: 128
+                  minLength: 128
+                  pattern: ^[0-9a-f]{128}$
+                  description: 128-character lowercase hex Ed25519 signature.
+              additionalProperties: true
+              type: object
+              required:
+              - address
+              - nonce
+              - signature_hex
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                properties:
+                  sequence:
+                    type: integer
+                    minimum: 1.0
+                  type:
+                    type: string
+                  from:
+                    type: string
+                    nullable: true
+                  to:
+                    type: string
+                  amount_mrwk:
+                    type: string
+                    pattern: ^\d+(?:\.\d{1,6})?$
+                    description: Decimal MRWK amount with at most six decimal places.
+                  reference:
+                    type: string
+                    nullable: true
+                  previous_hash:
+                    type: string
+                    nullable: true
+                  entry_hash:
+                    type: string
+                    maxLength: 64
+                    minLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                  proof_hash:
+                    type: string
+                    maxLength: 64
+                    minLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                    nullable: true
+                  created_at:
+                    type: string
+                additionalProperties: true
+                type: object
+                title: Response Api Github Claim Api V1 Github Claim Post
+  /api/v1/transfers:
+    post:
+      summary: Api Submit Transfer
+      operationId: api_submit_transfer_api_v1_transfers_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                from_address:
+                  type: string
+                  maxLength: 45
+                  minLength: 45
+                  pattern: ^mrwk1[0-9a-f]{40}$
+                  description: Sender registered mrwk1 wallet address.
+                to_address:
+                  type: string
+                  maxLength: 45
+                  minLength: 45
+                  pattern: ^mrwk1[0-9a-f]{40}$
+                  description: Receiver registered mrwk1 wallet address.
+                amount_mrwk:
+                  type: string
+                  pattern: ^(?=.*[1-9])\d+(?:\.\d{1,6})?$
+                  description: Positive decimal MRWK amount with at most six decimal places.
+                nonce:
+                  anyOf:
+                  - type: integer
+                    minimum: 1.0
+                  - type: string
+                    pattern: ^[1-9][0-9]*$
+                    description: Positive integer value encoded as a string.
+                memo:
+                  type: string
+                  maxLength: 240
+                  description: Transfer memo string, trimmed by the API and limited to 240 characters.
+                signature_hex:
+                  type: string
+                  maxLength: 128
+                  minLength: 128
+                  pattern: ^[0-9a-f]{128}$
+                  description: 128-character lowercase hex Ed25519 signature.
+              additionalProperties: true
+              type: object
+              required:
+              - from_address
+              - to_address
+              - amount_mrwk
+              - nonce
+              - signature_hex
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                properties:
+                  hash:
+                    type: string
+                    maxLength: 64
+                    minLength: 64
+                    pattern: ^[0-9a-f]{64}$
+                  type:
+                    type: string
+                  ledger_sequence:
+                    type: integer
+                    minimum: 1.0
+                  from_address:
+                    type: string
+                    maxLength: 45
+                    minLength: 45
+                    pattern: ^mrwk1[0-9a-f]{40}$
+                    description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                  to_address:
+                    type: string
+                    maxLength: 45
+                    minLength: 45
+                    pattern: ^mrwk1[0-9a-f]{40}$
+                    description: Registered MRWK wallet address in mrwk1 + 40 lowercase hex format.
+                  amount_mrwk:
+                    type: string
+                    pattern: ^(?=.*[1-9])\d+(?:\.\d{1,6})?$
+                    description: Positive decimal MRWK amount with at most six decimal places.
+                  nonce:
+                    type: integer
+                    minimum: 1.0
+                  memo:
+                    type: string
+                    nullable: true
+                  created_at:
+                    type: string
+                additionalProperties: true
+                type: object
+                title: Response Api Submit Transfer Api V1 Transfers Post
+  /api/v1/ledger:
+    get:
+      summary: Api Ledger
+      operationId: api_ledger_api_v1_ledger_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Api Ledger Api V1 Ledger Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/ledger/{sequence}:
+    get:
+      summary: Api Ledger Entry
+      operationId: api_ledger_entry_api_v1_ledger__sequence__get
+      parameters:
+      - name: sequence
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: integer
+          - type: string
+          title: Sequence
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Ledger Entry Api V1 Ledger  Sequence  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proofs/{proof_hash}:
+    get:
+      summary: Api Proof
+      operationId: api_proof_api_v1_proofs__proof_hash__get
+      parameters:
+      - name: proof_hash
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proof Hash
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Proof Api V1 Proofs  Proof Hash  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/activity:
+    get:
+      summary: Api Activity
+      operationId: api_activity_api_v1_activity_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: account
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Api Activity Api V1 Activity Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /activity:
+    get:
+      summary: Activity Page
+      operationId: activity_page_activity_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: account
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Account
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /webhooks/github:
+    post:
+      summary: Github Webhook
+      operationId: github_webhook_webhooks_github_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /mcp:
+    post:
+      summary: Mcp
+      operationId: mcp_mcp_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                jsonrpc:
+                  type: string
+                  enum:
+                  - '2.0'
+                  description: JSON-RPC protocol version.
+                id:
+                  anyOf:
+                  - type: string
+                  - type: integer
+                  - type: number
+                  description: JSON-RPC request id returned unchanged in the response.
+                  nullable: true
+                method:
+                  type: string
+                  enum:
+                  - initialize
+                  - tools/list
+                  - tools/call
+                  description: Supported MCP JSON-RPC method.
+                params:
+                  additionalProperties: true
+                  type: object
+                  description: Method-specific MCP parameters.
+              additionalProperties: true
+              type: object
+              required:
+              - jsonrpc
+              - method
+              description: MCP JSON-RPC request accepted by the MergeWork MCP endpoint.
+        required: true
+      responses:
+        '200':
+          description: MCP JSON-RPC response.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - required:
+                  - result
+                - required:
+                  - error
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum:
+                    - '2.0'
+                  id:
+                    anyOf:
+                    - type: string
+                    - type: integer
+                    - type: number
+                    description: JSON-RPC request id returned unchanged in the response.
+                    nullable: true
+                  result:
+                    oneOf:
+                    - properties:
+                        protocolVersion:
+                          type: string
+                        capabilities:
+                          additionalProperties: true
+                          type: object
+                        serverInfo:
+                          additionalProperties: true
+                          type: object
+                      additionalProperties: true
+                      type: object
+                      required:
+                      - protocolVersion
+                      - capabilities
+                      - serverInfo
+                      description: MCP initialize result payload.
+                    - properties:
+                        tools:
+                          items:
+                            additionalProperties: true
+                            type: object
+                          type: array
+                      additionalProperties: true
+                      type: object
+                      required:
+                      - tools
+                      description: MCP tools/list result payload.
+                    - properties:
+                        content:
+                          items:
+                            properties:
+                              type:
+                                type: string
+                              text:
+                                type: string
+                            additionalProperties: true
+                            type: object
+                            required:
+                            - type
+                            - text
+                            description: MCP text content item.
+                          type: array
+                        structuredContent:
+                          description: Optional structured JSON payload for tool results.
+                          nullable: true
+                      additionalProperties: true
+                      type: object
+                      required:
+                      - content
+                      description: MCP tools/call result payload.
+                    description: Method-specific result for successful JSON-RPC responses.
+                  error:
+                    properties:
+                      code:
+                        type: integer
+                      message:
+                        type: string
+                    additionalProperties: true
+                    type: object
+                    required:
+                    - code
+                    - message
+                    description: JSON-RPC error object.
+                additionalProperties: true
+                type: object
+                required:
+                - jsonrpc
+                - id
+                title: Response Mcp Mcp Post
+                description: MCP JSON-RPC response. Successful responses include result; failures include
+                  error.
+        '400':
+          description: MCP JSON-RPC parse or invalid request error.
+          content:
+            application/json:
+              schema:
+                not:
+                  required:
+                  - result
+                properties:
+                  jsonrpc:
+                    type: string
+                    enum:
+                    - '2.0'
+                  id:
+                    anyOf:
+                    - type: string
+                    - type: integer
+                    - type: number
+                    description: JSON-RPC request id returned unchanged in the response.
+                    nullable: true
+                  error:
+                    properties:
+                      code:
+                        type: integer
+                      message:
+                        type: string
+                    additionalProperties: true
+                    type: object
+                    required:
+                    - code
+                    - message
+                    description: JSON-RPC error object.
+                additionalProperties: true
+                type: object
+                required:
+                - jsonrpc
+                - id
+                - error
+                description: MCP JSON-RPC error response.
+  /:
+    get:
+      summary: Hub
+      operationId: hub__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+  /bounties:
+    get:
+      summary: Bounties Page
+      operationId: bounties_page_bounties_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      - name: sort
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 200
+            minimum: 1
+          - type: 'null'
+          title: Limit
+      - name: repo
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Repo
+      - name: issue_number
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 9223372036854775807
+            minimum: 1
+          - type: 'null'
+          title: Issue Number
+      - name: availability
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Availability
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /bounties/{bounty_id}:
+    get:
+      summary: Bounty Page
+      operationId: bounty_page_bounties__bounty_id__get
+      parameters:
+      - name: bounty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Bounty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /ledger:
+    get:
+      summary: Ledger Page
+      operationId: ledger_page_ledger_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /ledger/{sequence}:
+    get:
+      summary: Ledger Entry Page
+      operationId: ledger_entry_page_ledger__sequence__get
+      parameters:
+      - name: sequence
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Sequence
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /wallets:
+    get:
+      summary: Wallets Page
+      operationId: wallets_page_wallets_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /wallets/{address}:
+    get:
+      summary: Wallet Page
+      operationId: wallet_page_wallets__address__get
+      parameters:
+      - name: address
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Address
+      - name: type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /transfer:
+    get:
+      summary: Transfer Page
+      operationId: transfer_page_transfer_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+  /proofs/{proof_hash}:
+    get:
+      summary: Proof Page
+      operationId: proof_page_proofs__proof_hash__get
+      parameters:
+      - name: proof_hash
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Proof Hash
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /docs:
+    get:
+      summary: Docs Page
+      operationId: docs_page_docs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+  /me:
+    get:
+      summary: Me Page
+      operationId: me_page_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+  /admin/login:
+    get:
+      summary: Admin Login
+      operationId: admin_login_admin_login_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /admin/callback:
+    get:
+      summary: Admin Callback
+      operationId: admin_callback_admin_callback_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /admin/logout:
+    post:
+      summary: Admin Logout
+      operationId: admin_logout_admin_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /admin:
+    get:
+      summary: Admin Page
+      operationId: admin_page_admin_get
+      parameters:
+      - name: webhook_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhook Status
+      - name: webhook_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 25
+          title: Webhook Limit
+      - name: proposal_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/bounties:
+    post:
+      summary: Admin Create Bounty
+      operationId: admin_create_bounty_admin_bounties_post
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Body_admin_create_bounty_admin_bounties_post'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Body_admin_create_bounty_admin_bounties_post:
+      properties:
+        repo:
+          type: string
+          title: Repo
+        issue_number:
+          type: integer
+          title: Issue Number
+        issue_url:
+          type: string
+          title: Issue Url
+        title:
+          type: string
+          title: Title
+        reward_mrwk:
+          type: string
+          title: Reward Mrwk
+        max_awards:
+          type: integer
+          title: Max Awards
+          default: 1
+        acceptance:
+          type: string
+          title: Acceptance
+        csrf_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Csrf Token
+      type: object
+      required:
+      - repo
+      - issue_number
+      - issue_url
+      - title
+      - reward_mrwk
+      - acceptance
+      title: Body_admin_create_bounty_admin_bounties_post
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+servers:
+- url: https://api.mrwk.online
+  description: Production API
+- url: https://api.mrwk.ltclab.site
+  description: Legacy-compatible API host
+- url: http://localhost:8000
+  description: Local development
