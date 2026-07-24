@@ -15,8 +15,9 @@ if __package__ in {None, ""}:
 from scripts.api_host_args import public_api_host
 from scripts.bounty_refs import GITHUB_CLOSING_ISSUE_RE
 
-DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_TIMEOUT_SECONDS = 30
+
+DEFAULT_API_HOST = "https://api.mrwk.online"
 GH_PR_SAFETY_CAP = 200
 MAX_BOUNTY_REF = 2**63 - 1
 

@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 
 from scripts import pr_queue_health
-from scripts.pr_queue_health import analyze_queue, format_markdown_report, format_text_report, main
+from scripts.pr_queue_health import (
+    analyze_queue,
+    format_markdown_report,
+    format_text_report,
+    main,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -437,7 +442,9 @@ def test_pr_queue_health_wraps_gh_timeouts(monkeypatch) -> None:
         pr_queue_health._run_gh_json(["gh", "pr", "list"])
 
 
-def test_pr_queue_health_live_loader_includes_referenced_issue_comments(monkeypatch) -> None:
+def test_pr_queue_health_live_loader_includes_referenced_issue_comments(
+    monkeypatch,
+) -> None:
     viewed_numbers = []
 
     def fake_run(args, **kwargs):
@@ -546,3 +553,25 @@ def test_pr_queue_health_fails_fast_when_pr_fetch_hits_cap(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="pr list reached the 201 item safety cap"):
         pr_queue_health.load_live_queue("ramimbo/mergework")
+
+
+@pytest.mark.parametrize(
+    ("source_args", "expected_message"),
+    (
+        (["--input", ""], "--input must be a non-empty value"),
+        (["--input", "   "], "--input must be a non-empty value"),
+        (["--repo", ""], "--repo must be a non-empty value"),
+        (["--repo", "   "], "--repo must be a non-empty value"),
+        (["--repo", " ramimbo/mergework "], "--repo must not include"),
+    ),
+)
+def test_pr_queue_health_rejects_empty_source_args(
+    source_args: list[str],
+    expected_message: str,
+    capsys,
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main([*source_args, "--format", "json"])
+
+    assert excinfo.value.code == 2
+    assert expected_message in capsys.readouterr().err
