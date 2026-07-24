@@ -13,12 +13,12 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.bounty_refs import BOUNTY_REF_RE
+from scripts.gh_collection_caps import GH_ISSUE_SAFETY_CAP, GH_PR_SAFETY_CAP
+
+GH_TIMEOUT_SECONDS = 30
 
 NOISY_TITLE_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]+\]\s*)+")
 UNSTABLE_MERGE_STATES = {"blocked", "conflicting", "dirty", "unknown", "unstable"}
-GH_TIMEOUT_SECONDS = 30
-GH_PR_SAFETY_CAP = 201
-GH_ISSUE_SAFETY_CAP = 201
 MAX_BOUNTY_REF = 2**63 - 1
 ISSUE_SECTIONS = (
     ("Closed or exhausted bounty references", "closed_bounty_references"),
@@ -194,7 +194,11 @@ def analyze_queue(data: dict[str, Any]) -> dict[str, Any]:
             duplicate_groups[(ref, pr["scope"])].append(pr["number"])
         if pr["merge_state"] in UNSTABLE_MERGE_STATES:
             dirty_or_unstable_merge_state.append(
-                _issue(pr, "dirty_or_unstable_merge_state", f"Merge state is {pr['merge_state']}")
+                _issue(
+                    pr,
+                    "dirty_or_unstable_merge_state",
+                    f"Merge state is {pr['merge_state']}",
+                )
             )
         if any(label.lower() == "mrwk:needs-info" for label in pr["labels"]):
             needs_info.append(_issue(pr, "mrwk_needs_info", "PR has mrwk:needs-info label"))
@@ -435,6 +439,15 @@ def _load_input(path: str) -> dict[str, Any]:
     return data
 
 
+def _require_non_empty_arg(parser: argparse.ArgumentParser, option_name: str, value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        parser.error(f"{option_name} must be a non-empty value")
+    if stripped != value:
+        parser.error(f"{option_name} must not include leading or trailing whitespace")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Summarize MergeWork open PR queue health.")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -447,7 +460,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fail-on-issues", action="store_true")
     args = parser.parse_args(argv)
 
-    data = _load_input(args.input) if args.input else load_live_queue(args.repo)
+    if args.input is not None:
+        data = _load_input(_require_non_empty_arg(parser, "--input", args.input))
+    else:
+        data = load_live_queue(_require_non_empty_arg(parser, "--repo", args.repo))
     report = analyze_queue(data)
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
