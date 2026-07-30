@@ -45,7 +45,7 @@ MERGEWORK_CONTRIBUTOR_STARTING_POINTS = (
     {
         "title": "Work discovery",
         "href": "/api/v1/work-discovery",
-        "description": "Explore grouped results: claimable bounties, opening-soon proposals, and paid or closed work.",
+        "description": "Explore grouped results: claimable, opening-soon, paid or closed work.",
     },
 )
 

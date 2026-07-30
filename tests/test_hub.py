@@ -74,7 +74,7 @@ def test_mergework_hub_context_preserves_status_and_base_url() -> None:
         {
             "title": "Work discovery",
             "href": "/api/v1/work-discovery",
-            "description": "Explore grouped results: claimable bounties, opening-soon proposals, and paid or closed work.",
+            "description": "Explore grouped results: claimable, opening-soon, paid or closed work.",
         },
     ]
 
