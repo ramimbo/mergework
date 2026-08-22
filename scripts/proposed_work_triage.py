@@ -55,10 +55,33 @@ ROUTED_RE = re.compile(
     r"treasury proposal|reserved on mergework)\b",
     re.IGNORECASE,
 )
-REJECTED_RE = re.compile(
-    r"\b(rejected|declined|not accepted|outside accepted scope)\b", re.IGNORECASE
+# Authoritative search: issues carrying the ``proposed-work`` label are
+# always treated as contributor intake.
+LABEL_ISSUE_SEARCH = "label:proposed-work"
+
+# Fallback search for unlabeled contributor intake issues (for example items
+# created through the CLI). Hits from this broad search are classified by
+# ``classify_phrase_hit`` before analysis so maintainer-created MRWK bounty
+# issues that merely mention "proposed work" in their lifecycle text are not
+# reported as malformed proposals (issue #803).
+PHRASE_ISSUE_SEARCH = '"proposed work"'
+
+# Kept so existing callers/tests referencing the tuple keep working; live
+# mode no longer treats both queries as equivalent intake sources.
+LIVE_ISSUE_SEARCHES = (LABEL_ISSUE_SEARCH, PHRASE_ISSUE_SEARCH)
+
+# Signals used to recognize maintainer-created MRWK bounty issues among the
+# broad phrase search results.
+BOUNTY_TITLE_PREFIX = "MRWK bounty:"
+BOUNTY_LABELS = frozenset({"mrwk:bounty"})
+BOUNTY_BODY_MARKERS = (
+    "reserved on mergework",
+    "do not submit implementation work",
 )
-NON_LIVE_CONFUSION_RE = re.compile(
+
+# Section headings present on contributor proposed-work intake templates,
+# including CLI-created intake items.
+INTAKE_TEMPLATE_MARKERS = ("## problem", "## proposed work")
     r"(claimable now|already paid|guaranteed payout|cash[- ]?out|off[- ]?ramp)",
     re.IGNORECASE,
 )
@@ -194,6 +217,55 @@ def _payment_index(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "proposal_id": proposal.get("proposal_id"),
                     "accepted_by": proposal.get("accepted_by"),
                     "executes_after": proposal.get("executes_after"),
+def _issue_label_names(issue):
+    """Return label names for an issue payload (dict- or string-shaped)."""
+    names = []
+    for label in issue.get("labels") or []:
+        if isinstance(label, dict):
+            name = label.get("name")
+        else:
+            name = label
+        if name:
+            names.append(str(name))
+    return names
+
+
+def looks_like_intake_template(body):
+    """True when the body contains the proposed-work intake template sections."""
+    text = (body or "").lower()
+    return all(marker in text for marker in INTAKE_TEMPLATE_MARKERS)
+
+
+def classify_phrase_hit(issue):
+    """Classify a broad "proposed work" search hit.
+
+    Returns ``(True, None)`` when the issue should be analyzed as a
+    contributor intake item, or ``(False, reason)`` when it is a
+    maintainer-created bounty issue (or otherwise clearly not intake) and
+    should be excluded from the proposed-work report.
+    """
+    title = (issue.get("title") or "").strip()
+    if title.startswith(BOUNTY_TITLE_PREFIX):
+        return False, "bounty_title_prefix"
+
+    label_names = {name.lower() for name in _issue_label_names(issue)}
+    if label_names & BOUNTY_LABELS:
+        return False, "bounty_label"
+
+    # Template-shaped issues remain in the report even without the label
+    # (for example CLI-created intake items).
+    body = issue.get("body") or ""
+    if looks_like_intake_template(body):
+        return True, None
+
+    lowered = body.lower()
+    for marker in BOUNTY_BODY_MARKERS:
+        if marker in lowered:
+            return False, "bounty_lifecycle_text"
+
+    return True, None
+
+
                 }
         awards: list[Any] = []
         for award_key in ("awards", "accepted_awards"):
@@ -236,11 +308,45 @@ def _normalize_issue(
     body = str(raw.get("body") or "")
     labels = _labels(raw)
     missing = _missing_sections(body)
-    text = _combined_text(raw)
-    warnings: list[str] = []
-    if "proposed-work" not in {label.lower() for label in labels}:
-        warnings.append("missing_proposed_work_label")
-    if missing:
+    """Collect proposed-work intake issues from the live repository.
+
+    ``label:proposed-work`` results are authoritative. Hits from the broad
+    phrase search are classified first; maintainer-created MRWK bounty
+    issues are excluded and returned separately for auditability.
+
+    Returns ``(issues, excluded_non_intake_issues)``.
+    """
+    intake = {}
+    excluded = []
+    seen = set()
+
+    for issue in search_issues(repo, LABEL_ISSUE_SEARCH):
+        number = issue["number"]
+        if number in seen:
+            continue
+        seen.add(number)
+        intake[number] = issue
+
+    for issue in search_issues(repo, PHRASE_ISSUE_SEARCH):
+        number = issue["number"]
+        if number in seen:
+            continue
+        seen.add(number)
+        keep, reason = classify_phrase_hit(issue)
+        if keep:
+            intake[number] = issue
+        else:
+            excluded.append(
+                {
+                    "number": number,
+                    "title": issue.get("title") or "",
+                    "reason": reason,
+                }
+            )
+
+    issues = sorted(intake.values(), key=lambda item: item["number"])
+    excluded.sort(key=lambda item: item["number"])
+    return issues, excluded
         warnings.append("missing_template_sections")
     if _is_vague(body, missing):
         warnings.append("vague_or_under_specified")
@@ -308,11 +414,13 @@ def _mark_duplicate_warnings(
     for proposal in proposals:
         if (
             proposal["number"] in grouped_numbers
-            and "duplicate_looking_related_proposal" not in proposal["warnings"]
+    issues, excluded_non_intake = collect_live_issues(repo)
         ):
             proposal["warnings"].append("duplicate_looking_related_proposal")
 
 
+        "excluded_non_intake_count": len(excluded_non_intake),
+        "excluded_non_intake_issues": excluded_non_intake,
 def analyze_proposed_work(data: dict[str, Any]) -> dict[str, Any]:
     payments = _payment_index(data)
     data_warnings = [
@@ -350,6 +458,17 @@ def format_markdown(report: dict[str, Any]) -> str:
     lines = ["# Proposed Work Triage", ""]
     summary = report["summary"]
     lines.append(f"- proposed work issues: {summary['proposed_work_issues']}")
+    excluded = report.get("excluded_non_intake_issues") or []
+    if excluded:
+        lines.append(f"## Excluded non-intake issues ({len(excluded)})")
+        lines.append("")
+        lines.append(
+            'Maintainer bounty issues filtered from the broad "proposed work" search:'
+        )
+        lines.append("")
+        for item in excluded:
+            lines.append(f"- #{item['number']} {item['title']} (`{item['reason']}`)")
+        lines.append("")
     lines.append(f"- related groups: {summary['related_groups']}")
     for state, count in summary["payment_counts"].items():
         lines.append(f"- {state} payment status: {count}")
